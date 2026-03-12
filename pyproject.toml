@@ -1,0 +1,27 @@
+[project]
+name = "chordgen"
+version = "0.4.0"
+description = "Chord generator to simplify typing words"
+readme = "README.md"
+authors = [
+    { name = "Dane Lipscombe", email = "danelipscombe@gmail.com" }
+]
+requires-python = ">=3.11"
+dependencies = [
+    "jsonschema2md>=1.7.0",
+    "patternlite>=3.6",
+    "pydantic>=2.12.5",
+    "pyyaml>=6.0.3",
+    "tqdm>=4.67.3",
+    "typer>=0.24.1",
+]
+
+[project.scripts]
+chordgen = "chordgen.cli:app"
+
+[project.urls]
+repository = "https://github.com/dlip/chordgen"
+
+[build-system]
+requires = ["uv_build>=0.10.2,<0.11.0"]
+build-backend = "uv_build"

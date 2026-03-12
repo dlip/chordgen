@@ -1,0 +1,11 @@
+/.direnv
+__pycache__
+/.venv
+\.~lock.*
+.DS_Store
+
+/qmk_chords.def
+/zmk_chords.dtsi
+/zmk_macros.dtsi
+/kanata_chords.kbd
+/training.txt
