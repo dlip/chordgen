@@ -1,6 +1,6 @@
 [project]
 name = "chordgen"
-version = "0.4.0"
+version = "1.0.0"
 description = "Chord generator to simplify typing words"
 readme = "README.md"
 authors = [
