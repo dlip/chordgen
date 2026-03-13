@@ -32,7 +32,7 @@ class QmkOutput(BaseModel):
     }
 
     def translate_keys(self, chord):
-        result = self.chord_keys.copy()
+        result = []
         key_codes = qmk_key_codes | self.key_codes
 
         for k in chord:
@@ -64,9 +64,9 @@ class QmkOutput(BaseModel):
                     alt = alt_keys[i - 1]
                 name = f"c_{chord['chord']}{i}".replace("'", "_").replace("-", "_")
 
-                output += f'SUBS({name}, "{word} ", {", ".join(keys + alt)})\n'
+                output += f'SUBS({name}, "{word} ", {", ".join(keys + self.chord_keys + alt)})\n'
                 if self.shifted_chord_keys:
-                    output += f'SUBS({name}s, "{word.capitalize()} ", {", ".join(keys + alt + self.shifted_chord_keys)})\n'
+                    output += f'SUBS({name}s, "{word.capitalize()} ", {", ".join(keys + self.shifted_chord_keys + alt)})\n'
 
         print(f"Writing {self.file}")
         with open(self.file, "w") as file:
