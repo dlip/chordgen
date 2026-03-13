@@ -57,7 +57,7 @@ This file is then used to output to a format that can be used by various program
 ## Installation
 
 - Install [Python 3.11+](https://www.python.org/downloads/)
-- Run `pip install chordgen`
+- Run `pip install chordgen` or `pip install -U chordgen` to upgrade
 
 ## Usage
 
