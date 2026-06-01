@@ -127,7 +127,7 @@ to understand the rest of the options.
 
 ### gen
 
-Generates chords and alts for `chords.csv`. It will copy the [default](./src/chordgen/assets/chords.csv) file if you do not provide one.
+Generates chords and alts for `chords.csv` in-place.
 
 The pipeline runs in three phases:
 
@@ -147,117 +147,120 @@ The pipeline runs in three phases:
 
 ### output
 
-Outputs all the formats listed under `output.formats` in `config.yaml`. See [output formats](#output-formats) below for more information.
+Outputs all the formats listed under `output.formats` in `config.yaml`. See the per-format sections below for more information.
 
-#### Output Formats
+Each format writes one or more files into `~/.config/chordgen/`:
 
-##### qmk
+| Format         | Files                                |
+| -------------- | ------------------------------------ |
+| `qmk`          | `qmk_chords.def`                     |
+| `zmk`          | `zmk_chords.dtsi`, `zmk_macros.dtsi` |
+| `kanata`       | `kanata_chords.kbd`                  |
+| `charachorder` | `charachorder_chords.json`           |
+| `training`     | `training.txt`                       |
 
-This is an output for [QMK](https://qmk.fm) which is a firmware for custom keyboards.
+#### qmk
 
-You can check my config [here](https://github.com/dlip/qmk_firmware/tree/dlip/keyboards/mushi/keymaps/dlip) for reference
+Output for [QMK](https://qmk.fm), a firmware for custom keyboards. You can check my config [here](https://github.com/dlip/qmk_firmware/tree/dlip/keyboards/mushi/keymaps/dlip) for reference.
 
-- Setup chords as per this [gboards guide](https://combos.gboards.ca/docs/install/)
-- Add definitions for KC_CHORD, KC_CHORD_SFT, KC_CHORD_ALT1, KC_CHORD_ALT2 thumb keys to your `keymap.c`. Feel free to change the actions here to whatever works for you. If you have other special keys on your letters eg. home row mods, add definitions for these also so they can be referred to in the script. Use these in your keymap.
+1. Set up chords as per this [gboards guide](https://combos.gboards.ca/docs/install/).
+2. Add definitions for `KC_CHORD`, `KC_CHORD_SFT`, `KC_CHORD_ALT1`, `KC_CHORD_ALT2` thumb keys to your `keymap.c`. Feel free to change the actions to whatever works for you. If you have other special keys on your letters (e.g. home-row mods), add definitions for those too so they can be referred to in the script. Use these in your keymap.
+3. Move the `#include "g/keymap_chord.h"` line below all your definitions:
 
-- Move the `#include "g/keymap_chord.h"` line below all your definitions
+   ```c
+   #define KC_SFT_A MT(MOD_LSFT, KC_A)
+   #define KC_ALT_S MT(MOD_LALT, KC_S)
+   #define KC_GUI_D MT(MOD_LGUI, KC_D)
+   #define KC_CTL_F MT(MOD_LCTL, KC_F)
+   #define KC_CTL_J MT(MOD_LCTL, KC_J)
+   #define KC_GUI_K MT(MOD_LGUI, KC_K)
+   #define KC_ALT_L MT(MOD_LALT, KC_L)
+   #define KC_SFT_SEMI MT(MOD_LSFT, KC_SEMI)
 
-```
-#define KC_SFT_A MT(MOD_LSFT, KC_A)
-#define KC_ALT_S MT(MOD_LALT, KC_S)
-#define KC_GUI_D MT(MOD_LGUI, KC_D)
-#define KC_CTL_F MT(MOD_LCTL, KC_F)
-#define KC_CTL_J MT(MOD_LCTL, KC_J)
-#define KC_GUI_K MT(MOD_LGUI, KC_K)
-#define KC_ALT_L MT(MOD_LALT, KC_L)
-#define KC_SFT_SEMI MT(MOD_LSFT, KC_SEMI)
+   #define KC_CHORD_ALT1 LT(1, KC_TAB)
+   #define KC_CHORD_ALT2 LT(2, KC_SPC)
+   #define KC_CHORD_SFT MT(MOD_LSFT, KC_BSPC)
+   #define KC_CHORD C(KC_BSPC)
 
-#define KC_CHORD_ALT1 LT(1, KC_TAB)
-#define KC_CHORD_ALT2 LT(2, KC_SPC)
-#define KC_CHORD_SFT MT(MOD_LSFT, KC_BSPC)
-#define KC_CHORD C(KC_BSPC)
+   #include "g/keymap_chord.h"
+   ```
 
-#include "g/keymap_chord.h"
-```
+4. Define the custom key codes in `config.yaml`:
 
-- Define the custom key codes in `config.yaml`
+   ```yaml
+   output:
+     qmk:
+       key_codes:
+         A: KC_SFT_A
+         S: KC_ALT_S
+         D: KC_GUI_D
+         F: KC_CTL_F
+         J: KC_CTL_J
+         K: KC_GUI_K
+         L: KC_ALT_L
+         ;: KC_SFT_SEMI
+   ```
 
-```yaml
-output:
-  qmk:
-    key_codes:
-      A: KC_SFT_A
-      S: KC_ALT_S
-      D: KC_GUI_D
-      F: KC_CTL_F
-      J: KC_CTL_J
-      K: KC_GUI_K
-      L: KC_ALT_L
-      ;: KC_SFT_SEMI
-```
+5. Copy the generated `~/.config/chordgen/qmk_chords.def` to your QMK keymap directory and add `#include "qmk_chords.def"` to the top of your QMK `chords.def` file.
+6. Flash your keyboard.
 
-- Copy the generated `~/.config/chordgen/qmk_chords.def` to your QMK keymap directory
-- Add `#include "qmk_chords.def"` to the top of your QMK `chords.def` file
-- Flash your keyboard
+#### zmk
 
-##### zmk
+Output for [ZMK](https://zmk.dev/), a firmware for custom keyboards.
 
-This is an output for [ZMK](https://zmk.dev/) which is a firmware for custom keyboards.
+1. Copy the generated `~/.config/chordgen/zmk_chords.dtsi` and `~/.config/chordgen/zmk_macros.dtsi` to your zmk keymap directory.
+2. Include these lines in your zmk keymap file:
 
-- Copy the generated `~/.config/chordgen/zmk_chords.dtsi` and `~/.config/chordgen/zmk_macros.dtsi` to your zmk keymap directory
-- Include these lines in your zmk keymap keymap file
+   ```dts
+     macros {
+       #include "macros.dtsi"
+     };
 
-```
-  macros {
-    #include "macros.dtsi"
-  };
+     chords {
+       compatible = "zmk,chords";
+       #include "chords.dtsi"
+     };
+   ```
 
-  chords {
-    compatible = "zmk,chords";
-    #include "chords.dtsi"
-  };
-```
+3. Include these lines in your zmk keymap conf file. You may have to increase `CONFIG_ZMK_CHORD_MAX_CHORDS_PER_KEY` if you are able to fit more chords on your controller:
 
-- Include these lines in your zmk keymap conf file, you may have to increase `CONFIG_ZMK_CHORD_MAX_CHORDS_PER_KEY` if you are able to fit more chords on your controller
+   ```conf
+   CONFIG_ZMK_CHORD_MAX_CHORDS_PER_KEY=512
+   CONFIG_ZMK_CHORD_MAX_KEYS_PER_CHORD=10
+   CONFIG_ZMK_CHORD_MAX_PRESSED_CHORDS=10
+   ```
 
-```
-CONFIG_ZMK_CHORD_MAX_CHORDS_PER_KEY=512
-CONFIG_ZMK_CHORD_MAX_KEYS_PER_CHORD=10
-CONFIG_ZMK_CHORD_MAX_PRESSED_CHORDS=10
-```
+4. Flash your keyboard.
 
-- Flash your keyboard
+#### kanata
 
-##### kanata
+Output for [Kanata](https://github.com/jtroo/kanata), a software keyboard remapper. Be aware that many keyboards, especially laptop ones, do not support having many keys held at the same time. You can check what combinations work for yours [here](https://www.mechanical-keyboard.org/key-rollover-test/).
 
-This is an output for [Kanata](https://github.com/jtroo/kanata) which is a software keyboard remapper. Be aware that many keyboards, especially laptop ones do not support having many keys held at the same time. You can check what combinations work for your one [here](https://www.mechanical-keyboard.org/key-rollover-test/)
+1. Copy the generated `~/.config/chordgen/kanata_chords.kbd` to your keymap directory.
+2. Add to your keymap:
 
-- Copy the generated `~/.config/chordgen/kanata_chords.kbd` to your keymap directory
-- Add to your keymap:
+   ```lisp
+   (defcfg concurrent-tap-hold yes)
+   (include kanata_chords.kbd)
+   ```
 
-  ```
-  (defcfg concurrent-tap-hold yes)
-  (include kanata_chords.kbd)
-  ```
+3. Run `sudo kanata -c <keymap.kbd>`.
 
-- Run `sudo kanata -c <keymap.kbd>`
+#### charachorder
 
-##### charachorder
+Output for [CharaChorder](https://www.charachorder.com/) directional and standard keyboards. Since CharaChorder handles alts internally, only the base word is emitted.
 
-This in an output for [CharaChorder](https://www.charachorder.com/) which supports their directional and standard keyboard designs. Since it already has its own way of handling alts built in, only the base word is outputted.
+1. Before running `gen`, set `gen.keyboard.type` to `directional` and `gen.min_chord_length` to `2` in `config.yaml`.
+2. Disable `output.formats` other than `charachorder` and `training`.
+3. Open the [Chords Manager](https://charachorder.io/config/chords/).
+4. If there are existing chords, press Clear Chords and apply.
+5. Import `~/.config/chordgen/charachorder_chords.json` and apply.
 
-- When running `gen` change the `config.yaml` `gen.keyboard.type` to directional and `gen.min_chord_length` to 2
-- Disable `output.formats` other than charachorder and training.
-- Open the [Chords Manager](https://charachorder.io/config/chords/)
-- If there are existing chords, press Clear Chords and apply
-- Import `~/.config/chordgen/charachorder_chords.json`
-- Apply
+#### training
 
-##### training
+Plain-text drill file for typing-practice tools like [Monkeytype](https://monkeytype.com/) custom mode. Copy a line of 10 words at a time into the tool to help learn the chords:
 
-This generates a [training.txt](training.txt) file for you to copy a line of 10 words at a time into a typing practice tool like [Monkeytype](https://monkeytype.com/) custom mode to help learn the chords:
-
-```
+```text
 the and you have that for with this not but
 t   a   y   h    th   f   w    ti   n   b
 ```
