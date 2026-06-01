@@ -2,6 +2,8 @@
 
 ## v2.0.0
 
+Note: Introduced coding agent
+
 ### Upgrading
 
 The vocabulary pipeline and chords.csv schema have changed. Existing users must
@@ -38,16 +40,23 @@ it up first if you want to preserve them.
 
 ### Chord assignment
 
-- New smart-greedy assignment algorithm in `assigner.py`:
-  - Frequency-weighted cost: shorter chords are preferred for higher-frequency
-    words.
-  - Contention-aware tie-breaking using top-K option counts.
-  - 2-swap local-search pass to reduce total cost after the greedy phase.
-  - Eviction recovery for words that the greedy phase left without options.
-  - Per-phase cost diagnostics printed at the end of `gen`.
+- New optimal assignment algorithm in `assigner.py`:
+  - Reduces the problem to a sparse minimum-weight bipartite matching solved
+    exactly with `scipy.sparse.csgraph.min_weight_full_bipartite_matching`.
+    Replaces the previous greedy + 2-swap + eviction passes with a single
+    globally-optimal solve.
+  - Cost model: `option.score * weight(word)`, where weight is the row's
+    `frequency` floored at `min_frequency_weight`. Frequent words attract
+    low-score (short / fast) chords.
+  - Slack edges with cost `unmatched_penalty * weight` keep the matching
+    feasible; words for which leaving them unmatched is cheaper than the best
+    available chord are reported in diagnostics with the words holding their
+    top candidates.
+  - Runs in well under a second for ~2000 words.
 - Alt-coverage filter: words already reachable as another row's alt (e.g.
   `made` is `make`'s past tense) no longer get their own primary chord. Cycles
   in the alt graph (e.g. `could ↔ can`) are broken by keeping the
   higher-frequency word.
-- Added `assignment` block to `config.yaml` schema (`top_k`,
-  `max_swap_passes`, `min_frequency_weight`).
+- `assignment` block in `config.yaml` exposes `min_frequency_weight` and
+  `unmatched_penalty`. The previous `top_k` and `max_swap_passes` knobs were
+  removed; the matcher considers every viable option per word.

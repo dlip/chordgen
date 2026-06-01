@@ -39,6 +39,7 @@ dependencies = [
     { name = "patternlite" },
     { name = "pydantic" },
     { name = "pyyaml" },
+    { name = "scipy" },
     { name = "tqdm" },
     { name = "typer" },
 ]
@@ -50,6 +51,7 @@ requires-dist = [
     { name = "patternlite", specifier = ">=3.6" },
     { name = "pydantic", specifier = ">=2.12.5" },
     { name = "pyyaml", specifier = ">=6.0.3" },
+    { name = "scipy", specifier = ">=1.10" },
     { name = "tqdm", specifier = ">=4.67.3" },
     { name = "typer", specifier = ">=0.24.1" },
 ]

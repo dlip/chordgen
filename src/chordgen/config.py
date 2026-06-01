@@ -118,25 +118,19 @@ class AltOptions(BaseModel):
 
 
 class AssignmentOptions(BaseModel):
-    top_k: int = Field(
-        default=5,
-        description=(
-            "Number of top-scored chord candidates per word considered for "
-            "tie-breaking and swap pairing. Higher = more thorough but slower."
-        ),
-    )
-    max_swap_passes: int = Field(
-        default=5,
-        description=(
-            "Max passes of the 2-swap local-search loop. Set to 0 to disable "
-            "post-greedy optimisation."
-        ),
-    )
     min_frequency_weight: float = Field(
         default=1.0,
         description=(
             "Floor for the weight applied to words missing a frequency value. "
             "Treats them as low-priority but still eligible."
+        ),
+    )
+    unmatched_penalty: float = Field(
+        default=10000.0,
+        description=(
+            "Cost charged per word that ends up without a chord. Acts as a "
+            "soft constraint in the optimal matcher: if recovering a word "
+            "would cost more than this, leaving it unmatched is allowed."
         ),
     )
 

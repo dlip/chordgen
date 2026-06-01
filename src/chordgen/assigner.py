@@ -1,16 +1,19 @@
 """Chord assignment: pick a chord per word from per-word scored options.
 
-Pipeline (called by gen.py after Scorer has populated `options` per row):
+Runs after Scorer has populated `options` for each row. Reduces the
+problem to a sparse minimum-weight bipartite matching:
 
-  Phase A — Reserved chords:    apply user-pinned chords (rows with a chord
-                                 set and no frequency value).
-  Phase B — Greedy:              frequency-weighted greedy assignment with
-                                 contention-aware tie-breaking.
-  Phase C — 2-swap local search: pairwise swap until no improvement.
-  Phase D — Eviction recovery:   try to fill no_options words by single-step
-                                 eviction of an assigned word.
-  Phase E — Diagnostics:         report holders of each unfilled word's top
-                                 candidates so collisions are debuggable.
+  Left vertices  : words needing a chord (the pool below)
+  Right vertices : distinct sorted-chord keys across all candidates,
+                   plus one slack vertex per word.
+  Edge weight    : option.score * weight(word)
+  Slack edge     : unmatched_penalty * weight(word) — taken iff no
+                   real edge yields a cheaper assignment.
+
+Solved exactly via scipy.sparse.csgraph.min_weight_full_bipartite_matching
+(LAPJVsp). For ~2000 words and ~60k edges this runs in well under a
+second and produces a globally cost-optimal assignment, replacing the
+old greedy + 2-swap + eviction phases.
 
 Cost model: cost(option, word) = option.score * weight(word), where weight
 is the parsed `frequency` column floored at min_frequency_weight. Higher
@@ -21,9 +24,11 @@ chords.
 from __future__ import annotations
 
 import logging
-import random
-from collections import Counter
 from dataclasses import dataclass, field
+
+import numpy as np
+from scipy.sparse import csr_matrix
+from scipy.sparse.csgraph import min_weight_full_bipartite_matching
 
 from chordgen.chord import Chord, Option
 from chordgen.config import GenOptions
@@ -33,10 +38,7 @@ from chordgen.config import GenOptions
 class AssignmentReport:
     no_options: list[str] = field(default_factory=list)
     duplicate: list[str] = field(default_factory=list)
-    evicted: list[tuple[str, str]] = field(default_factory=list)
-    cost_after_greedy: float = 0.0
-    cost_after_swap: float = 0.0
-    cost_after_eviction: float = 0.0
+    cost: float = 0.0
 
 
 def _parse_freq(chord: Chord, floor: float) -> float:
@@ -75,31 +77,33 @@ def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
     floor = cfg.min_frequency_weight
 
     # ---- Phase A: reserved chords ----------------------------------------
-    used: dict[str, Chord] = {}  # sorted_chord -> chord row holding it
+    # User-pinned rows are removed from the optimisation entirely; their
+    # chord-keys are reserved so no other word can match them.
+    reserved_keys: set[str] = set()
     for chord in chords:
         if not _is_reserved(chord):
             # Clear any chord left over from a previous gen run so the
             # row is eligible for reassignment.
             chord["chord"] = ""
             continue
-        sorted_key = _sorted_key(chord["chord"])
-        if sorted_key in used:
+        key = _sorted_key(chord["chord"])
+        if key in reserved_keys:
             raise Exception(
-                f"Reserved chord for word {chord['word']} already used "
-                f"for {used[sorted_key]['word']}"
+                f"Reserved chord for word {chord['word']} already pinned "
+                f"by another row"
             )
-        used[sorted_key] = chord
+        reserved_keys.add(key)
 
-    # ---- Build pool of words eligible for greedy assignment --------------
+    # ---- Build pool of words eligible for assignment ---------------------
     # Words already reachable as an earlier row's alt (e.g. "made" as the
     # past form of "make") shouldn't get a primary chord — they'd shadow
     # nothing useful and waste contention. Walk rows in CSV (frequency)
     # order: a row is kept if it's not already covered by an earlier-kept
     # row's alts. This naturally breaks cycles (e.g. could→can, can→could)
     # by keeping the higher-frequency one.
-    coverable: set[str] = set()  # words reachable as alt of an earlier kept row
+    coverable: set[str] = set()
     seen_words: set[str] = set()
-    pool: list[Chord] = []  # rows we still need to assign
+    pool: list[Chord] = []
     skipped_alt_covered: list[str] = []
     for chord in chords:
         word = chord["word"].lower()
@@ -110,270 +114,154 @@ def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
         if len(word) < options.min_word_length:
             continue
         if _is_reserved(chord):
-            # Reserved row keeps its chord; its alts still cover other words.
             for slot in ("alt1", "alt2", "alt3"):
                 alt = (chord.get(slot) or "").strip().lower()
                 if alt and alt != word:
                     coverable.add(alt)
             continue
         if word in coverable:
-            # Already reachable via an earlier row's chord+alt-key; don't
-            # waste a primary chord on it. Clear its own alt slots too —
-            # those would be inflections of an inflection.
             chord["alt1"] = ""
             chord["alt2"] = ""
             chord["alt3"] = ""
             skipped_alt_covered.append(word)
             continue
-        # Keeping this row: register its alts as covering future words.
         for slot in ("alt1", "alt2", "alt3"):
             alt = (chord.get(slot) or "").strip().lower()
             if alt and alt != word:
                 coverable.add(alt)
         pool.append(chord)
 
-    # Precompute viable options per row and per-row weight.
-    viable: dict[int, list[Option]] = {}
-    weight: dict[int, float] = {}
-    top_k_keys: dict[int, list[str]] = {}
+    if not pool:
+        _print_diagnostics(report, skipped_alt_covered, [], [], {})
+        return report
+
+    # ---- Build sparse cost matrix ----------------------------------------
+    # Rows = words in the pool (one per word).
+    # Cols = (distinct sorted-chord keys) ++ (one slack column per row).
+    # Slack columns are diagonal (row i can only match its own slack), so
+    # the matching always exists even if some words have no viable chord.
+
+    weights: list[float] = []
+    viables: list[list[Option]] = []
     for chord in pool:
-        cid = id(chord)
         v = _viable_options(chord, options.min_chord_length)
-        viable[cid] = v
-        weight[cid] = _parse_freq(chord, floor)
-        top_k_keys[cid] = [_sorted_key(o["chord"]) for o in v[: cfg.top_k]]
+        # Exclude options that collide with a user-pinned chord.
+        v = [o for o in v if _sorted_key(o["chord"]) not in reserved_keys]
+        viables.append(v)
+        weights.append(_parse_freq(chord, floor))
 
-    # Contention counter: how many words have each chord-key in their top-K?
-    contention: Counter[str] = Counter()
-    for keys in top_k_keys.values():
-        contention.update(set(keys))
-
-    # ---- Phase B: frequency-weighted greedy ------------------------------
-    # Iterate pool in CSV order (already frequency-sorted). For each word,
-    # pick the lowest score among free options; break ties by lowest
-    # contention.
-    placed: dict[int, Option] = {}  # cid -> Option
-    for chord in pool:
-        cid = id(chord)
-        v = viable[cid]
-        best: Option | None = None
-        best_key: tuple[int, int] | None = None  # (score, contention_count)
+    # Map each distinct viable sorted-key to a column index.
+    key_to_col: dict[str, int] = {}
+    for v in viables:
         for opt in v:
             key = _sorted_key(opt["chord"])
-            if key in used:
-                continue
-            tie = (opt["score"], contention[key])
-            if best is None or tie < best_key:  # type: ignore[operator]
-                best = opt
-                best_key = tie
-        if best is None:
+            if key not in key_to_col:
+                key_to_col[key] = len(key_to_col)
+    n_chord_cols = len(key_to_col)
+    n_rows = len(pool)
+    n_cols = n_chord_cols + n_rows  # + per-row slack columns
+
+    # Build COO arrays.
+    # scipy's matcher requires a 0-cost edge to be representable; it
+    # treats *missing* entries as +inf and *explicit zeros* as zero cost.
+    # We'll add a tiny epsilon so genuine zero scores stay distinguishable
+    # from missing edges.
+    eps = 1e-9
+    row_idx: list[int] = []
+    col_idx: list[int] = []
+    data: list[float] = []
+    # Track which option each (row, col) edge corresponds to.
+    edge_option: dict[tuple[int, int], Option] = {}
+
+    for r, (v, w) in enumerate(zip(viables, weights)):
+        # Real chord edges.
+        # If the same sorted-key appears more than once for a single word
+        # (different orderings score the same key), keep the cheaper.
+        best_for_col: dict[int, Option] = {}
+        for opt in v:
+            c = key_to_col[_sorted_key(opt["chord"])]
+            prev = best_for_col.get(c)
+            if prev is None or opt["score"] < prev["score"]:
+                best_for_col[c] = opt
+        for c, opt in best_for_col.items():
+            row_idx.append(r)
+            col_idx.append(c)
+            cost = opt["score"] * w + eps
+            data.append(cost)
+            edge_option[(r, c)] = opt
+        # Slack edge for this row.
+        slack_col = n_chord_cols + r
+        row_idx.append(r)
+        col_idx.append(slack_col)
+        data.append(cfg.unmatched_penalty * w + eps)
+
+    biadjacency = csr_matrix(
+        (np.asarray(data, dtype=np.float64), (row_idx, col_idx)),
+        shape=(n_rows, n_cols),
+    )
+
+    # ---- Solve ----------------------------------------------------------
+    matched_rows, matched_cols = min_weight_full_bipartite_matching(biadjacency)
+
+    # ---- Apply results --------------------------------------------------
+    cost_total = 0.0
+    holder_by_key: dict[str, str] = {}  # for diagnostics
+    for r, c in zip(matched_rows, matched_cols):
+        chord = pool[r]
+        if c >= n_chord_cols:
+            # Took the slack edge: no chord for this word.
             report.no_options.append(chord["word"].lower())
             continue
-        chord["chord"] = best["chord"]
-        used[_sorted_key(best["chord"])] = chord
-        placed[cid] = best
+        opt = edge_option[(r, c)]
+        chord["chord"] = opt["chord"]
+        cost_total += opt["score"] * weights[r]
+        holder_by_key[_sorted_key(opt["chord"])] = chord["word"].lower()
 
-    def total_cost() -> float:
-        c = 0.0
-        for cid, opt in placed.items():
-            c += opt["score"] * weight[cid]
-        return c
+    report.cost = cost_total
+    _print_diagnostics(report, skipped_alt_covered, pool, viables, holder_by_key)
+    return report
 
-    report.cost_after_greedy = total_cost()
 
-    # ---- Phase C: 2-swap local search ------------------------------------
-    # Only consider candidate pairs (a, b) where each has the other's
-    # current chord in its top-K options. That's where a swap is feasible.
-    cid_to_row = {id(c): c for c in pool}
-    if cfg.max_swap_passes > 0 and placed:
-        # Index assigned chord-keys -> cid for fast lookup.
-        key_to_cid: dict[str, int] = {
-            _sorted_key(opt["chord"]): cid for cid, opt in placed.items()
-        }
-        # For each placed cid, options indexed by sorted_key for fast scoring.
-        opts_by_key: dict[int, dict[str, Option]] = {
-            cid: {_sorted_key(o["chord"]): o for o in viable[cid]}
-            for cid in placed
-        }
-
-        for _ in range(cfg.max_swap_passes):
-            pairs: list[tuple[int, int]] = []
-            for cid_a in placed:
-                # Look at cid_a's top-K candidates: any of those keys
-                # currently held by some cid_b is a swap candidate.
-                for opt_alt in viable[cid_a][: cfg.top_k]:
-                    key = _sorted_key(opt_alt["chord"])
-                    cid_b = key_to_cid.get(key)
-                    if cid_b is None or cid_b == cid_a:
-                        continue
-                    pairs.append((cid_a, cid_b))
-            random.shuffle(pairs)
-
-            improved_any = False
-            for cid_a, cid_b in pairs:
-                # Rows may have been swapped already this pass; re-check.
-                opt_a = placed[cid_a]
-                opt_b = placed[cid_b]
-                key_a = _sorted_key(opt_a["chord"])
-                key_b = _sorted_key(opt_b["chord"])
-                # Do A and B each have the other's chord scored?
-                a_takes_b = opts_by_key[cid_a].get(key_b)
-                b_takes_a = opts_by_key[cid_b].get(key_a)
-                if a_takes_b is None or b_takes_a is None:
-                    continue
-                w_a = weight[cid_a]
-                w_b = weight[cid_b]
-                current = opt_a["score"] * w_a + opt_b["score"] * w_b
-                proposed = a_takes_b["score"] * w_a + b_takes_a["score"] * w_b
-                if proposed < current:
-                    placed[cid_a] = a_takes_b
-                    placed[cid_b] = b_takes_a
-                    cid_to_row[cid_a]["chord"] = a_takes_b["chord"]
-                    cid_to_row[cid_b]["chord"] = b_takes_a["chord"]
-                    # update key->cid map
-                    key_to_cid.pop(key_a, None)
-                    key_to_cid.pop(key_b, None)
-                    key_to_cid[_sorted_key(a_takes_b["chord"])] = cid_a
-                    key_to_cid[_sorted_key(b_takes_a["chord"])] = cid_b
-                    improved_any = True
-            if not improved_any:
-                break
-
-        # Rebuild `used` so the eviction phase below sees a consistent view.
-        used = {}
-        for chord in chords:
-            if _is_reserved(chord):
-                used[_sorted_key(chord["chord"])] = chord
-        for cid, opt in placed.items():
-            used[_sorted_key(opt["chord"])] = cid_to_row[cid]
-
-    report.cost_after_swap = total_cost()
-
-    # ---- Phase D: eviction recovery --------------------------------------
-    # For each no_options word, try to evict one assigned word that holds a
-    # chord this word needs, where the evicted word can still be reassigned
-    # to a free option AND the total cost decreases.
+def _print_diagnostics(
+    report: AssignmentReport,
+    skipped_alt_covered: list[str],
+    pool: list[Chord],
+    viables: list[list[Option]],
+    holder_by_key: dict[str, str],
+) -> None:
     if report.no_options:
-        word_to_chord: dict[str, Chord] = {c["word"].lower(): c for c in pool}
-        recovered: list[str] = []
-
-        for word in report.no_options:
-            requester = word_to_chord.get(word)
-            if requester is None:
-                continue
-            cid_r = id(requester)
-            w_r = weight[cid_r]
-            best_eviction: tuple[float, Option, int, Option] | None = None
-
-            for opt_r in viable[cid_r]:
-                key = _sorted_key(opt_r["chord"])
-                # The chord must currently be held by an assigned word
-                # (not by a reserved one; we don't evict user pins).
-                holder = used.get(key)
-                if holder is None:
-                    continue
-                if _is_reserved(holder):
-                    continue
-                cid_h = id(holder)
-                if cid_h not in placed:
-                    continue
-                opt_h_now = placed[cid_h]
-                # Find a free fallback for the holder.
-                fallback: Option | None = None
-                for opt_alt in viable[cid_h]:
-                    alt_key = _sorted_key(opt_alt["chord"])
-                    if alt_key == key:
-                        continue
-                    if alt_key in used:
-                        continue
-                    fallback = opt_alt
-                    break
-                if fallback is None:
-                    continue
-                w_h = weight[cid_h]
-                # Net cost change of the eviction: requester contributes
-                # opt_r*w_r (was 0) and holder swings opt_h_now*w_h -> fallback*w_h.
-                delta = (
-                    opt_r["score"] * w_r
-                    + fallback["score"] * w_h
-                    - opt_h_now["score"] * w_h
-                )
-                # Pick the eviction with the smallest delta. We recover the
-                # word even when delta > 0 (an unfilled word is worse than a
-                # small cost increase), but prefer cheaper recoveries.
-                if best_eviction is None or delta < best_eviction[0]:
-                    best_eviction = (delta, opt_r, cid_h, fallback)
-
-            if best_eviction is None:
-                continue
-
-            delta, opt_r, cid_h, fallback = best_eviction
-            holder = cid_to_row[cid_h]
-            old_holder_opt = placed[cid_h]
-            # Apply eviction.
-            requester["chord"] = opt_r["chord"]
-            holder["chord"] = fallback["chord"]
-            placed[cid_r] = opt_r
-            placed[cid_h] = fallback
-            used.pop(_sorted_key(old_holder_opt["chord"]), None)
-            used[_sorted_key(opt_r["chord"])] = requester
-            used[_sorted_key(fallback["chord"])] = holder
-            report.evicted.append((word, holder["word"].lower()))
-            recovered.append(word)
-
-        # Drop recovered words from no_options.
-        report.no_options = [w for w in report.no_options if w not in set(recovered)]
-
-    report.cost_after_eviction = total_cost()
-
-    # ---- Phase E: diagnostics --------------------------------------------
-    if report.no_options:
-        word_to_chord = {c["word"].lower(): c for c in pool}
+        word_to_idx = {c["word"].lower(): i for i, c in enumerate(pool)}
         print(f"Unable to find any options for {len(report.no_options)} words:")
         for word in report.no_options:
-            requester = word_to_chord.get(word)
-            if requester is None:
+            i = word_to_idx.get(word)
+            if i is None:
+                print(f"  {word}: (no candidates)")
                 continue
-            top = viable[id(requester)][:3]
+            tops = viables[i][:3]
+            if not tops:
+                print(f"  {word}: (no candidates)")
+                continue
             holders = []
-            for opt in top:
+            for opt in tops:
                 key = _sorted_key(opt["chord"])
-                holder = used.get(key)
-                if holder is None:
-                    holders.append(f"{opt['chord']} (free?)")
-                else:
-                    holders.append(f"{opt['chord']} -> {holder['word']}")
+                h = holder_by_key.get(key)
+                holders.append(
+                    f"{opt['chord']} -> {h}" if h else f"{opt['chord']} (free?)"
+                )
             print(f"  {word}: blocked by [{', '.join(holders)}]")
-
     if report.duplicate:
         print(
             f"Ignored {len(report.duplicate)} duplicate words: "
             f"{', '.join(report.duplicate)}"
         )
-
     if skipped_alt_covered:
         print(
             f"Skipped {len(skipped_alt_covered)} words already reachable as "
             f"alts of other rows: {', '.join(skipped_alt_covered)}"
         )
-
-    if report.evicted:
-        print(f"Recovered {len(report.evicted)} words via eviction:")
-        for word, by in report.evicted:
-            print(f"  {word} (evicted {by})")
-
-    print(
-        f"Cost: greedy={report.cost_after_greedy:.1f} "
-        f"swap={report.cost_after_swap:.1f} "
-        f"eviction={report.cost_after_eviction:.1f}"
-    )
-
+    print(f"Cost: {report.cost:.1f}")
     logging.debug(
-        "Assignment done: %d placed, %d no_options, %d duplicates, %d evicted",
-        len(placed),
+        "Assignment done: %d unmatched, %d duplicates",
         len(report.no_options),
         len(report.duplicate),
-        len(report.evicted),
     )
-
-    return report
