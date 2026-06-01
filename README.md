@@ -8,6 +8,18 @@ It supports standard keyboards and directional ones such as:
 - [CharaChorder](https://www.charachorder.com)
 - [Svalboard](https://svalboard.com)
 
+## Quickstart
+
+```sh
+pip install chordgen
+chordgen setup     # downloads SUBTLEX-US, writes ~/.config/chordgen/{config.yaml, chords.csv}
+chordgen gen       # picks an optimal chord per word and fills in alts
+chordgen output    # writes firmware files for qmk / zmk / kanata / charachorder + training.txt
+```
+
+Edit `~/.config/chordgen/chords.csv` (remove words you don't want, pin
+chords by hand, etc.) and re-run `gen` whenever you want to refresh.
+
 ## Introduction
 
 We generally type words letter by letter which can be slow and error prone, chording is a alternate approach where multiple keys are pressed at the same time and the word is outputted automatically. Stenography, which uses this approach is often used in court reporting, and allows the stenographer to type in excess of 300 wpm. The downside is that since it so specialised, there is a large barrier to entry because you can't use any of your existing typing skills.
@@ -16,7 +28,7 @@ Chordgen's approach allows you to type normally, but then use chords for some wo
 
 ## Chording Approach
 
-In order to distinguish normal typing from a chord, it defines chord, shift, and alt1/2 keys that are pressed in combination with the chord to get the desired output. These keys work well on the thumbs to ensure all the combinations are possible to be press with them.
+In order to distinguish normal typing from a chord, it defines chord, shift, and alt1/2 keys that are pressed in combination with the chord to get the desired output. These keys work well on the thumbs to ensure all the combinations are possible to be pressed with them.
 
 | Input                           | Output           |
 | ------------------------------- | ---------------- |
@@ -24,7 +36,7 @@ In order to distinguish normal typing from a chord, it defines chord, shift, and
 | l + chord + shift               | Look`<space>`    |
 | l + chord + alt1                | looked`<space>`  |
 | l + chord + alt2                | looking`<space>` |
-| l + chord + alt1 + alt2         | looks`<space>`   |
+| l + chord + alt1 + alt2 (alt3)  | looks`<space>`   |
 | l + chord + shift + alt1 + alt2 | Looks`<space>`   |
 
 This is how I have set up my 4 key thumb cluster from left to right:
@@ -49,10 +61,16 @@ Automatically becomes
 | word | chord | category | frequency | alt1 | alt2 | alt3   |
 | ---- | ----- | -------- | --------- | ---- | ---- | ------ |
 | the  | t     | det      | 7.40      |      |      |        |
-| and  | a     | cconj    | 7.18      |      |      |        |
-| have | h     | verb     | 6.78      | has  | had  | having |
+| and  | and   | cconj    | 7.18      |      |      |        |
+| have | hv    | verb     | 6.78      | has  | had  | having |
 
-This file is then used to output to a format that can be used by various programmable keyboards, or even software remapping with Kanata
+The exact chord picked for each word depends on contention with the
+rest of the file: `have` ends up as `hv` because higher-frequency `h`
+words further down (e.g. `huh`) get the single-letter `h` chord.
+
+This file is then used to output to a format that can be used by
+various programmable keyboard firmwares (QMK, ZMK, CharaChorder) or
+software remapping (Kanata).
 
 ### Reserving a chord
 
@@ -63,6 +81,21 @@ If you want to pin a particular chord to a word, add a row by hand with the `cho
 | email | em    | noun     |           |      |      |      |
 
 To re-pin a word that already has a generated chord, just clear its `frequency` cell and edit the `chord`.
+
+### Editing chords.csv
+
+After `setup`, `chords.csv` is yours. Common workflows:
+
+- **Removing a word** — delete the row.
+- **Pinning a chord** — add a row by hand with the `chord` column set
+  and the `frequency` column left empty. See [Reserving a chord](#reserving-a-chord).
+- **Adjusting category or alts** — edit the `category` cell or
+  pre-fill `alt1`–`alt3`. By default `gen` keeps non-empty alt slots
+  as written; set `gen.alts.overwrite: true` in `config.yaml` to force
+  regeneration on every run.
+- **Re-running** — `chordgen gen` is idempotent. Non-reserved chord
+  cells are cleared before solving, so any change to a row's word,
+  category, frequency, or alts takes effect on the next run.
 
 ## Installation
 
@@ -75,21 +108,42 @@ Run `chordgen COMMAND` using one of the commands below
 
 ### setup
 
-Run this first to create `config.yaml` with all the default options.
+Creates `~/.config/chordgen/config.yaml` and downloads a
+frequency-ranked `chords.csv` from SUBTLEX. After `setup`, `chords.csv`
+is yours to edit by hand.
 
-Read the [schema](./schema.md) and my [dotfiles](https://github.com/dlip/dotfiles/tree/main/.config/chordgen) to understand the options.
+Flags:
+
+| Flag              | Default      | Purpose                                                            |
+| ----------------- | ------------ | ------------------------------------------------------------------ |
+| `--source`        | `subtlex-us` | Vocabulary source. Also: `subtlex-uk`.                             |
+| `--size`          | `2000`       | Number of words to keep.                                           |
+| `--min-frequency` | `3.0`        | Drop words below this Zipf score (3.0 ≈ 1 occurrence per million). |
+| `--force`         | off          | Overwrite an existing `chords.csv`.                                |
+
+Read the [schema](./schema.md) and my
+[dotfiles](https://github.com/dlip/dotfiles/tree/main/.config/chordgen)
+to understand the rest of the options.
 
 ### gen
 
 Generates chords and alts for `chords.csv`. It will copy the [default](./src/chordgen/assets/chords.csv) file if you do not provide one.
 
-The approach it uses is:
+The pipeline runs in three phases:
 
-- Generate all combinations of the letters in the word which start with the first letter and keep the order from left to right
-- Reject chords that have already been used
-- Reject chords that are shorter than a minimum amount of characters
-- Score remaining chords by effort and select the best option depending on your particular keyboard layout
-- Add alt versions
+1. **Score** — for each word, enumerate every chord that keeps the
+   first letter and preserves left-to-right order, then score each
+   candidate using the configured keyboard layout (effort per key,
+   same-row / same-column / scissor / directional penalties).
+2. **Generate alts** — based on the word's `category` (verb, noun,
+   adjective, adverb), fill `alt1`–`alt3` with inflected forms (e.g.
+   `look → looks, looked, looking`). Alt slots already filled by hand
+   are kept by default.
+3. **Assign** — solve a sparse minimum-cost bipartite matching so
+   each word gets a unique chord and the total `score × frequency` is
+   globally minimised. Frequent words attract short / low-effort
+   chords. Words for which every viable chord is already cheaper for
+   another word are reported in the diagnostics.
 
 ### output
 
