@@ -60,12 +60,13 @@ def setup(
     size: int = typer.Option(
         2000, "--size", help="Number of words to include in chords.csv."
     ),
-    min_zipf: float = typer.Option(
+    min_frequency: float = typer.Option(
         3.0,
-        "--min-zipf",
+        "--min-frequency",
         help=(
-            "Filter words below this Zipf frequency. 3.0 ~ 1 occurrence per "
-            "million words; lower includes rarer vocabulary."
+            "Filter words below this source-defined frequency. For SUBTLEX "
+            "sources this is a Zipf value; 3.0 ~ 1 occurrence per million "
+            "words. Lower includes rarer vocabulary."
         ),
     ),
     force: bool = typer.Option(
@@ -100,7 +101,7 @@ def setup(
         output_file=chords_file,
         cache_dir=cache_dir,
         size=size,
-        min_zipf=min_zipf,
+        min_frequency=min_frequency,
     )
 
     print("Setup Complete")

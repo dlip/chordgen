@@ -13,6 +13,7 @@ class Chord(TypedDict):
     chord: str
     reserved_chord: str
     category: str
+    frequency: str
     alt1: str
     alt2: str
     alt3: str

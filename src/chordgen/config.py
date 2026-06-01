@@ -117,10 +117,35 @@ class AltOptions(BaseModel):
     adverb: AdverbAltOptions = AdverbAltOptions()
 
 
+class AssignmentOptions(BaseModel):
+    top_k: int = Field(
+        default=5,
+        description=(
+            "Number of top-scored chord candidates per word considered for "
+            "tie-breaking and swap pairing. Higher = more thorough but slower."
+        ),
+    )
+    max_swap_passes: int = Field(
+        default=5,
+        description=(
+            "Max passes of the 2-swap local-search loop. Set to 0 to disable "
+            "post-greedy optimisation."
+        ),
+    )
+    min_frequency_weight: float = Field(
+        default=1.0,
+        description=(
+            "Floor for the weight applied to words missing a frequency value. "
+            "Treats them as low-priority but still eligible."
+        ),
+    )
+
+
 class GenOptions(BaseModel):
     file: File = DEFAULT_CHORDS_FILE
     keyboard: KeyboardOptions = KeyboardOptions()
     alts: AltOptions = AltOptions()
+    assignment: AssignmentOptions = AssignmentOptions()
     min_word_length: int = 3
     min_chord_length: int = Field(
         default=0,

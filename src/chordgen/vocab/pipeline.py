@@ -8,7 +8,16 @@ from pathlib import Path
 from chordgen.vocab import SOURCES, VocabRow, VocabSource
 
 # Columns in the generated chords.csv. Must stay in sync with chord.Chord.
-_FIELDNAMES = ["word", "chord", "reserved_chord", "category", "alt1", "alt2", "alt3"]
+_FIELDNAMES = [
+    "word",
+    "chord",
+    "reserved_chord",
+    "category",
+    "frequency",
+    "alt1",
+    "alt2",
+    "alt3",
+]
 
 # Drop entries that aren't real lexical words (digits, punctuation,
 # names with apostrophes etc.). SUBTLEX includes a lot of those near
@@ -42,7 +51,7 @@ def build_chords_csv(
     output_file: Path,
     cache_dir: Path,
     size: int,
-    min_zipf: float,
+    min_frequency: float,
 ) -> None:
     """Fetch + parse a vocab source and write chords.csv."""
     if source_name not in SOURCES:
@@ -62,14 +71,14 @@ def build_chords_csv(
         word = row.word.lower()
         if word in seen:
             continue
-        if row.zipf < min_zipf:
+        if row.frequency < min_frequency:
             continue
         if not _accept(row):
             continue
         seen.add(word)
-        rows.append(VocabRow(word=word, zipf=row.zipf, category=row.category))
+        rows.append(VocabRow(word=word, frequency=row.frequency, category=row.category))
 
-    rows.sort(key=lambda r: (-r.zipf, r.word))
+    rows.sort(key=lambda r: (-r.frequency, r.word))
     rows = rows[:size]
 
     output_file.parent.mkdir(parents=True, exist_ok=True)
@@ -84,6 +93,7 @@ def build_chords_csv(
                     "chord": "",
                     "reserved_chord": "",
                     "category": row.category,
+                    "frequency": f"{row.frequency:.2f}",
                     "alt1": "",
                     "alt2": "",
                     "alt3": "",

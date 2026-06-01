@@ -114,14 +114,14 @@ class SubtlexUS(VocabSource):
             if not r or r[0] is None:
                 continue
             word = str(r[0])
-            zipf_raw = r[14]  # "Zipf-value" column
-            if zipf_raw is None:
+            freq_raw = r[14]  # "Zipf-value" column
+            if freq_raw is None:
                 continue
             try:
-                zipf = float(zipf_raw)
+                frequency = float(freq_raw)
             except (TypeError, ValueError):
                 continue
-            yield VocabRow(word=word, zipf=zipf, category=_map_pos(r[9]))
+            yield VocabRow(word=word, frequency=frequency, category=_map_pos(r[9]))
         wb.close()
 
 
@@ -148,11 +148,11 @@ class SubtlexUK(VocabSource):
                 word = (row.get("Spelling") or "").strip()
                 if not word:
                     continue
-                zipf_raw = row.get("LogFreq(Zipf)")
+                freq_raw = row.get("LogFreq(Zipf)")
                 try:
-                    zipf = float(zipf_raw) if zipf_raw else None
+                    frequency = float(freq_raw) if freq_raw else None
                 except ValueError:
-                    zipf = None
-                if zipf is None:
+                    frequency = None
+                if frequency is None:
                     continue
-                yield VocabRow(word=word, zipf=zipf, category=_map_pos(row.get("DomPoS")))
+                yield VocabRow(word=word, frequency=frequency, category=_map_pos(row.get("DomPoS")))

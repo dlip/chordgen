@@ -8,6 +8,11 @@ from typing import Iterator
 class VocabRow:
     """A single word entry produced by a vocab source.
 
+    `frequency` is a source-defined value where higher = more frequent.
+    SUBTLEX uses the Zipf scale (0–7); other sources may use raw counts,
+    log-counts, ranks, etc. Only relative ordering within a single
+    source matters to the pipeline.
+
     `category` is a chordgen alt category: a lowercase tag matching a
     key under `gen.alts.<category>` in config (e.g. "verb", "noun",
     "adjective", "adverb"). Empty string for words with no inflectional
@@ -16,7 +21,7 @@ class VocabRow:
     """
 
     word: str
-    zipf: float
+    frequency: float
     category: str = ""
 
 
