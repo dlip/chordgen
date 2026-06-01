@@ -133,15 +133,26 @@ class AssignmentOptions(BaseModel):
             "would cost more than this, leaving it unmatched is allowed."
         ),
     )
+    frequency_exponent: float = Field(
+        default=1.0,
+        description=(
+            "Exponent applied to each word's frequency weight before it "
+            "multiplies the chord score. The default 1.0 reproduces the "
+            "original linear cost model. Values > 1 (try 2.0 or 3.0) make "
+            "frequent words dominate the cost so the matcher won't trade a "
+            "common word's short chord to a rare word that happens to "
+            "improve the global sum slightly. Must be > 0."
+        ),
+    )
     priority_tiers: list[int] = Field(
-        default=[500, 1000],
+        default=[],
         description=(
             "Cumulative frequency-rank cutoffs for tiered assignment. The "
             "pool (already in descending-frequency order) is split at each "
             "cutoff, then each tier is solved by the optimal matcher in "
             "order, with previous tiers' chord keys reserved out. Default "
-            "[500, 1000] runs three passes: top 500 -> next 500 -> rest. "
-            "Use [] for a single global pass. Cutoffs must be strictly "
+            "[] runs a single global pass. Example [500, 1000] runs three "
+            "passes: top 500 -> next 500 -> rest. Cutoffs must be strictly "
             "increasing; values >= len(pool) are clamped."
         ),
     )
@@ -154,6 +165,13 @@ class AssignmentOptions(BaseModel):
                 raise ValueError("priority_tiers entries must be > 0")
         if any(b <= a for a, b in zip(v, v[1:])):
             raise ValueError("priority_tiers must be strictly increasing")
+        return v
+
+    @field_validator("frequency_exponent", mode="after")
+    @classmethod
+    def _validate_frequency_exponent(cls, v: float) -> float:
+        if v <= 0:
+            raise ValueError("frequency_exponent must be > 0")
         return v
 
 

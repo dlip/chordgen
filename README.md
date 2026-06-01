@@ -145,13 +145,14 @@ The pipeline runs in three phases:
    chords. Words for which every viable chord is already cheaper for
    another word are reported in the diagnostics.
 
-By default the matcher runs in tiers — it solves chord assignment for
-the top 500 most-frequent words first, then the next 500, then
-everything else, with each tier's chords reserved out of the next.
-This protects common words like `the` / `and` / `have` from being
-bumped onto longer chords by rare words competing for the same key.
-Tweak via `gen.assignment.priority_tiers` in `config.yaml`; set it to
-`[]` to fall back to a single global optimal pass.
+By default the matcher runs a single global pass that minimises total
+`score × frequency`. If you find rare words bumping common ones onto
+longer chords, set `gen.assignment.priority_tiers` in `config.yaml`
+(e.g. `[500, 1000]`) to solve in tiers — top 500 most-frequent words
+first, then the next 500, then the rest, with each tier's chords
+reserved out of the next. This protects common words like `the` /
+`and` / `have` from being out-bid by rare words competing for the
+same key.
 
 ### output
 

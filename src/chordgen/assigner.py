@@ -16,9 +16,11 @@ second and produces a globally cost-optimal assignment, replacing the
 old greedy + 2-swap + eviction phases.
 
 Cost model: cost(option, word) = option.score * weight(word), where weight
-is the parsed `frequency` column floored at min_frequency_weight. Higher
-weight = paying score hurts more, so frequent words attract low-score
-chords.
+is the parsed `frequency` column floored at min_frequency_weight and
+raised to `frequency_exponent` (default 1.0). Higher weight = paying score
+hurts more, so frequent words attract low-score chords. An exponent > 1
+sharpens that preference and discourages the matcher from trading a
+common word's short chord to a rarer competitor.
 
 When `assignment.priority_tiers` is non-empty, the pool is split into
 successive tiers by frequency rank and each tier is solved by the same
@@ -266,10 +268,11 @@ def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
     # don't apply it here.
     weights: list[float] = []
     viables: list[list[Option]] = []
+    exponent = cfg.frequency_exponent
     for chord in pool:
         v = _viable_options(chord, options.min_chord_length)
         viables.append(v)
-        weights.append(_parse_freq(chord, floor))
+        weights.append(_parse_freq(chord, floor) ** exponent)
 
     # ---- Solve each tier in turn ----------------------------------------
     holder_by_key: dict[str, str] = {}
