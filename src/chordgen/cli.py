@@ -1,12 +1,20 @@
 import logging
 import re
-from chordgen.chord import load_file, validate_chords
-import typer
 from pathlib import Path
-import jsonschema2md
 
-from chordgen.config import DEFAULT_CONFIG, Config, load_or_create_config
+import jsonschema2md
+import typer
+
+from chordgen.chord import load_file, validate_chords
+from chordgen.config import (
+    DEFAULT_CONFIG,
+    Config,
+    load_or_create_config,
+)
+from chordgen.constants import CONFIG_DIR
 from chordgen.gen import gen as run_gen
+from chordgen.vocab import SOURCES
+from chordgen.vocab.pipeline import build_chords_csv
 
 
 app = typer.Typer()
@@ -43,7 +51,58 @@ def callback(
 
 
 @app.command()
-def setup():
+def setup(
+    source: str = typer.Option(
+        "subtlex-us",
+        "--source",
+        help=f"Vocabulary source. One of: {', '.join(sorted(SOURCES))}.",
+    ),
+    size: int = typer.Option(
+        2000, "--size", help="Number of words to include in chords.csv."
+    ),
+    min_zipf: float = typer.Option(
+        3.0,
+        "--min-zipf",
+        help=(
+            "Filter words below this Zipf frequency. 3.0 ~ 1 occurrence per "
+            "million words; lower includes rarer vocabulary."
+        ),
+    ),
+    force: bool = typer.Option(
+        False,
+        "--force",
+        help="Overwrite an existing chords.csv. By default setup keeps it.",
+    ),
+):
+    """Initialise config and chords.csv.
+
+    chords.csv is generated from a frequency-ranked source (SUBTLEX by
+    default). After setup, chords.csv is yours to edit by hand; running
+    setup again without --force will not touch it.
+    """
+    chords_file = State.config.gen.file
+    if chords_file.exists() and not force:
+        print(
+            f"chords.csv already exists at {chords_file}. "
+            "Use --force to regenerate."
+        )
+        raise typer.Exit()
+
+    if source not in SOURCES:
+        print(
+            f"Unknown source '{source}'. Available: {', '.join(sorted(SOURCES))}"
+        )
+        raise typer.Abort()
+
+    cache_dir = CONFIG_DIR / "cache"
+    build_chords_csv(
+        source_name=source,
+        output_file=chords_file,
+        cache_dir=cache_dir,
+        size=size,
+        min_zipf=min_zipf,
+    )
+
     print("Setup Complete")
 
 

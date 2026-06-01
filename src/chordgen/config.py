@@ -1,7 +1,6 @@
 from pathlib import Path
 from typing import Literal
 import yaml
-import shutil
 
 from chordgen.constants import CONFIG_DIR
 from chordgen.keyboards.directional import DirectionalKeyboardOptions
@@ -55,10 +54,73 @@ class KeyboardOptions(BaseModel):
         return self._keyboard
 
 
+# Inflectional forms accepted per alt category. Each list slot maps to
+# alt1/alt2/alt3 in chords.csv (so order matters and length <= 3).
+VerbForm = Literal[
+    "3sg",       # he/she/it walks
+    "past",      # walked
+    "gerund",    # walking (present participle)
+    "ppart",     # walked / been (past participle)
+]
+NounForm = Literal["plural", "singular"]
+AdjectiveForm = Literal["comparative", "superlative"]
+AdverbForm = Literal["comparative", "superlative"]
+
+
+class _AltCategoryOptions(BaseModel):
+    enabled: bool = True
+
+
+class VerbAltOptions(_AltCategoryOptions):
+    forms: list[VerbForm] = Field(
+        default=["3sg", "past", "gerund"],
+        max_length=3,
+        description="Verb forms to fill alt1..alt3 with, in order.",
+    )
+
+
+class NounAltOptions(_AltCategoryOptions):
+    forms: list[NounForm] = Field(
+        default=["plural"],
+        max_length=3,
+        description="Noun forms to fill alt1..alt3 with, in order.",
+    )
+
+
+class AdjectiveAltOptions(_AltCategoryOptions):
+    forms: list[AdjectiveForm] = Field(
+        default=["comparative", "superlative"],
+        max_length=3,
+        description="Adjective forms to fill alt1..alt3 with, in order.",
+    )
+
+
+class AdverbAltOptions(_AltCategoryOptions):
+    # No reliable adverb inflector in pattern.en; forms is empty by
+    # default so enabling this category is a no-op until an inflector
+    # is registered.
+    forms: list[AdverbForm] = Field(
+        default=[],
+        max_length=3,
+        description="Adverb forms to fill alt1..alt3 with, in order.",
+    )
+
+
+class AltOptions(BaseModel):
+    overwrite: bool = Field(
+        default=False,
+        description="Overwrite existing alt1/alt2/alt3 values in chords.csv. By default, non-empty alt slots are preserved.",
+    )
+    verb: VerbAltOptions = VerbAltOptions()
+    noun: NounAltOptions = NounAltOptions()
+    adjective: AdjectiveAltOptions = AdjectiveAltOptions()
+    adverb: AdverbAltOptions = AdverbAltOptions()
+
+
 class GenOptions(BaseModel):
     file: File = DEFAULT_CHORDS_FILE
     keyboard: KeyboardOptions = KeyboardOptions()
-    overwrite_alts: bool = False
+    alts: AltOptions = AltOptions()
     min_word_length: int = 3
     min_chord_length: int = Field(
         default=0,
@@ -69,15 +131,6 @@ class GenOptions(BaseModel):
     @classmethod
     def ensure_parent_dir(cls, v: Path):
         v.parent.mkdir(parents=True, exist_ok=True)
-        return v
-
-    @field_validator("file", mode="after")
-    @classmethod
-    def create_file(cls, v: Path):
-        if not v.exists():
-            here = Path(__file__).resolve().parent
-            source = here / "assets" / "chords.csv"
-            shutil.copyfile(source, v)
         return v
 
 
