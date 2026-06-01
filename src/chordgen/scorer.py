@@ -10,7 +10,9 @@ class Scorer:
         self._keyboard = options.keyboard.get_keyboard()
 
     def score(self, chord: Chord) -> Chord:
-        if chord["reserved_chord"]:
+        # Reserved row: user has pinned a chord by hand on a row with no
+        # frequency value. Skip option generation.
+        if chord["chord"] and not chord.get("frequency"):
             return chord
 
         if len(chord["word"]) < self._options.min_word_length:

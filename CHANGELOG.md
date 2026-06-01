@@ -23,6 +23,9 @@ it up first if you want to preserve them.
 - Added `--source` flag to choose between `subtlex-us` and `subtlex-uk`.
 - Added explicit `frequency` column to `chords.csv` (Zipf scale 0–7 for SUBTLEX
   sources). Replaces the implicit row-order frequency assumption.
+- Removed the `reserved_chord` column. To reserve a chord, set the `chord`
+  column on a row with an empty `frequency` cell — that combination is the
+  new signal for "user-pinned, leave alone". See the README for details.
 - Renamed CLI flag `--min-zipf` → `--min-frequency`.
 - Renamed `pos` column → `category` to match the alt-generator config naming.
 

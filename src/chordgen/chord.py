@@ -11,7 +11,6 @@ class Option(TypedDict):
 class Chord(TypedDict):
     word: str
     chord: str
-    reserved_chord: str
     category: str
     frequency: str
     alt1: str

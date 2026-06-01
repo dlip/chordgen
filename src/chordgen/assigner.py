@@ -2,7 +2,8 @@
 
 Pipeline (called by gen.py after Scorer has populated `options` per row):
 
-  Phase A — Reserved chords:    apply user-pinned reserved_chord values.
+  Phase A — Reserved chords:    apply user-pinned chords (rows with a chord
+                                 set and no frequency value).
   Phase B — Greedy:              frequency-weighted greedy assignment with
                                  contention-aware tie-breaking.
   Phase C — 2-swap local search: pairwise swap until no improvement.
@@ -58,6 +59,16 @@ def _viable_options(chord: Chord, min_chord_length: int) -> list[Option]:
     return [o for o in opts if len(o["chord"]) >= min_chord_length]
 
 
+def _is_reserved(chord: Chord) -> bool:
+    """A row is user-reserved if it has a chord pinned by hand.
+
+    Setup writes `frequency` for every generated row; a hand-edited row
+    won't have it. So `chord` set with empty `frequency` is the signal
+    that the user wants this chord pinned.
+    """
+    return bool(chord.get("chord")) and not chord.get("frequency")
+
+
 def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
     report = AssignmentReport()
     cfg = options.assignment
@@ -66,11 +77,12 @@ def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
     # ---- Phase A: reserved chords ----------------------------------------
     used: dict[str, Chord] = {}  # sorted_chord -> chord row holding it
     for chord in chords:
-        reserved = chord.get("reserved_chord") or ""
-        if not reserved:
+        if not _is_reserved(chord):
+            # Clear any chord left over from a previous gen run so the
+            # row is eligible for reassignment.
+            chord["chord"] = ""
             continue
-        chord["chord"] = reserved
-        sorted_key = _sorted_key(reserved)
+        sorted_key = _sorted_key(chord["chord"])
         if sorted_key in used:
             raise Exception(
                 f"Reserved chord for word {chord['word']} already used "
@@ -97,7 +109,7 @@ def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
         seen_words.add(word)
         if len(word) < options.min_word_length:
             continue
-        if chord.get("reserved_chord"):
+        if _is_reserved(chord):
             # Reserved row keeps its chord; its alts still cover other words.
             for slot in ("alt1", "alt2", "alt3"):
                 alt = (chord.get(slot) or "").strip().lower()
@@ -230,9 +242,8 @@ def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
         # Rebuild `used` so the eviction phase below sees a consistent view.
         used = {}
         for chord in chords:
-            reserved = chord.get("reserved_chord") or ""
-            if reserved:
-                used[_sorted_key(reserved)] = chord
+            if _is_reserved(chord):
+                used[_sorted_key(chord["chord"])] = chord
         for cid, opt in placed.items():
             used[_sorted_key(opt["chord"])] = cid_to_row[cid]
 
@@ -261,7 +272,7 @@ def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
                 holder = used.get(key)
                 if holder is None:
                     continue
-                if holder.get("reserved_chord"):
+                if _is_reserved(holder):
                     continue
                 cid_h = id(holder)
                 if cid_h not in placed:

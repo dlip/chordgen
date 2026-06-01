@@ -11,7 +11,6 @@ from chordgen.vocab import SOURCES, VocabRow, VocabSource
 _FIELDNAMES = [
     "word",
     "chord",
-    "reserved_chord",
     "category",
     "frequency",
     "alt1",
@@ -91,7 +90,6 @@ def build_chords_csv(
                 {
                     "word": row.word,
                     "chord": "",
-                    "reserved_chord": "",
                     "category": row.category,
                     "frequency": f"{row.frequency:.2f}",
                     "alt1": "",

@@ -36,23 +36,33 @@ This is how I have set up my 4 key thumb cluster from left to right:
 
 ## Process
 
-Chordgen takes a `chords.csv` file such as the following then automatically selects the best chords for your keyboard and layout, then adds alternate chords depending on what type of word it is. You can reserve chords if you want to use a particular chord for a word too.
+Chordgen takes a `chords.csv` file such as the following then automatically selects the best chords for your keyboard and layout, then adds alternate chords depending on what type of word it is.
 
-| word | chord | reserved_chord | type  | alt1 | alt2 | alt3 |
-| ---- | ----- | -------------- | ----- | ---- | ---- | ---- |
-| the  |       |                | DET   |      |      |      |
-| and  |       |                | CCONJ |      |      |      |
-| have |       |                | VERB  |      |      |      |
+| word | chord | category | frequency | alt1 | alt2 | alt3 |
+| ---- | ----- | -------- | --------- | ---- | ---- | ---- |
+| the  |       | det      | 7.40      |      |      |      |
+| and  |       | cconj    | 7.18      |      |      |      |
+| have |       | verb     | 6.78      |      |      |      |
 
 Automatically becomes
 
-| word | chord | reserved_chord | type  | alt1 | alt2 | alt3   |
-| ---- | ----- | -------------- | ----- | ---- | ---- | ------ |
-| the  | t     |                | DET   |      |      |        |
-| and  | a     |                | CCONJ |      |      |        |
-| have | h     |                | VERB  | has  | had  | having |
+| word | chord | category | frequency | alt1 | alt2 | alt3   |
+| ---- | ----- | -------- | --------- | ---- | ---- | ------ |
+| the  | t     | det      | 7.40      |      |      |        |
+| and  | a     | cconj    | 7.18      |      |      |        |
+| have | h     | verb     | 6.78      | has  | had  | having |
 
 This file is then used to output to a format that can be used by various programmable keyboards, or even software remapping with Kanata
+
+### Reserving a chord
+
+If you want to pin a particular chord to a word, add a row by hand with the `chord` column filled in and the `frequency` column **left empty**. An empty `frequency` is the signal that the row was added by you, so `gen` will keep your chord exactly as written and just generate alts for it. For example:
+
+| word  | chord | category | frequency | alt1 | alt2 | alt3 |
+| ----- | ----- | -------- | --------- | ---- | ---- | ---- |
+| email | em    | noun     |           |      |      |      |
+
+To re-pin a word that already has a generated chord, just clear its `frequency` cell and edit the `chord`.
 
 ## Installation
 
