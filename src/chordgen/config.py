@@ -133,6 +133,28 @@ class AssignmentOptions(BaseModel):
             "would cost more than this, leaving it unmatched is allowed."
         ),
     )
+    priority_tiers: list[int] = Field(
+        default=[500, 1000],
+        description=(
+            "Cumulative frequency-rank cutoffs for tiered assignment. The "
+            "pool (already in descending-frequency order) is split at each "
+            "cutoff, then each tier is solved by the optimal matcher in "
+            "order, with previous tiers' chord keys reserved out. Default "
+            "[500, 1000] runs three passes: top 500 -> next 500 -> rest. "
+            "Use [] for a single global pass. Cutoffs must be strictly "
+            "increasing; values >= len(pool) are clamped."
+        ),
+    )
+
+    @field_validator("priority_tiers", mode="after")
+    @classmethod
+    def _validate_tiers(cls, v: list[int]) -> list[int]:
+        for n in v:
+            if n <= 0:
+                raise ValueError("priority_tiers entries must be > 0")
+        if any(b <= a for a, b in zip(v, v[1:])):
+            raise ValueError("priority_tiers must be strictly increasing")
+        return v
 
 
 class GenOptions(BaseModel):

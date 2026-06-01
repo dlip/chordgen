@@ -19,6 +19,11 @@ Cost model: cost(option, word) = option.score * weight(word), where weight
 is the parsed `frequency` column floored at min_frequency_weight. Higher
 weight = paying score hurts more, so frequent words attract low-score
 chords.
+
+When `assignment.priority_tiers` is non-empty, the pool is split into
+successive tiers by frequency rank and each tier is solved by the same
+matcher in order, with previous tiers' chord keys reserved out. This
+protects frequent words from being out-bid by the long tail.
 """
 
 from __future__ import annotations
@@ -69,6 +74,127 @@ def _is_reserved(chord: Chord) -> bool:
     that the user wants this chord pinned.
     """
     return bool(chord.get("chord")) and not chord.get("frequency")
+
+
+def _split_into_tiers(
+    pool: list[Chord], cutoffs: list[int]
+) -> list[tuple[int, int]]:
+    """Return [(start, end), ...] slice bounds for each successive tier.
+
+    Empty `cutoffs` returns a single (0, len(pool)) tier (single global
+    pass). Cutoffs are clamped to len(pool); empty tiers are skipped by
+    the caller.
+    """
+    if not cutoffs:
+        return [(0, len(pool))]
+    bounds = [0] + [min(c, len(pool)) for c in cutoffs] + [len(pool)]
+    return [(bounds[i], bounds[i + 1]) for i in range(len(bounds) - 1)]
+
+
+def _solve_pool(
+    pool: list[Chord],
+    viables: list[list[Option]],
+    weights: list[float],
+    start: int,
+    end: int,
+    reserved_keys: set[str],
+    options: GenOptions,
+    report: AssignmentReport,
+    holder_by_key: dict[str, str],
+    tier_label: str,
+) -> None:
+    """Build + solve the matching for pool[start:end], applying picks in place.
+
+    `reserved_keys` is mutated: every chord key picked in this tier is
+    added to it so subsequent tiers won't reuse it.
+    `holder_by_key` is also mutated for diagnostics continuity.
+    """
+    cfg = options.assignment
+
+    n_rows = end - start
+    if n_rows == 0:
+        return
+
+    # Re-filter each row's viables against the *current* reserved_keys
+    # (later tiers see earlier tiers' claims, plus user pins).
+    tier_viables: list[list[Option]] = []
+    for i in range(start, end):
+        v = [o for o in viables[i] if _sorted_key(o["chord"]) not in reserved_keys]
+        tier_viables.append(v)
+
+    # Map each distinct viable sorted-key to a column index.
+    key_to_col: dict[str, int] = {}
+    for v in tier_viables:
+        for opt in v:
+            key = _sorted_key(opt["chord"])
+            if key not in key_to_col:
+                key_to_col[key] = len(key_to_col)
+    n_chord_cols = len(key_to_col)
+    n_cols = n_chord_cols + n_rows  # + per-row slack columns
+
+    # Build COO arrays.
+    # scipy's matcher requires a 0-cost edge to be representable; it
+    # treats *missing* entries as +inf and *explicit zeros* as zero cost.
+    # We'll add a tiny epsilon so genuine zero scores stay distinguishable
+    # from missing edges.
+    eps = 1e-9
+    row_idx: list[int] = []
+    col_idx: list[int] = []
+    data: list[float] = []
+    edge_option: dict[tuple[int, int], Option] = {}
+
+    for r, v in enumerate(tier_viables):
+        w = weights[start + r]
+        # Real chord edges. If the same sorted-key appears more than once
+        # for a single word (different orderings score the same key),
+        # keep the cheaper.
+        best_for_col: dict[int, Option] = {}
+        for opt in v:
+            c = key_to_col[_sorted_key(opt["chord"])]
+            prev = best_for_col.get(c)
+            if prev is None or opt["score"] < prev["score"]:
+                best_for_col[c] = opt
+        for c, opt in best_for_col.items():
+            row_idx.append(r)
+            col_idx.append(c)
+            cost = opt["score"] * w + eps
+            data.append(cost)
+            edge_option[(r, c)] = opt
+        # Slack edge for this row.
+        slack_col = n_chord_cols + r
+        row_idx.append(r)
+        col_idx.append(slack_col)
+        data.append(cfg.unmatched_penalty * w + eps)
+
+    biadjacency = csr_matrix(
+        (np.asarray(data, dtype=np.float64), (row_idx, col_idx)),
+        shape=(n_rows, n_cols),
+    )
+
+    matched_rows, matched_cols = min_weight_full_bipartite_matching(biadjacency)
+
+    matched_count = 0
+    unmatched_count = 0
+    tier_cost = 0.0
+    for r, c in zip(matched_rows, matched_cols):
+        chord = pool[start + r]
+        if c >= n_chord_cols:
+            report.no_options.append(chord["word"].lower())
+            unmatched_count += 1
+            continue
+        opt = edge_option[(r, c)]
+        chord["chord"] = opt["chord"]
+        key = _sorted_key(opt["chord"])
+        tier_cost += opt["score"] * weights[start + r]
+        holder_by_key[key] = chord["word"].lower()
+        reserved_keys.add(key)
+        matched_count += 1
+
+    report.cost += tier_cost
+    print(
+        f"{tier_label}: {matched_count} matched, {unmatched_count} unmatched, "
+        f"cost={tier_cost:.1f}"
+    )
 
 
 def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
@@ -135,89 +261,37 @@ def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
         _print_diagnostics(report, skipped_alt_covered, [], [], {})
         return report
 
-    # ---- Build sparse cost matrix ----------------------------------------
-    # Rows = words in the pool (one per word).
-    # Cols = (distinct sorted-chord keys) ++ (one slack column per row).
-    # Slack columns are diagonal (row i can only match its own slack), so
-    # the matching always exists even if some words have no viable chord.
-
+    # ---- Build per-row viables / weights once over the full pool --------
+    # Reserved-key filtering happens per-tier inside _solve_pool, so we
+    # don't apply it here.
     weights: list[float] = []
     viables: list[list[Option]] = []
     for chord in pool:
         v = _viable_options(chord, options.min_chord_length)
-        # Exclude options that collide with a user-pinned chord.
-        v = [o for o in v if _sorted_key(o["chord"]) not in reserved_keys]
         viables.append(v)
         weights.append(_parse_freq(chord, floor))
 
-    # Map each distinct viable sorted-key to a column index.
-    key_to_col: dict[str, int] = {}
-    for v in viables:
-        for opt in v:
-            key = _sorted_key(opt["chord"])
-            if key not in key_to_col:
-                key_to_col[key] = len(key_to_col)
-    n_chord_cols = len(key_to_col)
-    n_rows = len(pool)
-    n_cols = n_chord_cols + n_rows  # + per-row slack columns
-
-    # Build COO arrays.
-    # scipy's matcher requires a 0-cost edge to be representable; it
-    # treats *missing* entries as +inf and *explicit zeros* as zero cost.
-    # We'll add a tiny epsilon so genuine zero scores stay distinguishable
-    # from missing edges.
-    eps = 1e-9
-    row_idx: list[int] = []
-    col_idx: list[int] = []
-    data: list[float] = []
-    # Track which option each (row, col) edge corresponds to.
-    edge_option: dict[tuple[int, int], Option] = {}
-
-    for r, (v, w) in enumerate(zip(viables, weights)):
-        # Real chord edges.
-        # If the same sorted-key appears more than once for a single word
-        # (different orderings score the same key), keep the cheaper.
-        best_for_col: dict[int, Option] = {}
-        for opt in v:
-            c = key_to_col[_sorted_key(opt["chord"])]
-            prev = best_for_col.get(c)
-            if prev is None or opt["score"] < prev["score"]:
-                best_for_col[c] = opt
-        for c, opt in best_for_col.items():
-            row_idx.append(r)
-            col_idx.append(c)
-            cost = opt["score"] * w + eps
-            data.append(cost)
-            edge_option[(r, c)] = opt
-        # Slack edge for this row.
-        slack_col = n_chord_cols + r
-        row_idx.append(r)
-        col_idx.append(slack_col)
-        data.append(cfg.unmatched_penalty * w + eps)
-
-    biadjacency = csr_matrix(
-        (np.asarray(data, dtype=np.float64), (row_idx, col_idx)),
-        shape=(n_rows, n_cols),
-    )
-
-    # ---- Solve ----------------------------------------------------------
-    matched_rows, matched_cols = min_weight_full_bipartite_matching(biadjacency)
-
-    # ---- Apply results --------------------------------------------------
-    cost_total = 0.0
-    holder_by_key: dict[str, str] = {}  # for diagnostics
-    for r, c in zip(matched_rows, matched_cols):
-        chord = pool[r]
-        if c >= n_chord_cols:
-            # Took the slack edge: no chord for this word.
-            report.no_options.append(chord["word"].lower())
+    # ---- Solve each tier in turn ----------------------------------------
+    holder_by_key: dict[str, str] = {}
+    tier_bounds = _split_into_tiers(pool, list(cfg.priority_tiers))
+    n_tiers = len(tier_bounds)
+    for i, (start, end) in enumerate(tier_bounds):
+        if start == end:
             continue
-        opt = edge_option[(r, c)]
-        chord["chord"] = opt["chord"]
-        cost_total += opt["score"] * weights[r]
-        holder_by_key[_sorted_key(opt["chord"])] = chord["word"].lower()
+        tier_label = f"Tier {i + 1}/{n_tiers} (n={end - start})"
+        _solve_pool(
+            pool,
+            viables,
+            weights,
+            start,
+            end,
+            reserved_keys,
+            options,
+            report,
+            holder_by_key,
+            tier_label,
+        )
 
-    report.cost = cost_total
     _print_diagnostics(report, skipped_alt_covered, pool, viables, holder_by_key)
     return report
 
