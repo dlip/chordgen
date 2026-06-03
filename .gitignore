@@ -10,3 +10,13 @@ __pycache__
 /kanata_chords.kbd
 /training.txt
 /.trae
+# Devenv
+.devenv*
+devenv.local.nix
+devenv.local.yaml
+
+# direnv
+.direnv
+
+# pre-commit
+.pre-commit-config.yaml

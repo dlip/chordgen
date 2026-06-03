@@ -273,3 +273,33 @@ Plain-text drill file for typing-practice tools like [Monkeytype](https://monkey
 the and you have that for with this not but
 t   a   y   h    th   f   w    ti   n   b
 ```
+
+## Development
+
+### Clone the repo
+
+```sh
+git clone https://github.com/dlip/chordgen.git
+cd chordgen
+```
+
+### Nix
+
+- Install [Nix](https://nixos.org/download/) or use NixOS
+- Add `devenv` to your packages
+- Run `devenv shell` or use the [shell hook](https://devenv.sh/auto-activation/)
+
+### Non-nix
+
+- Install [Python 3.11.15](https://www.python.org/downloads/release/python-31115/)
+- Install UV
+
+```sh
+pip install uv
+```
+
+### Running
+
+```sh
+uv run chordgen --help
+```
