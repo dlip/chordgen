@@ -183,7 +183,7 @@ class GenOptions(BaseModel):
     min_word_length: int = 3
     min_chord_length: int = Field(
         default=0,
-        description="The minimum lenth a chord, setting this to 2 and disabling the chord key is a way to avoid needing a chord key. This works well on CharaChorder, but you will need to lower the chord timeout to avoid missfires on other keyboards.",
+        description="The minimum length a chord, setting this to 2 and disabling the chord key is a way to avoid needing a chord key. This works well on CharaChorder, but you will need to lower the chord timeout to avoid missfires on other keyboards.",
     )
 
     @field_validator("file", mode="after")
