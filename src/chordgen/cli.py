@@ -146,7 +146,7 @@ def schema():
     pattern = r"/(?:Users|home)/[^/]+/"
     md = re.sub(pattern, "~/", md)
 
-    with open("schema.md", "w") as f:
+    with open("docs/schema.md", "w") as f:
         f.write(md)
 
 

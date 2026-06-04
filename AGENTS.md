@@ -15,7 +15,7 @@ Minimal guidance for agents working in this repo.
   - `keyboards/` — standard and directional keyboard models
   - `config.py` — pydantic schema for `~/.config/chordgen/config.yaml`
   - `chord.py` — `Chord` TypedDict (the row shape of `chords.csv`)
-- `schema.md` — generated config schema docs
+- `docs/schema.md` — generated config schema docs
 
 ## Conventions
 

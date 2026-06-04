@@ -66,5 +66,7 @@ nav:
       - Kanata: output-formats/kanata.md
       - CharaChorder: output-formats/charachorder.md
       - Training file: output-formats/training.md
-  - Configuration: configuration.md
+  - Configuration:
+      - configuration.md
+      - Schema: schema.md
   - Changelog: changelog.md
