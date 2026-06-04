@@ -17,6 +17,22 @@ This will re-download the frequency list and regenerate `chords.csv` with the
 new columns. Any manual edits to the previous `chords.csv` will be lost — back
 it up first if you want to preserve them.
 
+### Train mode
+
+- New `chordgen train` command — an interactive Textual-based TUI that
+  drills your chords as a typing-practice session.
+- Words flow horizontally across the screen with the chord shown
+  directly beneath each word. Mastered words (correct N times in a
+  row) hide their chord until you make a mistake on them again.
+- Spaced-repetition scheduling persists per-word state to
+  `~/.config/chordgen/progress.json` after each completed session.
+- Sessions are fixed-length and report WPM on completion. WPM starts
+  counting from the first keystroke. Press any key to start a new
+  session, or `Esc` / `Ctrl+C` to quit.
+- New `train` block in `config.yaml`:
+  `practice_list_size` (default 10), `words_per_session` (default
+  25), `mastery_threshold` (default 3).
+
 ### Vocabulary pipeline
 
 - Replaced the bundled word list with on-demand downloads from

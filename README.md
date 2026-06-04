@@ -15,6 +15,7 @@ pip install chordgen
 chordgen setup     # downloads SUBTLEX-US, writes ~/.config/chordgen/{config.yaml, chords.csv}
 chordgen gen       # picks an optimal chord per word and fills in alts
 chordgen output    # writes firmware files for qmk / zmk / kanata / charachorder + training.txt
+chordgen train     # interactive TUI to drill chords with spaced repetition
 ```
 
 Edit `~/.config/chordgen/chords.csv` (remove words you don't want, pin
@@ -273,6 +274,46 @@ Plain-text drill file for typing-practice tools like [Monkeytype](https://monkey
 the and you have that for with this not but
 t   a   y   h    th   f   w    ti   n   b
 ```
+
+### train
+
+Interactive typing-practice TUI that drills your chords using a simple
+spaced repetition system (SRS). Words flow horizontally across the
+screen — type each word followed by a space, and the next one is
+appended.
+
+- Words are picked first from those overdue in the SRS schedule, then
+  by descending frequency for new words.
+- New / learning words show their chord directly under the word.
+  Once a word is "mastered" (correct N times in a row, configurable
+  via `train.mastery_threshold`) the chord is hidden until you make a
+  mistake on it again.
+- Any mistake during a word counts as a failed attempt — the SRS
+  resets that word's streak and reschedules it.
+- Sessions are a fixed length (`train.words_per_session`, default 25).
+  WPM starts counting on your first keystroke and is reported at the
+  end of the session, after which any key starts a new session.
+- Progress is persisted to `~/.config/chordgen/progress.json` only at
+  the end of each completed session. Press `Esc` or `Ctrl+C` at any
+  time to quit (without saving the in-flight session).
+
+Useful keys during a session:
+
+| Key              | Action                          |
+| ---------------- | ------------------------------- |
+| any letter       | type next character of the word |
+| `Space`          | commit a fully-typed word       |
+| `Backspace`      | undo last letter                |
+| `Ctrl+W`         | clear the current word  (I recommend binding alt/ctrl backspace in your terminal to this and making a dedicated key on your keybord if it is programmable)         |
+| `Esc` / `Ctrl+C` | quit the trainer                |
+
+Relevant `config.yaml` knobs (under `train`):
+
+| Key                  | Default | Purpose                                                       |
+| -------------------- | ------- | ------------------------------------------------------------- |
+| `practice_list_size` | 10      | Number of words shown on screen at once.                      |
+| `words_per_session`  | 25      | Number of words committed before the session ends.            |
+| `mastery_threshold`  | 3       | Consecutive correct attempts after which the chord is hidden. |
 
 ## Development
 
