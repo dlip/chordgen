@@ -30,6 +30,7 @@ from chordgen.srs import (
     save_progress,
     slow_threshold_wpm,
 )
+from chordgen.keyboard_view import render_keyboard
 
 
 # ---------------------------------------------------------------------------
@@ -106,12 +107,14 @@ class TrainApp(App):
         self,
         chords: list[dict[str, Any]],
         config: Any,
+        keyboard_layout: list[list[str]] | None = None,
         initial_theme: str | None = None,
         on_theme_change: Any = None,
     ) -> None:
         super().__init__()
         self.chords_map = {c["word"]: c for c in chords if c["chord"]}
         self.config = config
+        self.keyboard_layout = keyboard_layout
         self._initial_theme = initial_theme
         self._on_theme_change = on_theme_change
         self.progress: ProgressFile = load_progress()
@@ -569,6 +572,20 @@ class TrainApp(App):
         rendered.append("\n")
         rendered.append_text(chord_line)
         rendered.append_text(progress_text)
+
+        # ASCII keyboard view. Highlight the chord keys only when the
+        # current word's chord is actually being shown above (i.e.
+        # chord_strings[0] is non-empty).
+        if self.keyboard_layout is not None:
+            highlights: set[str] = set()
+            current_chord = chord_strings[0] if chord_strings else ""
+            if current_chord:
+                highlights = set(current_chord)
+            kb = render_keyboard(self.keyboard_layout, highlights)
+            if kb.plain:
+                rendered.append("\n\n")
+                rendered.append_text(kb)
+
         widget.update(rendered)
 
     def chord_for_word(self, word: str, is_current: bool) -> str:

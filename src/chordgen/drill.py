@@ -28,6 +28,7 @@ from textual.reactive import reactive
 from textual.widgets import Footer, Header, Static
 
 from chordgen.srs import get_card, load_progress
+from chordgen.keyboard_view import render_keyboard
 
 
 class WordDisplay(Static):
@@ -49,12 +50,14 @@ class DrillApp(App):
         self,
         chords: list[dict[str, Any]],
         config: Any,
+        keyboard_layout: list[list[str]] | None = None,
         initial_theme: str | None = None,
         on_theme_change: Any = None,
     ) -> None:
         super().__init__()
         self.chords_map = {c["word"]: c for c in chords if c["chord"]}
         self.config = config
+        self.keyboard_layout = keyboard_layout
         self._initial_theme = initial_theme
         self._on_theme_change = on_theme_change
         progress = load_progress()
@@ -379,6 +382,19 @@ class DrillApp(App):
         rendered.append("\n")
         rendered.append_text(chord_line)
         rendered.append_text(progress_text)
+
+        # ASCII keyboard view. Drill only reveals chords after a
+        # mistake, so highlights mirror that rule.
+        if self.keyboard_layout is not None:
+            highlights: set[str] = set()
+            current_chord = chord_strings[0] if chord_strings else ""
+            if current_chord:
+                highlights = set(current_chord)
+            kb = render_keyboard(self.keyboard_layout, highlights)
+            if kb.plain:
+                rendered.append("\n\n")
+                rendered.append_text(kb)
+
         widget.update(rendered)
 
     def _time_remaining(self) -> float:

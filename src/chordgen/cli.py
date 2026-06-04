@@ -18,6 +18,7 @@ from chordgen.vocab import SOURCES
 from chordgen.vocab.pipeline import build_chords_csv
 from chordgen.train import TrainApp
 from chordgen.drill import DrillApp
+from chordgen.keyboard_view import resolve_standard_layout
 
 
 
@@ -156,6 +157,7 @@ def train():
     app = TrainApp(
         chords,
         State.config.train,
+        keyboard_layout=resolve_standard_layout(State.config),
         initial_theme=State.config.theme,
         on_theme_change=_persist_theme,
     )
@@ -169,6 +171,7 @@ def drill():
     app = DrillApp(
         chords,
         State.config.drill,
+        keyboard_layout=resolve_standard_layout(State.config),
         initial_theme=State.config.theme,
         on_theme_change=_persist_theme,
     )
