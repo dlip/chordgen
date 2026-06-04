@@ -285,16 +285,26 @@ learning / relearning steps. Words flow horizontally across the
 screen — type each word followed by a space, and the next one is
 appended.
 
+The session model mirrors Anki: each calendar day has a budget of
+`new_words_per_day` brand-new words and `reviews_per_day` overdue
+reviews. The session ends when the budget is empty and any in-flight
+learning words have graduated.
+
 - Words are picked first from cards that are overdue in the FSRS
   schedule (sorted by retrievability), then from words your typing
   speed has flagged as slow, then by descending frequency for words
-  you've never seen.
+  you've never seen. Each bucket is capped by the day's remaining
+  review / new budget.
 - New / learning words show their chord directly under the word.
   Once a word has graduated to FSRS Review state and accumulated
   `train.mastery_threshold` total reviews, the chord is hidden until
   you lapse on it again.
 - Any mistake during a word grades the review as `Again`, sending the
-  card back into the learning queue.
+  card back into the learning queue. An `Again` on a card already in
+  Review counts as a *lapse*; words that accumulate
+  `train.leech_threshold` lapses are flagged as **leeches** in the
+  session summary so you can re-pin or revise the chord in
+  `chords.csv`.
 - Per-word speed grading: the WPM of each clean word is compared to a
   rolling median of recent samples. Words below
   `train.slow_wpm_fraction` of the median are graded `Hard` (instead
@@ -304,15 +314,17 @@ appended.
 - When a word is rescheduled mid-session it's appended to the tail of
   the visible queue rather than inserted right after the current word,
   so the next word doesn't flip under your fingers.
-- A session ends after `train.words_per_session` graduations (cards
-  reaching Review state). The summary reports WPM, the failed words,
-  and the slowest words.
 - Under the chord row you'll see three Anki-style counts of the
   on-screen queue: blue = new, red = learning / relearning, green =
   graduated.
-- Progress is persisted to `~/.config/chordgen/progress.json` only at
-  the end of each completed session. Press `Esc` or `Ctrl+C` at any
-  time to quit (without saving the in-flight session).
+- Progress is persisted to `~/.config/chordgen/progress.json` after
+  every word commit, so quitting mid-session never loses your daily
+  counters or FSRS state. Press `Esc` or `Ctrl+C` at any time to quit.
+- Once the day's quota is exhausted you land on a "No more words due
+  today!" screen — there's no per-session summary, because the train
+  mode is about long-term retention rather than speed tests. For
+  speed practice on words you already know, use the separate
+  [`chordgen drill`](#drill) mode below.
 
 Useful keys during a session:
 
@@ -326,15 +338,47 @@ Useful keys during a session:
 
 Relevant `config.yaml` knobs (under `train`):
 
+| Key                  | Default | Purpose                                                                                |
+| -------------------- | ------- | -------------------------------------------------------------------------------------- |
+| `practice_list_size` | 10      | Number of words shown on screen at once.                                               |
+| `new_words_per_day`  | 10      | Daily cap on brand-new words introduced (Anki-style).                                  |
+| `reviews_per_day`    | 200     | Daily cap on overdue / re-drilled review words surfaced.                               |
+| `leech_threshold`    | 8       | Lapses (Again on a graduated card) before a word is flagged as a leech. 0 to disable.  |
+| `mastery_threshold`  | 3       | Total FSRS reviews before the chord is hidden for a graduated word.                    |
+| `relearn_steps`      | 3       | Number of FSRS relearning steps after a lapse (in-session re-drills).                  |
+| `target_retention`   | 0.9     | FSRS desired retention rate; affects long-term interval lengths.                       |
+| `slow_wpm_fraction`  | 0.7     | Fraction of the rolling-median WPM under which a word is graded `Hard`.                |
+| `slow_min_samples`   | 20      | Minimum WPM samples collected before slow-grading kicks in.                            |
+
+### drill
+
+Speed-drill TUI for words you've already learned. Drill mode is
+**read-only** — it doesn't touch FSRS state, lapse counters, or
+daily quotas. Use it as a warm-up or to benchmark your typing speed
+against the chords you already know.
+
+- The word pool is restricted to words whose FSRS card is in
+  Review state (i.e. graduated through the train mode). If no
+  graduated words exist yet, drill prompts you to run
+  `chordgen train` first.
+- Words are picked by random shuffle from that pool.
+- A drill ends after a fixed number of words (`drill.mode = count`,
+  using `drill.count`) or after a fixed amount of time
+  (`drill.mode = time`, using `drill.time_seconds`). The default is
+  a 30-second timed drill.
+- The summary screen reports WPM, accuracy (correct / total), the
+  failed words, and the slowest words from the run. Press `Tab` to
+  start another drill (Tab also restarts mid-drill if you want to
+  bail out), or `Esc` / `Ctrl+C` to quit.
+
+Relevant `config.yaml` knobs (under `drill`):
+
 | Key                  | Default | Purpose                                                                       |
 | -------------------- | ------- | ----------------------------------------------------------------------------- |
 | `practice_list_size` | 10      | Number of words shown on screen at once.                                      |
-| `words_per_session`  | 25      | Number of word *graduations* before the session ends.                         |
-| `mastery_threshold`  | 3       | Total FSRS reviews before the chord is hidden for a graduated word.           |
-| `relearn_steps`      | 3       | Number of FSRS relearning steps after a lapse (in-session re-drills).         |
-| `target_retention`   | 0.9     | FSRS desired retention rate; affects long-term interval lengths.              |
-| `slow_wpm_fraction`  | 0.7     | Fraction of the rolling-median WPM under which a word is graded `Hard`.       |
-| `slow_min_samples`   | 20      | Minimum WPM samples collected before slow-grading kicks in.                   |
+| `mode`               | `time`  | `count` ends after a fixed number of words; `time` ends after a fixed timer.  |
+| `count`              | 25      | Words to drill when `mode = count`.                                           |
+| `time_seconds`       | 30      | Drill length in seconds when `mode = time`.                                   |
 
 ## Development
 

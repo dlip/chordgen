@@ -9,6 +9,10 @@ The FSRS state machine itself (Learning -> Review -> Relearning,
 stability, difficulty, retrievability) is delegated entirely to the
 library — we only persist its serialisable form and decide how it
 maps onto our session UX.
+
+In addition to FSRS state, this module tracks Anki-style daily
+quotas (new cards introduced and reviews answered per calendar day)
+and a per-word lapse counter for leech detection.
 """
 
 from __future__ import annotations
@@ -20,17 +24,19 @@ from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import TypedDict
 
-from fsrs import Card, Rating, Scheduler
+from fsrs import Card, Rating, Scheduler, State
 
 from chordgen.constants import CONFIG_DIR
 
 
 PROGRESS_FILE: Path = CONFIG_DIR / "progress.json"
 
-# Bumped from the legacy correct-streak schema. Anything older is
-# wiped on first load — the user has not started using the trainer
-# with persisted state, so no migration is needed.
-PROGRESS_VERSION = 2
+# Bumped from v2 to add daily quotas (new_count / review_count keyed
+# on calendar date) and per-word lapse tracking. Files with a
+# different version are wiped on first load — the user has not
+# started using the trainer with persisted state yet, so no migration
+# is needed.
+PROGRESS_VERSION = 3
 
 SPEED_SAMPLES_CAP = 200
 WPM_EWMA_ALPHA = 0.3
@@ -39,17 +45,40 @@ WPM_EWMA_ALPHA = 0.3
 class WordProgress(TypedDict):
     card: dict
     reps: int
+    lapses: int
     wpm_ewma: float | None
+    last_seen_date: str | None
+
+
+class DailyState(TypedDict):
+    date: str
+    new_count: int
+    review_count: int
 
 
 class ProgressFile(TypedDict):
     version: int
     speed_samples: list[float]
+    daily: DailyState
     words: dict[str, WordProgress]
 
 
+def _today_iso(when: datetime | None = None) -> str:
+    when = datetime.now(timezone.utc) if when is None else when
+    return when.date().isoformat()
+
+
+def _empty_daily(when: datetime | None = None) -> DailyState:
+    return {"date": _today_iso(when), "new_count": 0, "review_count": 0}
+
+
 def _empty() -> ProgressFile:
-    return {"version": PROGRESS_VERSION, "speed_samples": [], "words": {}}
+    return {
+        "version": PROGRESS_VERSION,
+        "speed_samples": [],
+        "daily": _empty_daily(),
+        "words": {},
+    }
 
 
 def load_progress() -> ProgressFile:
@@ -72,6 +101,7 @@ def load_progress() -> ProgressFile:
 
     raw.setdefault("speed_samples", [])
     raw.setdefault("words", {})
+    raw.setdefault("daily", _empty_daily())
     return raw  # type: ignore[return-value]
 
 
@@ -117,25 +147,57 @@ def get_card(progress: ProgressFile, word: str) -> Card | None:
     return Card.from_dict(entry["card"])
 
 
-def _store_card(
-    progress: ProgressFile,
-    word: str,
-    card: Card,
-    reps: int,
-    wpm_ewma: float | None,
-) -> None:
-    progress["words"][word] = {
-        "card": card.to_dict(),
-        "reps": reps,
-        "wpm_ewma": wpm_ewma,
-    }
-
-
 def get_reps(progress: ProgressFile, word: str) -> int:
     entry = progress["words"].get(word)
     if entry is None:
         return 0
     return int(entry.get("reps", 0))
+
+
+def get_lapses(progress: ProgressFile, word: str) -> int:
+    entry = progress["words"].get(word)
+    if entry is None:
+        return 0
+    return int(entry.get("lapses", 0))
+
+
+def is_leech(progress: ProgressFile, word: str, threshold: int) -> bool:
+    """Derived flag — a word is a leech once its lapse count reaches
+    ``threshold``. Threshold is read from config so we don't persist
+    the boolean."""
+    return get_lapses(progress, word) >= threshold
+
+
+# ---------------------------------------------------------------------------
+# Daily quotas
+# ---------------------------------------------------------------------------
+
+
+def _ensure_daily_for(
+    progress: ProgressFile, when: datetime
+) -> DailyState:
+    """Reset the daily block if the calendar date has rolled over."""
+    today = _today_iso(when)
+    daily = progress.get("daily")
+    if daily is None or daily.get("date") != today:
+        progress["daily"] = _empty_daily(when)
+    return progress["daily"]
+
+
+def daily_budget(
+    progress: ProgressFile,
+    new_words_per_day: int,
+    reviews_per_day: int,
+    when: datetime | None = None,
+) -> tuple[int, int]:
+    """Return ``(new_remaining, review_remaining)`` for today,
+    rolling over the daily counters if the date has changed."""
+    when = datetime.now(timezone.utc) if when is None else when
+    daily = _ensure_daily_for(progress, when)
+    return (
+        max(0, int(new_words_per_day) - int(daily["new_count"])),
+        max(0, int(reviews_per_day) - int(daily["review_count"])),
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -151,15 +213,35 @@ def record_review(
     word_wpm: float | None,
     now: datetime | None = None,
 ) -> Card:
-    """Apply ``scheduler.review_card`` to ``word`` and update speed
-    tracking. Returns the resulting card so the caller can read its
-    ``state`` to decide whether to re-drill in the current session."""
+    """Apply ``scheduler.review_card`` to ``word`` and update speed,
+    lapse, and daily-quota tracking. Returns the resulting card so
+    the caller can read its ``state`` to decide whether to re-drill
+    in the current session."""
     when = datetime.now(timezone.utc) if now is None else now
+    today = _today_iso(when)
+    daily = _ensure_daily_for(progress, when)
 
     existing = progress["words"].get(word)
+    card_was_none = existing is None
     card = Card.from_dict(existing["card"]) if existing else Card()
+    prev_state = card.state if existing else None
     card, _log = scheduler.review_card(card, rating, review_datetime=when)
 
+    # Daily counters: count the first commit of the day per word.
+    last_seen = existing.get("last_seen_date") if existing else None
+    if last_seen != today:
+        if card_was_none:
+            daily["new_count"] += 1
+        else:
+            daily["review_count"] += 1
+
+    # Lapse tracking — only count Again on a card already in Review.
+    prev_lapses = int(existing.get("lapses", 0)) if existing else 0
+    new_lapses = prev_lapses + (
+        1 if rating == Rating.Again and prev_state == State.Review else 0
+    )
+
+    # Reps + per-word EWMA + global speed sample.
     prev_reps = int(existing.get("reps", 0)) if existing else 0
     new_reps = prev_reps + 1
     prev_ewma: float | None = existing.get("wpm_ewma") if existing else None
@@ -177,7 +259,13 @@ def record_review(
     else:
         new_ewma = prev_ewma
 
-    _store_card(progress, word, card, new_reps, new_ewma)
+    progress["words"][word] = {
+        "card": card.to_dict(),
+        "reps": new_reps,
+        "lapses": new_lapses,
+        "wpm_ewma": new_ewma,
+        "last_seen_date": today,
+    }
     return card
 
 

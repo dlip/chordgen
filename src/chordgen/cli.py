@@ -10,12 +10,14 @@ from chordgen.config import (
     DEFAULT_CONFIG,
     Config,
     load_or_create_config,
+    save_config,
 )
 from chordgen.constants import CONFIG_DIR
 from chordgen.gen import gen as run_gen
 from chordgen.vocab import SOURCES
 from chordgen.vocab.pipeline import build_chords_csv
 from chordgen.train import TrainApp
+from chordgen.drill import DrillApp
 
 
 
@@ -24,6 +26,7 @@ app = typer.Typer()
 
 class State:
     config: Config
+    config_path: Path
 
 
 @app.callback()
@@ -50,6 +53,16 @@ def callback(
             raise typer.Abort()
 
     State.config = loaded_config
+    State.config_path = config
+
+
+def _persist_theme(theme: str) -> None:
+    """Persist the user's currently-selected Textual theme back to
+    ``config.yaml`` so it sticks across runs."""
+    if State.config.theme == theme:
+        return
+    State.config.theme = theme
+    save_config(State.config, State.config_path)
 
 
 @app.command()
@@ -140,7 +153,25 @@ def schema():
 def train():
     """Practice chording with a TUI."""
     chords = load_file(State.config.gen.file)
-    app = TrainApp(chords, State.config.train)
+    app = TrainApp(
+        chords,
+        State.config.train,
+        initial_theme=State.config.theme,
+        on_theme_change=_persist_theme,
+    )
+    app.run()
+
+
+@app.command()
+def drill():
+    """Speed-drill on graduated words (no FSRS state changes)."""
+    chords = load_file(State.config.gen.file)
+    app = DrillApp(
+        chords,
+        State.config.drill,
+        initial_theme=State.config.theme,
+        on_theme_change=_persist_theme,
+    )
     app.run()
 
 

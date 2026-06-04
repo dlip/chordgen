@@ -20,7 +20,32 @@ DEFAULT_CHORDS_FILE = CONFIG_DIR / "chords.csv"
 
 class TrainOptions(BaseModel):
     practice_list_size: int = 10
-    words_per_session: int = 25
+    new_words_per_day: int = Field(
+        default=10,
+        description=(
+            "Maximum number of brand-new words introduced per "
+            "calendar day, inspired by Anki's 'new cards per day' "
+            "setting. Once the day's quota is exhausted no more new "
+            "words are added until tomorrow."
+        ),
+    )
+    reviews_per_day: int = Field(
+        default=200,
+        description=(
+            "Maximum number of overdue / re-drilled review words "
+            "surfaced per calendar day. Prevents a long absence from "
+            "dumping the entire backlog at once."
+        ),
+    )
+    leech_threshold: int = Field(
+        default=8,
+        description=(
+            "Number of lapses (Again ratings on a graduated word) "
+            "after which a word is considered a 'leech' and called "
+            "out in the session summary. Set to 0 to disable leech "
+            "detection."
+        ),
+    )
     mastery_threshold: int = Field(
         default=3,
         description=(
@@ -62,6 +87,34 @@ class TrainOptions(BaseModel):
             "Minimum number of recorded per-word WPM samples before "
             "slow grading activates. Until this is reached all "
             "correct words are graded 'good'."
+        ),
+    )
+
+
+class DrillOptions(BaseModel):
+    practice_list_size: int = Field(
+        default=10,
+        description="Number of words shown on screen at once during a drill.",
+    )
+    mode: Literal["count", "time"] = Field(
+        default="time",
+        description=(
+            "How a drill session ends: 'count' stops after a fixed "
+            "number of words, 'time' stops when the timer runs out."
+        ),
+    )
+    count: int = Field(
+        default=25,
+        description=(
+            "Number of words drilled when ``mode = count``. "
+            "Ignored when ``mode = time``."
+        ),
+    )
+    time_seconds: int = Field(
+        default=30,
+        description=(
+            "Duration of the drill in seconds when ``mode = time``. "
+            "Ignored when ``mode = count``."
         ),
     )
 
@@ -245,6 +298,21 @@ class Config(BaseModel):
     gen: GenOptions = GenOptions()
     output: OutputOptions = OutputOptions()
     train: TrainOptions = TrainOptions()
+    drill: DrillOptions = DrillOptions()
+    theme: str = Field(
+        default="textual-dark",
+        description=(
+            "Textual theme used by the train and drill TUIs. Updated "
+            "automatically when you change the theme via the in-app "
+            "command palette (Ctrl+P)."
+        ),
+    )
+
+
+def save_config(config: "Config", config_file: Path = DEFAULT_CONFIG) -> None:
+    """Persist ``config`` back to ``config_file``."""
+    config_file.parent.mkdir(parents=True, exist_ok=True)
+    config_file.write_text(yaml.safe_dump(config.model_dump()))
 
 
 def load_or_create_config(config_file: Path = DEFAULT_CONFIG) -> Config:

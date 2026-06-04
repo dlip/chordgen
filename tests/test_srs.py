@@ -28,28 +28,26 @@ def scheduler():
 # ---------------------------------------------------------------------------
 
 
-def test_load_progress_missing_file_returns_empty_v2(progress_file):
+def test_load_progress_missing_file_returns_empty_v3(progress_file):
     progress = srs.load_progress()
-    assert progress == {
-        "version": 2,
-        "speed_samples": [],
-        "words": {},
-    }
+    assert progress["version"] == 3
+    assert progress["speed_samples"] == []
+    assert progress["words"] == {}
+    assert progress["daily"]["new_count"] == 0
+    assert progress["daily"]["review_count"] == 0
 
 
 def test_load_progress_drops_legacy_file_with_wrong_version(progress_file):
     legacy = {
-        "the": {
-            "correct_in_a_row": 3,
-            "last_practiced": 0,
-            "next_practice_due": 0,
-        }
+        "version": 2,
+        "speed_samples": [40.0],
+        "words": {"the": {"card": {}, "reps": 1, "wpm_ewma": 40.0}},
     }
     progress_file.write_text(json.dumps(legacy))
 
     progress = srs.load_progress()
 
-    assert progress["version"] == 2
+    assert progress["version"] == 3
     assert progress["words"] == {}
     assert progress["speed_samples"] == []
     # The bad file should be removed from disk.
@@ -63,8 +61,11 @@ def test_save_then_load_round_trips(progress_file, scheduler):
 
     reloaded = srs.load_progress()
     assert reloaded["words"]["the"]["reps"] == 1
+    assert reloaded["words"]["the"]["lapses"] == 0
     assert reloaded["words"]["the"]["wpm_ewma"] == 50.0
     assert reloaded["speed_samples"] == [50.0]
+    assert reloaded["daily"]["new_count"] == 1
+    assert reloaded["daily"]["review_count"] == 0
 
 
 # ---------------------------------------------------------------------------
@@ -153,3 +154,111 @@ def test_slow_threshold_is_fraction_of_median():
 def test_slow_threshold_returns_none_when_fraction_zero():
     progress = {"version": 2, "speed_samples": [40.0] * 30, "words": {}}
     assert srs.slow_threshold_wpm(progress, 0.0, min_samples=20) is None
+
+
+# ---------------------------------------------------------------------------
+# Daily quotas
+# ---------------------------------------------------------------------------
+
+
+def test_daily_budget_initially_full(progress_file):
+    progress = srs.load_progress()
+    new_left, review_left = srs.daily_budget(progress, 10, 200)
+    assert new_left == 10
+    assert review_left == 200
+
+
+def test_record_review_increments_new_count_for_first_seen(
+    progress_file, scheduler
+):
+    progress = srs.load_progress()
+    srs.record_review(progress, scheduler, "hello", Rating.Good, None)
+    assert progress["daily"]["new_count"] == 1
+    assert progress["daily"]["review_count"] == 0
+
+
+def test_record_review_increments_review_on_next_day(
+    progress_file, scheduler
+):
+    progress = srs.load_progress()
+    today = datetime.now(timezone.utc)
+    srs.record_review(progress, scheduler, "hello", Rating.Good, None, now=today)
+    # Roll the date forward; same-card review should now count as review.
+    tomorrow = today + timedelta(days=2)
+    srs.record_review(
+        progress, scheduler, "hello", Rating.Good, None, now=tomorrow
+    )
+    assert progress["daily"]["date"] == tomorrow.date().isoformat()
+    assert progress["daily"]["new_count"] == 0
+    assert progress["daily"]["review_count"] == 1
+
+
+def test_record_review_does_not_double_count_same_day(
+    progress_file, scheduler
+):
+    progress = srs.load_progress()
+    srs.record_review(progress, scheduler, "hello", Rating.Good, None)
+    # In-session re-drill of the same word doesn't increment again.
+    srs.record_review(progress, scheduler, "hello", Rating.Again, None)
+    assert progress["daily"]["new_count"] == 1
+    assert progress["daily"]["review_count"] == 0
+
+
+def test_daily_budget_clamps_to_zero_when_overshot(progress_file, scheduler):
+    progress = srs.load_progress()
+    for i in range(15):
+        srs.record_review(progress, scheduler, f"w{i}", Rating.Good, None)
+    new_left, _ = srs.daily_budget(progress, 10, 200)
+    assert new_left == 0
+
+
+# ---------------------------------------------------------------------------
+# Lapses / leeches
+# ---------------------------------------------------------------------------
+
+
+def test_record_review_increments_lapses_only_on_review_lapse(
+    progress_file, scheduler
+):
+    progress = srs.load_progress()
+    # Graduate.
+    srs.record_review(progress, scheduler, "hello", Rating.Good, None)
+    assert srs.get_lapses(progress, "hello") == 0
+
+    # Lapse from Review state.
+    later = datetime.now(timezone.utc) + timedelta(days=2)
+    srs.record_review(
+        progress, scheduler, "hello", Rating.Again, None, now=later
+    )
+    assert srs.get_lapses(progress, "hello") == 1
+
+    # Again while still in Relearning is *not* a fresh lapse.
+    srs.record_review(
+        progress, scheduler, "hello", Rating.Again, None, now=later
+    )
+    assert srs.get_lapses(progress, "hello") == 1
+
+
+def test_is_leech_triggers_at_threshold(progress_file, scheduler):
+    progress = srs.load_progress()
+    srs.record_review(progress, scheduler, "hello", Rating.Good, None)
+
+    when = datetime.now(timezone.utc)
+    for i in range(3):
+        when = when + timedelta(days=2)
+        srs.record_review(
+            progress, scheduler, "hello", Rating.Again, None, now=when
+        )
+        # bring it back to Review so the next Again counts as a lapse
+        when = when + timedelta(minutes=10)
+        srs.record_review(
+            progress, scheduler, "hello", Rating.Good, None, now=when
+        )
+        when = when + timedelta(minutes=10)
+        srs.record_review(
+            progress, scheduler, "hello", Rating.Good, None, now=when
+        )
+
+    assert srs.get_lapses(progress, "hello") >= 3
+    assert srs.is_leech(progress, "hello", threshold=3)
+    assert not srs.is_leech(progress, "hello", threshold=99)
