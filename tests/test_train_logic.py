@@ -2,8 +2,6 @@
 
 from __future__ import annotations
 
-import random
-
 import pytest
 from fsrs import Rating
 
@@ -47,17 +45,12 @@ def test_decide_rating_at_or_above_threshold_yields_good():
 # ---------------------------------------------------------------------------
 
 
-def test_reinsertion_offset_again_in_2_to_4():
-    rng = random.Random(0)
-    for _ in range(50):
-        offset = reinsertion_offset(Rating.Again, rng)
-        assert 2 <= offset <= 4
-
-
-def test_reinsertion_offset_non_again_returns_5():
-    rng = random.Random(0)
-    assert reinsertion_offset(Rating.Hard, rng) == 5
-    assert reinsertion_offset(Rating.Good, rng) == 5
+def test_reinsertion_offset_appends_to_tail():
+    # Index returned should equal queue length so list.insert places
+    # the word at the very end of the visible queue.
+    for queue_len in [0, 1, 5, 9]:
+        for rating in (Rating.Again, Rating.Hard, Rating.Good):
+            assert reinsertion_offset(rating, queue_len) == queue_len
 
 
 # ---------------------------------------------------------------------------

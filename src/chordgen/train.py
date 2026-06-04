@@ -8,7 +8,6 @@ chooses what to put on screen for the next session.
 
 from __future__ import annotations
 
-import random
 import time
 from datetime import datetime, timezone
 from typing import Any
@@ -57,15 +56,19 @@ def decide_rating(
     return Rating.Good
 
 
-def reinsertion_offset(rating: Rating, rng: random.Random) -> int:
-    """Return how many positions ahead a non-graduated word should be
-    re-inserted in the practice queue.
+def reinsertion_offset(rating: Rating, queue_len: int) -> int:
+    """Return the index where a non-graduated word should be re-inserted
+    in the practice queue.
 
-    AGAIN words come back sooner (2-4 slots ahead) so the user gets
-    immediate retry. Other re-drills land further out (~5)."""
-    if rating == Rating.Again:
-        return rng.randint(2, 4)
-    return 5
+    The word is always appended to the tail of the visible queue so the
+    user has time to react to the change rather than seeing the next
+    word flip instantly. ``queue_len`` is the length of the queue
+    *after* popping the just-completed word.
+
+    The ``rating`` argument is kept for API stability and future tuning.
+    """
+    del rating  # currently unused; kept for stable signature
+    return queue_len
 
 
 def compute_word_wpm(elapsed_seconds: float, word_len: int) -> float | None:
@@ -107,7 +110,6 @@ class TrainApp(App):
             relearn_steps=config.relearn_steps,
             target_retention=config.target_retention,
         )
-        self.rng = random.Random()
 
         # Per-keystroke / per-word state.
         self.letter_index = 0
@@ -213,6 +215,24 @@ class TrainApp(App):
             new_words.append(w)
 
         return (overdue_words + slow_words + new_words)[:n]
+
+    def _queue_state_counts(self) -> tuple[int, int, int]:
+        """Anki-style breakdown of the on-screen queue:
+        (new, learning, review). ``new`` = no FSRS state yet,
+        ``learning`` = card in Learning/Relearning, ``review`` = card
+        already graduated to Review state."""
+        new_count = 0
+        learning_count = 0
+        review_count = 0
+        for word in self.words_to_practice:
+            card = get_card(self.progress, word)
+            if card is None:
+                new_count += 1
+            elif card.state == State.Review:
+                review_count += 1
+            else:
+                learning_count += 1
+        return new_count, learning_count, review_count
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -389,9 +409,10 @@ class TrainApp(App):
                 if more:
                     self.words_to_practice.append(more[0])
         else:
-            # Word still in Learning/Relearning — re-insert ahead.
-            offset = reinsertion_offset(rating, self.rng)
-            insert_at = min(offset, len(self.words_to_practice))
+            # Word still in Learning/Relearning — re-insert at the tail
+            # of the visible queue so the next word doesn't flip
+            # underneath the user mid-keystroke.
+            insert_at = reinsertion_offset(rating, len(self.words_to_practice))
             self.words_to_practice.insert(insert_at, word)
             if had_error and word not in self.session_failed_words:
                 self.session_failed_words.append(word)
@@ -502,10 +523,14 @@ class TrainApp(App):
             else:
                 chord_line.append(" " * col_widths[i])
 
-        progress_text = Text(
-            f"\n\n[{self.session_words_done}/{self.session_words_target}]",
-            style="dim",
-        )
+        new_count, learning_count, review_count = self._queue_state_counts()
+        progress_text = Text()
+        progress_text.append("\n\n")
+        progress_text.append(str(new_count), style="blue")
+        progress_text.append("  ")
+        progress_text.append(str(learning_count), style="red")
+        progress_text.append("  ")
+        progress_text.append(str(review_count), style="green")
 
         rendered = Text()
         rendered.append_text(line)

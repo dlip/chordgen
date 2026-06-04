@@ -277,22 +277,39 @@ t   a   y   h    th   f   w    ti   n   b
 
 ### train
 
-Interactive typing-practice TUI that drills your chords using a simple
-spaced repetition system (SRS). Words flow horizontally across the
+Interactive typing-practice TUI that drills your chords using
+spaced repetition. Long-term scheduling is backed by
+[py-fsrs](https://github.com/open-spaced-repetition/py-fsrs) (the FSRS
+algorithm); in-session repetition rides on FSRS's own
+learning / relearning steps. Words flow horizontally across the
 screen — type each word followed by a space, and the next one is
 appended.
 
-- Words are picked first from those overdue in the SRS schedule, then
-  by descending frequency for new words.
+- Words are picked first from cards that are overdue in the FSRS
+  schedule (sorted by retrievability), then from words your typing
+  speed has flagged as slow, then by descending frequency for words
+  you've never seen.
 - New / learning words show their chord directly under the word.
-  Once a word is "mastered" (correct N times in a row, configurable
-  via `train.mastery_threshold`) the chord is hidden until you make a
-  mistake on it again.
-- Any mistake during a word counts as a failed attempt — the SRS
-  resets that word's streak and reschedules it.
-- Sessions are a fixed length (`train.words_per_session`, default 25).
-  WPM starts counting on your first keystroke and is reported at the
-  end of the session, after which any key starts a new session.
+  Once a word has graduated to FSRS Review state and accumulated
+  `train.mastery_threshold` total reviews, the chord is hidden until
+  you lapse on it again.
+- Any mistake during a word grades the review as `Again`, sending the
+  card back into the learning queue.
+- Per-word speed grading: the WPM of each clean word is compared to a
+  rolling median of recent samples. Words below
+  `train.slow_wpm_fraction` of the median are graded `Hard` (instead
+  of `Good`) so FSRS schedules them sooner. The first word of a
+  session and any word that flashed red are excluded from speed
+  grading.
+- When a word is rescheduled mid-session it's appended to the tail of
+  the visible queue rather than inserted right after the current word,
+  so the next word doesn't flip under your fingers.
+- A session ends after `train.words_per_session` graduations (cards
+  reaching Review state). The summary reports WPM, the failed words,
+  and the slowest words.
+- Under the chord row you'll see three Anki-style counts of the
+  on-screen queue: blue = new, red = learning / relearning, green =
+  graduated.
 - Progress is persisted to `~/.config/chordgen/progress.json` only at
   the end of each completed session. Press `Esc` or `Ctrl+C` at any
   time to quit (without saving the in-flight session).
@@ -309,11 +326,15 @@ Useful keys during a session:
 
 Relevant `config.yaml` knobs (under `train`):
 
-| Key                  | Default | Purpose                                                       |
-| -------------------- | ------- | ------------------------------------------------------------- |
-| `practice_list_size` | 10      | Number of words shown on screen at once.                      |
-| `words_per_session`  | 25      | Number of words committed before the session ends.            |
-| `mastery_threshold`  | 3       | Consecutive correct attempts after which the chord is hidden. |
+| Key                  | Default | Purpose                                                                       |
+| -------------------- | ------- | ----------------------------------------------------------------------------- |
+| `practice_list_size` | 10      | Number of words shown on screen at once.                                      |
+| `words_per_session`  | 25      | Number of word *graduations* before the session ends.                         |
+| `mastery_threshold`  | 3       | Total FSRS reviews before the chord is hidden for a graduated word.           |
+| `relearn_steps`      | 3       | Number of FSRS relearning steps after a lapse (in-session re-drills).         |
+| `target_retention`   | 0.9     | FSRS desired retention rate; affects long-term interval lengths.              |
+| `slow_wpm_fraction`  | 0.7     | Fraction of the rolling-median WPM under which a word is graded `Hard`.       |
+| `slow_min_samples`   | 20      | Minimum WPM samples collected before slow-grading kicks in.                   |
 
 ## Development
 
