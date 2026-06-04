@@ -34,6 +34,8 @@ class TrainApp(App):
         # Session state
         self.session_words_target = self.config.words_per_session
         self.session_words_done = 0
+        self.session_words_correct = 0
+        self.session_failed_words: list[str] = []
         self.session_chars_typed = 0
         self.session_start_time: float | None = None
         self.session_finished = False
@@ -47,20 +49,25 @@ class TrainApp(App):
         )
 
     def get_words_to_practice(self, n: int) -> list[str]:
-        # Prioritize overdue words
+        # Words already on screen must never be picked again — otherwise
+        # the same overdue word is appended repeatedly during top-ups.
+        on_screen = set(self.words_to_practice)
+
+        # Prioritize overdue words.
         now = time.time()
         overdue_words = [
             word
             for word, data in self.progress.items()
-            if data["next_practice_due"] <= now and word in self.chords_map
+            if data["next_practice_due"] <= now
+            and word in self.chords_map
+            and word not in on_screen
         ]
         overdue_words.sort(key=lambda w: self.progress[w]["next_practice_due"])
 
-        # Add new words if needed
+        # Add new (never-practiced) words by frequency if we still need more.
         new_words: list[str] = []
-        already = set(overdue_words) | set(self.words_to_practice)
+        already = on_screen | set(overdue_words)
         if len(overdue_words) < n:
-            # Sort all chords by frequency (descending)
             sorted_chords = sorted(
                 self.chords_map.values(),
                 key=lambda c: float(c.get("frequency") or 0),
@@ -91,6 +98,8 @@ class TrainApp(App):
 
     def reset_session(self) -> None:
         self.session_words_done = 0
+        self.session_words_correct = 0
+        self.session_failed_words = []
         self.session_chars_typed = 0
         self.session_start_time = None
         self.session_finished = False
@@ -176,7 +185,12 @@ class TrainApp(App):
 
     def complete_current_word(self) -> None:
         word = self.words_to_practice[0]
-        update_progress(self.progress, word, not self.current_word_had_error)
+        success = not self.current_word_had_error
+        update_progress(self.progress, word, success)
+        if success:
+            self.session_words_correct += 1
+        else:
+            self.session_failed_words.append(word)
 
         self.words_to_practice.pop(0)
         # Only top up the queue if there are still words remaining in the
@@ -220,15 +234,30 @@ class TrainApp(App):
         widget = self.query_one(WordDisplay)
 
         if self.session_finished:
-            widget.update(
-                Text.from_markup(
-                    f"[b green]Session complete![/]\n\n"
-                    f"WPM: [b]{self.session_wpm:.1f}[/]\n"
-                    f"Words: [b]{self.session_words_done}[/]\n\n"
-                    f"[dim]Press any key to start a new session "
-                    f"(Esc to quit).[/]"
-                )
+            summary = Text()
+            summary.append("Session complete!\n\n", style="bold green")
+            summary.append("WPM: ")
+            summary.append(f"{self.session_wpm:.1f}\n", style="bold")
+            summary.append("Successful: ")
+            summary.append(
+                f"{self.session_words_correct}/{self.session_words_done}\n",
+                style="bold",
             )
+            if self.session_failed_words:
+                summary.append("\nFailed words:\n", style="bold")
+                parts: list[str] = []
+                for w in self.session_failed_words:
+                    chord = ""
+                    row = self.chords_map.get(w)
+                    if row is not None:
+                        chord = row.get("chord") or ""
+                    parts.append(f"{w} ({chord})" if chord else w)
+                summary.append(" ".join(parts) + "\n", style="red")
+            summary.append(
+                "\nPress any key to start a new session (Esc to quit).",
+                style="dim",
+            )
+            widget.update(summary)
             return
 
         if not self.words_to_practice:
