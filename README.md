@@ -268,6 +268,8 @@ Output for [CharaChorder](https://www.charachorder.com/) directional and standar
 
 #### training
 
+Note: Check the `train` command below for the new approach
+
 Plain-text drill file for typing-practice tools like [Monkeytype](https://monkeytype.com/) custom mode. Copy a line of 10 words at a time into the tool to help learn the chords:
 
 ```text
@@ -276,6 +278,8 @@ t   a   y   h    th   f   w    ti   n   b
 ```
 
 ### train
+
+![Training](./images/training.png)
 
 Interactive typing-practice TUI that drills your chords using
 spaced repetition. Long-term scheduling is backed by
