@@ -19,9 +19,12 @@ DEFAULT_CHORDS_FILE = CONFIG_DIR / "chords.csv"
 
 
 class TrainOptions(BaseModel):
-    practice_list_size: int = 10
-    new_words_per_day: int = Field(
+    show_words: int = Field(
         default=10,
+        description="Number of words shown on screen at once during training.",
+    )
+    new_words_per_day: int = Field(
+        default=20,
         description=(
             "Maximum number of brand-new words introduced per "
             "calendar day, inspired by Anki's 'new cards per day' "
@@ -92,7 +95,7 @@ class TrainOptions(BaseModel):
 
 
 class DrillOptions(BaseModel):
-    practice_list_size: int = Field(
+    show_words: int = Field(
         default=10,
         description="Number of words shown on screen at once during a drill.",
     )

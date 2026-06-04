@@ -146,7 +146,7 @@ class TrainApp(App):
     # ------------------------------------------------------------------
 
     def _initial_word_list(self) -> list[str]:
-        return self._select_words(self.config.practice_list_size)
+        return self._select_words(self.config.show_words)
 
     def _daily_budget(self) -> tuple[int, int]:
         """Daily budget *minus* what is already on the screen, so the

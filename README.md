@@ -340,8 +340,8 @@ Relevant `config.yaml` knobs (under `train`):
 
 | Key                  | Default | Purpose                                                                                |
 | -------------------- | ------- | -------------------------------------------------------------------------------------- |
-| `practice_list_size` | 10      | Number of words shown on screen at once.                                               |
-| `new_words_per_day`  | 10      | Daily cap on brand-new words introduced (Anki-style).                                  |
+| `show_words`         | 10      | Number of words shown on screen at once.                                               |
+| `new_words_per_day`  | 20      | Daily cap on brand-new words introduced (Anki-style).                                  |
 | `reviews_per_day`    | 200     | Daily cap on overdue / re-drilled review words surfaced.                               |
 | `leech_threshold`    | 8       | Lapses (Again on a graduated card) before a word is flagged as a leech. 0 to disable.  |
 | `mastery_threshold`  | 3       | Total FSRS reviews before the chord is hidden for a graduated word.                    |
@@ -366,16 +366,16 @@ against the chords you already know.
   using `drill.count`) or after a fixed amount of time
   (`drill.mode = time`, using `drill.time_seconds`). The default is
   a 30-second timed drill.
-- The summary screen reports WPM, accuracy (correct / total), the
-  failed words, and the slowest words from the run. Press `Tab` to
-  start another drill (Tab also restarts mid-drill if you want to
-  bail out), or `Esc` / `Ctrl+C` to quit.
+- The summary screen reports WPM, accuracy (correct / total), and
+  any words you fumbled. Press `Tab` to start another drill (Tab
+  also restarts mid-drill if you want to bail out), or `Esc` /
+  `Ctrl+C` to quit.
 
 Relevant `config.yaml` knobs (under `drill`):
 
 | Key                  | Default | Purpose                                                                       |
 | -------------------- | ------- | ----------------------------------------------------------------------------- |
-| `practice_list_size` | 10      | Number of words shown on screen at once.                                      |
+| `show_words`         | 10      | Number of words shown on screen at once.                                      |
 | `mode`               | `time`  | `count` ends after a fixed number of words; `time` ends after a fixed timer.  |
 | `count`              | 25      | Words to drill when `mode = count`.                                           |
 | `time_seconds`       | 30      | Drill length in seconds when `mode = time`.                                   |

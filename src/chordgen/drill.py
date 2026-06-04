@@ -10,8 +10,8 @@ fingers on the words you already know.
 Words are picked by random shuffle from the graduated pool. Each
 session ends after a fixed number of words (``drill.mode = count``)
 or a fixed amount of time (``drill.mode = time``). When the session
-finishes a summary screen reports WPM, accuracy, and the slowest
-words from the run.
+finishes a summary screen reports WPM, accuracy, and any words you
+fumbled along the way.
 """
 
 from __future__ import annotations
@@ -64,17 +64,13 @@ class DrillApp(App):
         self.letter_index = 0
         self.flashing = False
         self.current_word_had_error = False
-        self.word_first_keystroke_time: float | None = None
-        self.word_had_flash = False
 
         # Session stats.
         self.session_words_done = 0
         self.session_words_correct = 0
         self.session_failed_words: list[str] = []
-        self.session_speed_log: list[tuple[str, float]] = []
         self.session_chars_typed = 0
         self.session_start_time: float | None = None
-        self.first_word_committed = False
         self.session_finished = False
         self.session_wpm = 0.0
 
@@ -100,7 +96,7 @@ class DrillApp(App):
     def _initial_word_list(self) -> list[str]:
         if not self.graduated_pool:
             return []
-        return self._draw_random(self.config.practice_list_size)
+        return self._draw_random(self.config.show_words)
 
     def _draw_random(self, n: int) -> list[str]:
         if not self.graduated_pool:
@@ -145,15 +141,11 @@ class DrillApp(App):
         self.letter_index = 0
         self.flashing = False
         self.current_word_had_error = False
-        self.word_first_keystroke_time = None
-        self.word_had_flash = False
         self.session_words_done = 0
         self.session_words_correct = 0
         self.session_failed_words = []
-        self.session_speed_log = []
         self.session_chars_typed = 0
         self.session_start_time = None
-        self.first_word_committed = False
         self.session_finished = False
         self.session_wpm = 0.0
         # Re-load progress in case the user has just trained more
@@ -210,8 +202,6 @@ class DrillApp(App):
                 if self.session_start_time is None:
                     self.session_start_time = now
                     self._start_timer_if_needed()
-                if self.word_first_keystroke_time is None:
-                    self.word_first_keystroke_time = now
                 self.letter_index += 1
                 self.session_chars_typed += 1
                 self.update_word_display()
@@ -227,22 +217,22 @@ class DrillApp(App):
             event.stop()
 
     def _start_timer_if_needed(self) -> None:
-        if self.config.mode == "time" and self._timer_handle is None:
-            # Tick the display every second; finish when the budget
-            # is exhausted.
+        # Tick the display once a second so the timer countdown (in
+        # time mode) and the running WPM (in either mode) stay live
+        # while the user is typing.
+        if self._timer_handle is None:
             self._timer_handle = self.set_interval(1.0, self._tick)
 
     def _tick(self) -> None:
         if self.session_finished:
             return
-        if self._time_remaining() <= 0:
+        if self.config.mode == "time" and self._time_remaining() <= 0:
             self.finish_session()
         else:
             self.update_word_display()
 
     def flash_red(self) -> None:
         self.current_word_had_error = True
-        self.word_had_flash = True
         self.flashing = True
         self.update_word_display()
         self.set_timer(0.5, self.clear_flash)
@@ -258,26 +248,12 @@ class DrillApp(App):
     def complete_current_word(self) -> None:
         word = self.words_to_practice[0]
         had_error = self.current_word_had_error
-        commit_time = time.time()
-
-        word_wpm: float | None = None
-        if (
-            self.first_word_committed
-            and not had_error
-            and not self.word_had_flash
-            and self.word_first_keystroke_time is not None
-        ):
-            elapsed = commit_time - self.word_first_keystroke_time
-            if elapsed > 0:
-                word_wpm = ((len(word) + 1) / 5.0) / (elapsed / 60.0)
 
         self.session_words_done += 1
         if had_error:
             self.session_failed_words.append(word)
         else:
             self.session_words_correct += 1
-        if word_wpm is not None:
-            self.session_speed_log.append((word, word_wpm))
 
         # Pop and top up.
         self.words_to_practice.pop(0)
@@ -287,9 +263,6 @@ class DrillApp(App):
 
         self.letter_index = 0
         self.current_word_had_error = False
-        self.word_first_keystroke_time = None
-        self.word_had_flash = False
-        self.first_word_committed = True
 
         if self.config.mode == "count" and self.session_words_done >= self.config.count:
             self.finish_session()
@@ -396,10 +369,8 @@ class DrillApp(App):
         else:
             remaining = self._time_remaining()
             progress_text.append(f"{remaining:.0f}s", style="cyan")
-            progress_text.append("  ")
-            progress_text.append(
-                f"{self.session_words_done} words", style="dim"
-            )
+        progress_text.append("  ")
+        progress_text.append(f"{self._running_wpm():.0f} wpm", style="dim")
 
         rendered = Text()
         rendered.append_text(line)
@@ -415,6 +386,14 @@ class DrillApp(App):
             return float(self.config.time_seconds)
         spent = time.time() - self.session_start_time
         return max(0.0, float(self.config.time_seconds) - spent)
+
+    def _running_wpm(self) -> float:
+        if self.session_start_time is None:
+            return 0.0
+        elapsed = time.time() - self.session_start_time
+        if elapsed <= 0:
+            return 0.0
+        return (self.session_chars_typed / 5.0) / (elapsed / 60.0)
 
     def _chord_for_word(self, word: str, is_current: bool) -> str:
         # Drill mode hides chords by default — these are graduated
@@ -447,22 +426,15 @@ class DrillApp(App):
         if self.session_failed_words:
             summary.append("\nFailed words:\n", style="bold")
             parts: list[str] = []
+            seen: set[str] = set()
             for w in self.session_failed_words:
+                if w in seen:
+                    continue
+                seen.add(w)
                 row = self.chords_map.get(w)
                 chord = (row or {}).get("chord") or ""
                 parts.append(f"{w} ({chord})" if chord else w)
             summary.append(" ".join(parts) + "\n", style="red")
-
-        if self.session_speed_log:
-            slowest = sorted(self.session_speed_log, key=lambda t: t[1])[:5]
-            summary.append("\nSlowest words:\n", style="bold")
-            slow_parts: list[str] = []
-            for w, wpm in slowest:
-                row = self.chords_map.get(w)
-                chord = (row or {}).get("chord") or ""
-                head = f"{w} ({chord})" if chord else w
-                slow_parts.append(f"{head} — {wpm:.0f} wpm")
-            summary.append(", ".join(slow_parts) + "\n", style="yellow")
 
         summary.append(
             "\nPress Tab to drill again (Esc to quit).",

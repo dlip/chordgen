@@ -41,7 +41,7 @@ it up first if you want to preserve them.
 - Sessions report WPM and the slowest words on completion. Press any
   key to start a new session, or `Esc` / `Ctrl+C` to quit.
 - New `train` block in `config.yaml`:
-  `practice_list_size` (default 10), `words_per_session` (default
+  `show_words` (default 10), `words_per_session` (default
   25), `mastery_threshold` (default 3, now total FSRS reviews),
   `relearn_steps` (default 3), `target_retention` (default 0.9),
   `slow_wpm_fraction` (default 0.7), `slow_min_samples` (default 20).
