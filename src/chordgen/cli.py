@@ -15,6 +15,8 @@ from chordgen.constants import CONFIG_DIR
 from chordgen.gen import gen as run_gen
 from chordgen.vocab import SOURCES
 from chordgen.vocab.pipeline import build_chords_csv
+from chordgen.train import TrainApp
+
 
 
 app = typer.Typer()
@@ -132,6 +134,14 @@ def schema():
 
     with open("schema.md", "w") as f:
         f.write(md)
+
+
+@app.command()
+def train():
+    """Practice chording with a TUI."""
+    chords = load_file(State.config.gen.file)
+    app = TrainApp(chords, State.config.train)
+    app.run()
 
 
 if __name__ == "__main__":

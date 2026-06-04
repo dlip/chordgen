@@ -16,6 +16,8 @@ dependencies = [
     "scipy>=1.10",
     "tqdm>=4.67.3",
     "typer>=0.24.1",
+    "textual>=0.70.1",
+    "rich>=13.7.1",
 ]
 
 [project.scripts]

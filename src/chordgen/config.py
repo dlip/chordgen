@@ -18,6 +18,20 @@ DEFAULT_CONFIG = CONFIG_DIR / "config.yaml"
 DEFAULT_CHORDS_FILE = CONFIG_DIR / "chords.csv"
 
 
+class TrainOptions(BaseModel):
+    practice_list_size: int = 10
+    words_per_session: int = 25
+    mastery_threshold: int = Field(
+        default=3,
+        description=(
+            "Number of consecutive correct attempts before a word is "
+            "considered mastered and its chord is hidden during practice. "
+            "If you make a mistake on a mastered word, its chord is "
+            "revealed again for that attempt."
+        ),
+    )
+
+
 class OutputOptions(BaseModel):
     formats: list[
         Literal[
@@ -196,6 +210,7 @@ class GenOptions(BaseModel):
 class Config(BaseModel):
     gen: GenOptions = GenOptions()
     output: OutputOptions = OutputOptions()
+    train: TrainOptions = TrainOptions()
 
 
 def load_or_create_config(config_file: Path = DEFAULT_CONFIG) -> Config:
