@@ -108,6 +108,7 @@ class TrainApp(App):
         chords: list[dict[str, Any]],
         config: Any,
         keyboard_layout: list[list[str]] | None = None,
+        keyboard_kind: str = "standard",
         initial_theme: str | None = None,
         on_theme_change: Any = None,
     ) -> None:
@@ -115,6 +116,7 @@ class TrainApp(App):
         self.chords_map = {c["word"]: c for c in chords if c["chord"]}
         self.config = config
         self.keyboard_layout = keyboard_layout
+        self.keyboard_kind = keyboard_kind
         self._initial_theme = initial_theme
         self._on_theme_change = on_theme_change
         self.progress: ProgressFile = load_progress()
@@ -581,7 +583,9 @@ class TrainApp(App):
             current_chord = chord_strings[0] if chord_strings else ""
             if current_chord:
                 highlights = set(current_chord)
-            kb = render_keyboard(self.keyboard_layout, highlights)
+            kb = render_keyboard(
+                self.keyboard_layout, highlights, kind=self.keyboard_kind
+            )
             if kb.plain:
                 rendered.append("\n\n")
                 rendered.append_text(kb)

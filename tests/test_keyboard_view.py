@@ -44,3 +44,24 @@ def test_render_keyboard_unknown_keys_are_ignored():
     out = render_keyboard(QWERTY, {"§"})
     for s in out.spans:
         assert s.style != KEY_HIGHLIGHT_STYLE
+
+
+def test_render_keyboard_directional_includes_all_letters():
+    from chordgen.keyboards.directional import LAYOUTS
+
+    layout = [list(r) for r in LAYOUTS["charachorder"]]
+    out = render_keyboard(layout, set(), kind="directional").plain
+    for letter in "abcdefghijklmnopqrstuvwxyz":
+        assert letter in out, f"missing {letter!r} in directional render"
+
+
+def test_render_keyboard_directional_highlights_chord_keys():
+    from chordgen.keyboards.directional import LAYOUTS
+
+    layout = [list(r) for r in LAYOUTS["charachorder"]]
+    out = render_keyboard(layout, {"r", "n"}, kind="directional")
+    highlighted = [
+        out.plain[s.start : s.end] for s in out.spans if s.style == KEY_HIGHLIGHT_STYLE
+    ]
+    assert "r" in highlighted
+    assert "n" in highlighted

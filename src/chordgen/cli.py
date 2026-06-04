@@ -18,7 +18,7 @@ from chordgen.vocab import SOURCES
 from chordgen.vocab.pipeline import build_chords_csv
 from chordgen.train import TrainApp
 from chordgen.drill import DrillApp
-from chordgen.keyboard_view import resolve_standard_layout
+from chordgen.keyboard_view import resolve_keyboard_layout
 
 
 
@@ -154,10 +154,13 @@ def schema():
 def train():
     """Practice chording with a TUI."""
     chords = load_file(State.config.gen.file)
+    resolved = resolve_keyboard_layout(State.config)
+    keyboard_kind, keyboard_layout = resolved if resolved else ("standard", None)
     app = TrainApp(
         chords,
         State.config.train,
-        keyboard_layout=resolve_standard_layout(State.config),
+        keyboard_layout=keyboard_layout,
+        keyboard_kind=keyboard_kind,
         initial_theme=State.config.theme,
         on_theme_change=_persist_theme,
     )
@@ -168,10 +171,13 @@ def train():
 def drill():
     """Speed-drill on graduated words (no FSRS state changes)."""
     chords = load_file(State.config.gen.file)
+    resolved = resolve_keyboard_layout(State.config)
+    keyboard_kind, keyboard_layout = resolved if resolved else ("standard", None)
     app = DrillApp(
         chords,
         State.config.drill,
-        keyboard_layout=resolve_standard_layout(State.config),
+        keyboard_layout=keyboard_layout,
+        keyboard_kind=keyboard_kind,
         initial_theme=State.config.theme,
         on_theme_change=_persist_theme,
     )
