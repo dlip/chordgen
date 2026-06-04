@@ -344,3 +344,10 @@ pip install uv
 ```sh
 uv run chordgen --help
 ```
+
+### Tests
+
+```sh
+uv sync --extra dev
+uv run pytest
+```

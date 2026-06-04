@@ -24,10 +24,44 @@ class TrainOptions(BaseModel):
     mastery_threshold: int = Field(
         default=3,
         description=(
-            "Number of consecutive correct attempts before a word is "
-            "considered mastered and its chord is hidden during practice. "
-            "If you make a mistake on a mastered word, its chord is "
-            "revealed again for that attempt."
+            "Number of total FSRS reviews before a word is considered "
+            "mastered and its chord is hidden during practice. If you "
+            "make a mistake on a mastered word, its chord is revealed "
+            "again for that attempt."
+        ),
+    )
+    relearn_steps: int = Field(
+        default=3,
+        description=(
+            "Number of in-session correct repetitions a new or lapsed "
+            "word must earn before it graduates and its FSRS state is "
+            "updated. Higher values give more drilling on hard words "
+            "but slow down session progress."
+        ),
+    )
+    target_retention: float = Field(
+        default=0.9,
+        description=(
+            "FSRS desired retention probability. The next review for "
+            "each word is scheduled when its predicted recall falls "
+            "to this value."
+        ),
+    )
+    slow_wpm_fraction: float = Field(
+        default=0.7,
+        description=(
+            "A correct word counts as 'slow' (FSRS hard) when its "
+            "per-word WPM is below this fraction of the user's "
+            "rolling median per-word WPM. Set to 0 to disable slow "
+            "grading."
+        ),
+    )
+    slow_min_samples: int = Field(
+        default=20,
+        description=(
+            "Minimum number of recorded per-word WPM samples before "
+            "slow grading activates. Until this is reached all "
+            "correct words are graded 'good'."
         ),
     )
 

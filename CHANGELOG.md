@@ -22,16 +22,29 @@ it up first if you want to preserve them.
 - New `chordgen train` command — an interactive Textual-based TUI that
   drills your chords as a typing-practice session.
 - Words flow horizontally across the screen with the chord shown
-  directly beneath each word. Mastered words (correct N times in a
-  row) hide their chord until you make a mistake on them again.
-- Spaced-repetition scheduling persists per-word state to
+  directly beneath each word. Mastered words (those past the
+  `mastery_threshold` review count) hide their chord until you lapse
+  on them again.
+- Long-term scheduling is backed by [py-fsrs](https://github.com/open-spaced-repetition/py-fsrs)
+  (the FSRS algorithm). Per-word state — including FSRS card,
+  cumulative review count, and a per-word WPM EWMA — persists to
   `~/.config/chordgen/progress.json` after each completed session.
-- Sessions are fixed-length and report WPM on completion. WPM starts
-  counting from the first keystroke. Press any key to start a new
-  session, or `Esc` / `Ctrl+C` to quit.
+- In-session repetition is driven by FSRS's own learning /
+  relearning steps: words you fail (or type slowly) cycle back into
+  the queue until they graduate to Review state, at which point they
+  count toward the session goal.
+- Per-word speed grading: each word's WPM is compared to a rolling
+  median of recent samples; words below `slow_wpm_fraction` of the
+  median are graded `Hard` (instead of `Good`), nudging FSRS to
+  schedule them sooner. The first word and any word that flashed red
+  during typing are excluded from speed grading.
+- Sessions report WPM and the slowest words on completion. Press any
+  key to start a new session, or `Esc` / `Ctrl+C` to quit.
 - New `train` block in `config.yaml`:
   `practice_list_size` (default 10), `words_per_session` (default
-  25), `mastery_threshold` (default 3).
+  25), `mastery_threshold` (default 3, now total FSRS reviews),
+  `relearn_steps` (default 3), `target_retention` (default 0.9),
+  `slow_wpm_fraction` (default 0.7), `slow_min_samples` (default 20).
 
 ### Vocabulary pipeline
 
