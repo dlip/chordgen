@@ -291,7 +291,7 @@ cd chordgen
 
 ### Non-nix
 
-- Install [Python 3.11.15](https://www.python.org/downloads/release/python-31115/)
+- Install [Python 3.11.14](https://www.python.org/downloads/release/python-31114/)
 - Install UV
 
 ```sh

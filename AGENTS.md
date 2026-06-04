@@ -16,7 +16,6 @@ Minimal guidance for agents working in this repo.
   - `config.py` — pydantic schema for `~/.config/chordgen/config.yaml`
   - `chord.py` — `Chord` TypedDict (the row shape of `chords.csv`)
 - `schema.md` — generated config schema docs
-- `.trae/documents/` — design notes / plans
 
 ## Conventions
 
