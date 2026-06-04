@@ -145,9 +145,57 @@ def schema():
     md = "".join(parser.parse_schema(Config.model_json_schema()))
     pattern = r"/(?:Users|home)/[^/]+/"
     md = re.sub(pattern, "~/", md)
+    md = _yamlify_defaults(md)
 
     with open("docs/schema.md", "w") as f:
         f.write(md)
+
+
+def _yamlify_defaults(md: str) -> str:
+    """Render ``Default: `{...}` `` blobs as YAML code fences when the value
+    is a non-trivial object (dict, or list of dicts). Scalars and simple
+    arrays are left inline so the schema stays scannable."""
+    import json
+
+    import yaml
+
+    def replace(match: re.Match[str]) -> str:
+        prefix = match.group("prefix")
+        raw = match.group("value")
+        try:
+            value = json.loads(raw)
+        except json.JSONDecodeError:
+            return match.group(0)
+
+        if not _is_complex_default(value):
+            return match.group(0)
+
+        block = yaml.safe_dump(
+            value,
+            default_flow_style=False,
+            sort_keys=False,
+            allow_unicode=True,
+        ).rstrip()
+        indent = re.match(r"[ \t]*", prefix).group(0)
+        body_indent = indent + "  "
+        body = "\n".join(body_indent + line for line in block.splitlines())
+        return f"{prefix}Default:\n\n{body_indent}```yaml\n{body}\n{body_indent}```\n"
+
+    # Match lines ending in `Default: \`<json>\`.` — the trailing period and
+    # backticks are emitted by jsonschema2md.
+    pattern = re.compile(
+        r"(?P<prefix>^[ \t]*[-*] .*?)Default: `(?P<value>[^`\n]+)`\.\s*$",
+        flags=re.MULTILINE,
+    )
+    return pattern.sub(replace, md)
+
+
+def _is_complex_default(value: object) -> bool:
+    if isinstance(value, dict) and value:
+        return True
+    if isinstance(value, list) and value and any(isinstance(item, (dict, list)) for item in value):
+        return True
+    return False
 
 
 @app.command()
