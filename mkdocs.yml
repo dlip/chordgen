@@ -67,5 +67,4 @@ nav:
       - CharaChorder: output-formats/charachorder.md
       - Training file: output-formats/training.md
   - Configuration: configuration.md
-  - Development: development.md
   - Changelog: changelog.md
