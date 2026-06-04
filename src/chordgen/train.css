@@ -1,0 +1,12 @@
+#words {
+    height: 1fr;
+    content-align: center middle;
+    text-align: center;
+    padding: 1 2;
+}
+
+#input {
+    dock: bottom;
+    height: 3;
+    margin: 0 2 1 2;
+}
