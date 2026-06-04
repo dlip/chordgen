@@ -4,12 +4,8 @@ __pycache__
 \.~lock.*
 .DS_Store
 
-/qmk_chords.def
-/zmk_chords.dtsi
-/zmk_macros.dtsi
-/kanata_chords.kbd
-/training.txt
 /.trae
+/site
 # Devenv
 .devenv*
 devenv.local.nix

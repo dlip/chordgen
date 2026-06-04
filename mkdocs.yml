@@ -1,0 +1,71 @@
+site_name: chordgen
+site_description: Generate chords for your keyboard and learn them with spaced repetition.
+site_url: https://dlip.github.io/chordgen/
+repo_url: https://github.com/dlip/chordgen
+repo_name: dlip/chordgen
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.sections
+    - navigation.indexes
+    - navigation.top
+    - content.code.copy
+    - toc.follow
+  palette:
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Switch to dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: indigo
+      accent: indigo
+      toggle:
+        icon: material/weather-night
+        name: Switch to light mode
+
+markdown_extensions:
+  - admonition
+  - attr_list
+  - def_list
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+  - pymdownx.details
+  - pymdownx.highlight:
+      anchor_linenums: true
+  - pymdownx.inlinehilite
+  - pymdownx.snippets
+  - pymdownx.superfences
+  - pymdownx.tabbed:
+      alternate_style: true
+
+nav:
+  - Home: index.md
+  - Quickstart: quickstart.md
+  - Concepts:
+      - Chording approach: concepts/chording.md
+      - chords.csv: concepts/chords-csv.md
+  - Commands:
+      - setup: commands/setup.md
+      - gen: commands/gen.md
+      - output: commands/output.md
+      - train: commands/train.md
+      - drill: commands/drill.md
+  - Output formats:
+      - QMK: output-formats/qmk.md
+      - ZMK: output-formats/zmk.md
+      - Kanata: output-formats/kanata.md
+      - CharaChorder: output-formats/charachorder.md
+      - Training file: output-formats/training.md
+  - Configuration: configuration.md
+  - Development: development.md
+  - Changelog: changelog.md
