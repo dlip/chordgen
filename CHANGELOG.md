@@ -2,7 +2,23 @@
 
 ## v2.0.0
 
-Note: Introduced coding agent
+A major release that overhauls the chord-generation pipeline and
+introduces interactive practice. Highlights:
+
+- **Train mode** — a Textual TUI backed by the FSRS spaced-repetition
+  algorithm, with Anki-style daily quotas, per-word speed grading,
+  leech detection, and an ASCII keyboard view that highlights chord
+  keys.
+- **Drill mode** — a read-only speed-drill TUI for words you've
+  already graduated, with timer or word-count sessions and live WPM.
+- **Vocabulary pipeline** — on-demand SUBTLEX downloads at `setup`
+  time, with explicit `frequency` (Zipf) and `category` columns;
+  reserve a chord by leaving its `frequency` cell empty.
+- **Optimal chord assignment** — replaces the old greedy + 2-swap
+  passes with a sparse minimum-cost bipartite matcher, plus
+  alt-coverage filtering and optional frequency tiers.
+- **Redesigned alt generator** — category/inflector registry instead
+  of hard-coded UD POS tags, fully configurable from `config.yaml`.
 
 ### Upgrading
 
@@ -20,31 +36,73 @@ it up first if you want to preserve them.
 ### Train mode
 
 - New `chordgen train` command — an interactive Textual-based TUI that
-  drills your chords as a typing-practice session.
-- Words flow horizontally across the screen with the chord shown
-  directly beneath each word. Mastered words (those past the
-  `mastery_threshold` review count) hide their chord until you lapse
-  on them again.
+  drills your chords with spaced repetition. Words flow horizontally
+  across the screen; type each word followed by a space and the next
+  one is appended.
 - Long-term scheduling is backed by [py-fsrs](https://github.com/open-spaced-repetition/py-fsrs)
-  (the FSRS algorithm). Per-word state — including FSRS card,
-  cumulative review count, and a per-word WPM EWMA — persists to
-  `~/.config/chordgen/progress.json` after each completed session.
-- In-session repetition is driven by FSRS's own learning /
-  relearning steps: words you fail (or type slowly) cycle back into
-  the queue until they graduate to Review state, at which point they
-  count toward the session goal.
-- Per-word speed grading: each word's WPM is compared to a rolling
-  median of recent samples; words below `slow_wpm_fraction` of the
-  median are graded `Hard` (instead of `Good`), nudging FSRS to
-  schedule them sooner. The first word and any word that flashed red
-  during typing are excluded from speed grading.
-- Sessions report WPM and the slowest words on completion. Press any
-  key to start a new session, or `Esc` / `Ctrl+C` to quit.
-- New `train` block in `config.yaml`:
-  `show_words` (default 10), `words_per_session` (default
-  25), `mastery_threshold` (default 3, now total FSRS reviews),
+  (the FSRS algorithm). Per-word state — FSRS card, cumulative
+  review count, lapse count, last-seen date, and per-word WPM EWMA —
+  persists to `~/.config/chordgen/progress.json` after every word
+  commit, so quitting mid-session never loses progress.
+- Anki-style daily quotas: each calendar day has a budget of
+  `new_words_per_day` brand-new words and `reviews_per_day` overdue
+  reviews. Once both budgets are spent and any in-flight learning
+  words have graduated, you land on a "No more words due today!"
+  screen instead of a per-session summary.
+- Anki-style queue counts under the chord row show the on-screen
+  composition at a glance: blue = new, red = learning / relearning,
+  green = graduated.
+- New / learning words show their chord directly under the word.
+  Once a word has graduated to FSRS Review state and accumulated
+  `mastery_threshold` total reviews, the chord is hidden until you
+  lapse on it.
+- Any mistake during a word grades the review as `Again`, sending the
+  card back into the learning queue. An `Again` on a card already in
+  Review counts as a *lapse*; words that accumulate `leech_threshold`
+  lapses are flagged as **leeches** so you can re-pin or revise the
+  chord in `chords.csv`.
+- Per-word speed grading: each clean word's WPM is compared to a
+  rolling median of recent samples. Words below `slow_wpm_fraction`
+  of the median are graded `Hard` (instead of `Good`) so FSRS
+  schedules them sooner. The first word and any word that flashed
+  red are excluded from speed grading.
+- Words rescheduled mid-session are appended to the tail of the
+  visible queue rather than inserted right after the current word,
+  so the next word doesn't flip under your fingers.
+- An ASCII representation of the configured keyboard renders below
+  the word list, with the chord keys for the current word highlighted.
+  Both `standard` and `directional` keyboard types are supported.
+- The active Textual theme is persisted to `config.yaml` whenever
+  you change it from the in-app command palette (`Ctrl+P`).
+- New `train` block in `config.yaml`: `show_words` (default 10),
+  `new_words_per_day` (default 20), `reviews_per_day` (default 200),
+  `leech_threshold` (default 8), `mastery_threshold` (default 3),
   `relearn_steps` (default 3), `target_retention` (default 0.9),
   `slow_wpm_fraction` (default 0.7), `slow_min_samples` (default 20).
+- New top-level `theme` field in `config.yaml`
+  (default `"textual-dark"`).
+
+### Drill mode
+
+- New `chordgen drill` command — a read-only speed-drill TUI for
+  words you've already learned. Drill mode does **not** touch FSRS
+  state, lapse counters, or daily quotas; use it to warm up or
+  benchmark WPM against the chords you already know.
+- Word pool is restricted to cards in FSRS Review state; if no
+  graduated words exist yet, drill prompts you to run
+  `chordgen train` first. Words are sampled by random shuffle.
+- A drill ends after a fixed word count (`drill.mode = count`,
+  using `drill.count`) or a fixed timer (`drill.mode = time`, using
+  `drill.time_seconds`). Default is a 30-second timed drill.
+- Live WPM is displayed during the run. Chords stay hidden unless
+  you make a mistake, mirroring the mastered-word behaviour in
+  train mode.
+- Summary screen reports WPM, accuracy, and any failed words
+  (de-duplicated). Press `Tab` to start another drill (Tab also
+  restarts mid-drill), or `Esc` / `Ctrl+C` to quit.
+- New `drill` block in `config.yaml`: `show_words` (default 10),
+  `mode` (default `"time"`), `count` (default 25),
+  `time_seconds` (default 30).
 
 ### Vocabulary pipeline
 
@@ -86,6 +144,10 @@ it up first if you want to preserve them.
   `made` is `make`'s past tense) no longer get their own primary chord. Cycles
   in the alt graph (e.g. `could ↔ can`) are broken by keeping the
   higher-frequency word.
-- `assignment` block in `config.yaml` exposes `min_frequency_weight` and
-  `unmatched_penalty`. The previous `top_k` and `max_swap_passes` knobs were
-  removed; the matcher considers every viable option per word.
+- `assignment` block in `config.yaml` exposes `min_frequency_weight`,
+  `unmatched_penalty`, `frequency_exponent` (raise the cost weight of
+  frequent words so they aren't out-bid by rare ones), and
+  `priority_tiers` (split the pool into frequency tiers and solve
+  each in order, reserving previous-tier chords). The previous
+  `top_k` and `max_swap_passes` knobs were removed; the matcher
+  considers every viable option per word.
