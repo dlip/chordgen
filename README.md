@@ -5,9 +5,13 @@ generates chords that are optimised for your specific layout.
 
 It supports standard keyboards and directional ones such as [Harite](https://github.com/dlip/harite-v3), [CharaChorder](https://www.charachorder.com) and [Svalboard](https://svalboard.com)
 
+There is also a training mode with a full spaced-repetition implementation to help with memorizing chords
+
+![Training](./docs/images/training.png)
+
 ## Documentation
 
-Full docs live at **<https://dlip.github.io/chordgen/>**.
+Full docs live at **<https://dlip.github.io/chordgen/>**
 
 ## Quickstart
 
