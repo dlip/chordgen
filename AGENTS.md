@@ -30,7 +30,7 @@ Minimal guidance for agents working in this repo.
 - New functionality should include unit tests
 - When the user says 'shipit' you should:
   - Update user docs in /docs
-  - Update CHANGELOG.txt
+  - Update CHANGELOG.txt - assume the version in pyproject.toml is the release we are targeting
   - Ensure unit tests pass
   - Create a git commit with a brief summary
   - Push the changes
@@ -42,8 +42,3 @@ uv run chordgen setup --force   # regenerate config.yaml + chords.csv
 uv run chordgen gen             # assign chords + alts
 uv run chordgen output          # write firmware/training files
 ```
-
-## Versioning
-
-Current version: `2.0.0` (see [pyproject.toml](./pyproject.toml)). Breaking
-changes are documented in [CHANGELOG.md](./CHANGELOG.md).
