@@ -122,6 +122,24 @@ class DrillOptions(BaseModel):
     )
 
 
+class BookOptions(BaseModel):
+    wpm_window_seconds: int = Field(
+        default=30,
+        description=(
+            "Sliding window (in seconds) over which the running WPM "
+            "is computed in book mode."
+        ),
+    )
+    max_width: int = Field(
+        default=80,
+        description=(
+            "Maximum width (in characters) of the rendered text "
+            "block in book mode. Long paragraphs are wrapped to this "
+            "width."
+        ),
+    )
+
+
 class OutputOptions(BaseModel):
     formats: list[
         Literal[
@@ -302,6 +320,7 @@ class Config(BaseModel):
     output: OutputOptions = OutputOptions()
     train: TrainOptions = TrainOptions()
     drill: DrillOptions = DrillOptions()
+    book: BookOptions = BookOptions()
     theme: str = Field(
         default="textual-dark",
         description=(

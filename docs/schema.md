@@ -177,6 +177,13 @@
   time_seconds: 30
   ```
 
+- <a id="properties/book"></a>**`book`**: Refer to *[#/$defs/BookOptions](#%24defs/BookOptions)*. Default:
+
+  ```yaml
+  wpm_window_seconds: 30
+  max_width: 80
+  ```
+
 - <a id="properties/theme"></a>**`theme`** *(string)*: Textual theme used by the train and drill TUIs. Updated automatically when you change the theme via the in-app command palette (Ctrl+P). Default: `"textual-dark"`.
 ## Definitions
 
@@ -230,6 +237,9 @@
   - <a id="%24defs/AssignmentOptions/properties/frequency_exponent"></a>**`frequency_exponent`** *(number)*: Exponent applied to each word's frequency weight before it multiplies the chord score. The default 1.0 reproduces the original linear cost model. Values > 1 (try 2.0 or 3.0) make frequent words dominate the cost so the matcher won't trade a common word's short chord to a rare word that happens to improve the global sum slightly. Must be > 0. Default: `1.0`.
   - <a id="%24defs/AssignmentOptions/properties/priority_tiers"></a>**`priority_tiers`** *(array)*: Cumulative frequency-rank cutoffs for tiered assignment. The pool (already in descending-frequency order) is split at each cutoff, then each tier is solved by the optimal matcher in order, with previous tiers' chord keys reserved out. Default [] runs a single global pass. Example [500, 1000] runs three passes: top 500 -> next 500 -> rest. Cutoffs must be strictly increasing; values >= len(pool) are clamped. Default: `[]`.
     - <a id="%24defs/AssignmentOptions/properties/priority_tiers/items"></a>**Items** *(integer)*
+- <a id="%24defs/BookOptions"></a>**`BookOptions`** *(object)*
+  - <a id="%24defs/BookOptions/properties/wpm_window_seconds"></a>**`wpm_window_seconds`** *(integer)*: Sliding window (in seconds) over which the running WPM is computed in book mode. Default: `30`.
+  - <a id="%24defs/BookOptions/properties/max_width"></a>**`max_width`** *(integer)*: Maximum width (in characters) of the rendered text block in book mode. Long paragraphs are wrapped to this width. Default: `80`.
 - <a id="%24defs/CharaChorderOutput"></a>**`CharaChorderOutput`** *(object)*
   - <a id="%24defs/CharaChorderOutput/properties/file"></a>**`file`** *(string, format: path)*: Default: `"~/.config/chordgen/charachorder_chords.json"`.
 - <a id="%24defs/DirectionalKeyboardOptions"></a>**`DirectionalKeyboardOptions`** *(object)*

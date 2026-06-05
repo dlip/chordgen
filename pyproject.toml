@@ -1,6 +1,6 @@
 [project]
 name = "chordgen"
-version = "2.1.0"
+version = "2.2.0"
 description = "Chord generator to simplify typing words"
 readme = "README.md"
 authors = [
@@ -8,6 +8,8 @@ authors = [
 ]
 requires-python = ">=3.11"
 dependencies = [
+    "beautifulsoup4>=4.12",
+    "ebooklib>=0.18",
     "fsrs>=6.0.0",
     "jsonschema2md>=1.7.0",
     "openpyxl>=3.1.0",

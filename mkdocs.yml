@@ -60,6 +60,7 @@ nav:
       - output: commands/output.md
       - train: commands/train.md
       - drill: commands/drill.md
+      - book: commands/book.md
   - Output formats:
       - QMK: output-formats/qmk.md
       - ZMK: output-formats/zmk.md

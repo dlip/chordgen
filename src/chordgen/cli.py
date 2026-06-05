@@ -18,6 +18,7 @@ from chordgen.vocab import SOURCES
 from chordgen.vocab.pipeline import build_chords_csv
 from chordgen.train import TrainApp
 from chordgen.drill import DrillApp
+from chordgen.book import BookApp
 from chordgen.keyboard_view import resolve_keyboard_layout, resolve_layout_key
 
 
@@ -265,6 +266,45 @@ def drill(
         initial_theme=State.config.theme,
         on_theme_change=_persist_theme,
         custom_words=custom_words,
+    )
+    app.run()
+
+
+@app.command()
+def book(
+    path: Path = typer.Argument(
+        ..., help="Path to a book file (.txt, .md, or .epub) to type through."
+    ),
+    restart: bool = typer.Option(
+        False,
+        "--restart",
+        help="Reset the saved cursor for this book and start from the beginning.",
+    ),
+):
+    """Type through an arbitrary book.
+
+    Renders a book's text in a TUI with the user's keyboard pinned
+    to the bottom. Words for which the user has already learned a
+    chord (FSRS Review state) are highlighted; mistyping a learned
+    word reveals its chord on the keyboard. The cursor position is
+    auto-saved so you can resume next time.
+    """
+    chords = load_file(State.config.gen.file)
+    resolved = resolve_keyboard_layout(State.config)
+    keyboard_kind, keyboard_layout = resolved if resolved else ("standard", None)
+    if not path.exists():
+        print(f"Error: book file {path} does not exist")
+        raise typer.Abort()
+
+    app = BookApp(
+        chords=chords,
+        config=State.config.book,
+        path=path,
+        restart=restart,
+        keyboard_layout=keyboard_layout,
+        keyboard_kind=keyboard_kind,
+        initial_theme=State.config.theme,
+        on_theme_change=_persist_theme,
     )
     app.run()
 

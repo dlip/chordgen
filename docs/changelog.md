@@ -1,5 +1,33 @@
 # Changelog
 
+## v2.2.0
+
+- **New `book` mode.** `chordgen book PATH` lets you type your way
+  through an arbitrary book (`.txt`, `.md`, or `.epub`). The TUI
+  shows a window of the text centred on the cursor, your keyboard
+  layout pinned to the bottom, and a sliding-window WPM (default
+  last 30 seconds, configurable via `book.wpm_window_seconds`).
+  Words for which the user has already learned a chord (FSRS
+  Review state) are highlighted in yellow; mistyping a learned
+  word reveals its chord and lights up the chord keys on the
+  keyboard view, mirroring drill mode's reveal-on-stumble UX.
+  Cursor position is auto-saved per-book to
+  `~/.config/chordgen/books.json` so re-running `chordgen book
+  <path>` resumes where you left off (`--restart` to start over).
+  Navigation: `←`/`→` move by word, `↑`/`↓` by paragraph,
+  `PgUp`/`PgDn` by half a screen-page. Adds `ebooklib` and
+  `beautifulsoup4` as dependencies.
+- **Line-based rendering.** The book view now scrolls by line
+  rather than by word. The cursor's line stays vertically centred
+  with as many previous and following lines as fit on screen, and
+  text is wrapped to a configurable `book.max_width` (default 80
+  columns).
+- **Typeable-character normalisation.** Smart quotes, em/en
+  dashes, ligatures, accented Latin (à, é, ñ, ç, æ, œ, ß, …) and
+  miscellaneous symbols (™, …, •, ©, ®, °, ×, ÷) are folded to
+  their plain ASCII equivalents on load so books typed on a basic
+  QWERTY layout never get stuck on an untypeable glyph.
+
 ## v2.1.0
 
 - **Drill mode now accepts arbitrary words.** Pass words as
