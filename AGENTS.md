@@ -27,6 +27,13 @@ Minimal guidance for agents working in this repo.
   SUBTLEX). Don't assume Zipf in code — treat it as a float.
 - Alt generation must run before chord assignment in `gen.py` so the assigner
   can see alt-coverage relationships.
+- New functionality should include unit tests
+- When the user says 'shipit' you should:
+  - Update user docs in /docs
+  - Update CHANGELOG.txt
+  - Ensure unit tests pass
+  - Create a git commit with a brief summary
+  - Push the changes
 
 ## Common commands
 

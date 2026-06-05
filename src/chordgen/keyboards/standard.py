@@ -176,6 +176,11 @@ class StandardKeyboardOptions(BaseModel):
         "____",
     ]
 
+    custom_layout_name: str = Field(
+        default="custom",
+        description="Display name used for a custom layout in places like the drill score leaderboard. Only meaningful when layout='custom'.",
+    )
+
     effort_map: list[str] = [
         "965446",
         "732116",

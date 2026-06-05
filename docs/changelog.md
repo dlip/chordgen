@@ -13,6 +13,20 @@
   horizontally centred on screen. The underline cursor between the
   word and its chord has been removed so the chord sits directly
   beneath the word. The keyboard view stays at the bottom.
+- **Drill personal-best leaderboard.** Each completed drill records
+  its WPM into a per-keyboard-layout top-5 leaderboard stored in
+  `~/.config/chordgen/scores.json`. The drill summary screen shows
+  the current layout's top scores (with dates) and tags new entries
+  as `(new personal best!)`. The leaderboard is keyed by
+  `<keyboard-type>:<layout>`; for `layout = custom` it uses the new
+  `gen.keyboard.<type>.custom_layout_name` field (default `custom`)
+  so multiple custom layouts can have separate scoreboards. Stored
+  separately from `progress.json` so high-scores survive FSRS schema
+  migrations.
+- **Failed words captured at first mistype.** Drill mode records a
+  word as failed the moment you mistype it, rather than when the
+  word completes. This means a word the user was stuck on when the
+  timer expires now correctly shows up in the failed-words list.
 
 ## v2.0.0
 

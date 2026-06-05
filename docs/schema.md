@@ -18,6 +18,7 @@
       - _X__X_
       - X_XX_X
       - _X__X_
+      custom_layout_name: custom
       directional_change_penalty: 2
       effort_map:
       - '040030020020'
@@ -36,6 +37,7 @@
       - _asdfghjkl;_
       - _zxcvbnm,./_
       - ____
+      custom_layout_name: custom
       effort_map:
       - '965446'
       - '732116'
@@ -235,6 +237,7 @@
   - <a id="%24defs/DirectionalKeyboardOptions/properties/directional_change_penalty"></a>**`directional_change_penalty`** *(integer)*: A penalty to add when chords have different directions per finger on the same hand. Can be set to -1 to disable this type of chord. Default: `2`.
   - <a id="%24defs/DirectionalKeyboardOptions/properties/custom_layout"></a>**`custom_layout`** *(array)*: Default: `["_X__X__X__X__X__X__X__X_", "X_XX_XX_XX_XX_XX_XX_XX_X", "_X__X__X__X__X__X__X__X_", "_X__X_", "X_XX_X", "_X__X_", "_X__X_", "X_XX_X", "_X__X_"]`.
     - <a id="%24defs/DirectionalKeyboardOptions/properties/custom_layout/items"></a>**Items** *(string)*
+  - <a id="%24defs/DirectionalKeyboardOptions/properties/custom_layout_name"></a>**`custom_layout_name`** *(string)*: Display name used for a custom layout in places like the drill score leaderboard. Only meaningful when layout='custom'. Default: `"custom"`.
   - <a id="%24defs/DirectionalKeyboardOptions/properties/effort_map"></a>**`effort_map`** *(array)*: Default: `["040030020020", "695594493493", "030020010010", "030", "192", "040", "030", "192", "040"]`.
     - <a id="%24defs/DirectionalKeyboardOptions/properties/effort_map/items"></a>**Items** *(string)*
 - <a id="%24defs/DrillOptions"></a>**`DrillOptions`** *(object)*
@@ -254,6 +257,7 @@
       - _asdfghjkl;_
       - _zxcvbnm,./_
       - ____
+      custom_layout_name: custom
       effort_map:
       - '965446'
       - '732116'
@@ -274,6 +278,7 @@
       - _X__X_
       - X_XX_X
       - _X__X_
+      custom_layout_name: custom
       directional_change_penalty: 2
       effort_map:
       - '040030020020'
@@ -353,6 +358,7 @@
     - _asdfghjkl;_
     - _zxcvbnm,./_
     - ____
+    custom_layout_name: custom
     effort_map:
     - '965446'
     - '732116'
@@ -375,6 +381,7 @@
     - _X__X_
     - X_XX_X
     - _X__X_
+    custom_layout_name: custom
     effort_map:
     - '040030020020'
     - '695594493493'
@@ -513,6 +520,7 @@
   - <a id="%24defs/StandardKeyboardOptions/properties/same_row_chord_penalty"></a>**`same_row_chord_penalty`** *(integer)*: A penalty to add when pressing 2 keys and the same time with the same finger in the same row. Can be set to -1 to disable this type of chord. Default: `2`.
   - <a id="%24defs/StandardKeyboardOptions/properties/custom_layout"></a>**`custom_layout`** *(array)*: Default: `["_qwertyuiop_", "_asdfghjkl;_", "_zxcvbnm,./_", "____"]`.
     - <a id="%24defs/StandardKeyboardOptions/properties/custom_layout/items"></a>**Items** *(string)*
+  - <a id="%24defs/StandardKeyboardOptions/properties/custom_layout_name"></a>**`custom_layout_name`** *(string)*: Display name used for a custom layout in places like the drill score leaderboard. Only meaningful when layout='custom'. Default: `"custom"`.
   - <a id="%24defs/StandardKeyboardOptions/properties/effort_map"></a>**`effort_map`** *(array)*: Default: `["965446", "732116", "865536", "43"]`.
     - <a id="%24defs/StandardKeyboardOptions/properties/effort_map/items"></a>**Items** *(string)*
 - <a id="%24defs/TrainOptions"></a>**`TrainOptions`** *(object)*

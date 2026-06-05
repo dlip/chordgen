@@ -18,7 +18,7 @@ from chordgen.vocab import SOURCES
 from chordgen.vocab.pipeline import build_chords_csv
 from chordgen.train import TrainApp
 from chordgen.drill import DrillApp
-from chordgen.keyboard_view import resolve_keyboard_layout
+from chordgen.keyboard_view import resolve_keyboard_layout, resolve_layout_key
 
 
 
@@ -261,6 +261,7 @@ def drill(
         State.config.drill,
         keyboard_layout=keyboard_layout,
         keyboard_kind=keyboard_kind,
+        layout_key=resolve_layout_key(State.config),
         initial_theme=State.config.theme,
         on_theme_change=_persist_theme,
         custom_words=custom_words,

@@ -61,6 +61,27 @@ def resolve_standard_layout(config) -> list[list[str]] | None:
     return resolved[1]
 
 
+def resolve_layout_key(config) -> str:
+    """Return a stable identifier for the configured keyboard layout
+    (e.g. ``"standard:qwerty"`` or ``"directional:charachorder"``).
+
+    For ``layout="custom"`` the user-supplied ``custom_layout_name``
+    is used in place of ``"custom"`` so that personal-best
+    leaderboards can be split per custom layout. Falls back to
+    ``"unknown"`` if no layout can be resolved."""
+    keyboard = getattr(config, "gen", None)
+    keyboard = getattr(keyboard, "keyboard", None) if keyboard else None
+    if keyboard is None:
+        return "unknown"
+    kind = getattr(keyboard, "type", None) or "unknown"
+    opts = getattr(keyboard, kind, None)
+    name = getattr(opts, "layout", None) if opts is not None else None
+    if name == "custom":
+        custom_name = getattr(opts, "custom_layout_name", None) or "custom"
+        name = custom_name
+    return f"{kind}:{name or 'unknown'}"
+
+
 def _append_key(out: Text, key: str, highlights: set[str]) -> None:
     if key == "_":
         out.append(" ")

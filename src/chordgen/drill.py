@@ -16,9 +16,12 @@ fumbled along the way.
 
 from __future__ import annotations
 
+import json
 import random
 import time
-from typing import Any
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, TypedDict
 
 from fsrs import State
 from rich.text import Text
@@ -27,8 +30,86 @@ from textual.binding import Binding
 from textual.reactive import reactive
 from textual.widgets import Footer, Header, Static
 
+from chordgen.constants import CONFIG_DIR
 from chordgen.srs import get_card, load_progress
 from chordgen.keyboard_view import render_keyboard
+
+
+# ---------------------------------------------------------------------------
+# Personal-best leaderboard (drill-only, per-keyboard-layout)
+# ---------------------------------------------------------------------------
+#
+# Stored next to progress.json but in its own ``scores.json`` so the
+# leaderboard survives PROGRESS_VERSION bumps that wipe the FSRS
+# state. Shape::
+#
+#     {"layouts": {"<layout-key>": [{"wpm": float, "date": "YYYY-MM-DD"}, ...]}}
+#
+# Each layout's list is the rolling top-N personal bests, sorted by
+# WPM descending.
+
+SCORES_FILE: Path = CONFIG_DIR / "scores.json"
+SCORES_TOP_N = 5
+
+
+class DrillScore(TypedDict):
+    wpm: float
+    date: str
+
+
+class DrillScoresFile(TypedDict):
+    layouts: dict[str, list[DrillScore]]
+
+
+def _empty_scores() -> DrillScoresFile:
+    return {"layouts": {}}
+
+
+def load_scores() -> DrillScoresFile:
+    if not SCORES_FILE.exists():
+        return _empty_scores()
+    try:
+        raw = json.loads(SCORES_FILE.read_text())
+    except (json.JSONDecodeError, OSError):
+        return _empty_scores()
+    if not isinstance(raw, dict):
+        return _empty_scores()
+    raw.setdefault("layouts", {})
+    return raw  # type: ignore[return-value]
+
+
+def save_scores(scores: DrillScoresFile) -> None:
+    SCORES_FILE.parent.mkdir(parents=True, exist_ok=True)
+    SCORES_FILE.write_text(json.dumps(scores, indent=2))
+
+
+def top_scores(scores: DrillScoresFile, layout_key: str) -> list[DrillScore]:
+    return list(scores.get("layouts", {}).get(layout_key, []))
+
+
+def record_drill_score(
+    scores: DrillScoresFile,
+    layout_key: str,
+    wpm: float,
+    when: datetime | None = None,
+) -> bool:
+    """Insert ``wpm`` into the top-N list for ``layout_key`` if it
+    qualifies. Returns True iff a new entry was recorded."""
+    if wpm <= 0:
+        return False
+    when = datetime.now(timezone.utc) if when is None else when
+    layouts = scores.setdefault("layouts", {})
+    entries = list(layouts.get(layout_key, []))
+
+    # Skip if the leaderboard is already full and this wpm wouldn't
+    # displace the slowest entry.
+    if len(entries) >= SCORES_TOP_N and wpm <= min(e["wpm"] for e in entries):
+        return False
+
+    entries.append({"wpm": float(wpm), "date": when.date().isoformat()})
+    entries.sort(key=lambda e: e["wpm"], reverse=True)
+    layouts[layout_key] = entries[:SCORES_TOP_N]
+    return True
 
 
 class WordDisplay(Static):
@@ -52,6 +133,7 @@ class DrillApp(App):
         config: Any,
         keyboard_layout: list[list[str]] | None = None,
         keyboard_kind: str = "standard",
+        layout_key: str = "unknown",
         initial_theme: str | None = None,
         on_theme_change: Any = None,
         custom_words: list[str] | None = None,
@@ -61,6 +143,7 @@ class DrillApp(App):
         self.config = config
         self.keyboard_layout = keyboard_layout
         self.keyboard_kind = keyboard_kind
+        self.layout_key = layout_key
         self._initial_theme = initial_theme
         self._on_theme_change = on_theme_change
         self.custom_words = custom_words
@@ -82,6 +165,8 @@ class DrillApp(App):
         self.session_start_time: float | None = None
         self.session_finished = False
         self.session_wpm = 0.0
+        self.session_new_pb = False
+        self.session_top_scores: list[DrillScore] = []
 
         self.words_to_practice = self._initial_word_list()
         self._timer_handle = None
@@ -163,6 +248,8 @@ class DrillApp(App):
         self.session_start_time = None
         self.session_finished = False
         self.session_wpm = 0.0
+        self.session_new_pb = False
+        self.session_top_scores = []
         # Re-load progress in case the user has just trained more
         # words since launching the drill.
         if self.custom_words is not None:
@@ -250,6 +337,13 @@ class DrillApp(App):
             self.update_word_display()
 
     def flash_red(self) -> None:
+        # Record the failure the moment the user first mistypes the
+        # word. Doing it here (rather than when the word is later
+        # completed) means a word the user never finishes — e.g.
+        # because the timer expired mid-word — still shows up in the
+        # session summary's failed-words list.
+        if self.words_to_practice and not self.current_word_had_error:
+            self.session_failed_words.append(self.words_to_practice[0])
         self.current_word_had_error = True
         self.flashing = True
         self.update_word_display()
@@ -264,14 +358,13 @@ class DrillApp(App):
     # ------------------------------------------------------------------
 
     def complete_current_word(self) -> None:
-        word = self.words_to_practice[0]
         had_error = self.current_word_had_error
 
         self.session_words_done += 1
-        if had_error:
-            self.session_failed_words.append(word)
-        else:
+        if not had_error:
             self.session_words_correct += 1
+        # Failures were already recorded in flash_red() the moment
+        # the user first mistyped the word.
 
         # Pop and top up.
         self.words_to_practice.pop(0)
@@ -303,6 +396,22 @@ class DrillApp(App):
         if self._timer_handle is not None:
             self._timer_handle.stop()
             self._timer_handle = None
+
+        # Persist a personal-best entry (per layout) if this run
+        # cracked the top-N. Bail out gracefully if there's nothing
+        # to record (zero WPM, e.g. session ended without typing).
+        self.session_new_pb = False
+        scores = load_scores()
+        if self.session_wpm > 0:
+            self.session_new_pb = record_drill_score(
+                scores, self.layout_key, self.session_wpm
+            )
+            if self.session_new_pb:
+                save_scores(scores)
+        self.session_top_scores: list[DrillScore] = top_scores(
+            scores, self.layout_key
+        )
+
         self.update_word_display()
 
     # ------------------------------------------------------------------
@@ -454,7 +563,11 @@ class DrillApp(App):
         summary = Text()
         summary.append("Drill complete!\n\n", style="bold green")
         summary.append("WPM: ")
-        summary.append(f"{self.session_wpm:.1f}\n", style="bold")
+        summary.append(f"{self.session_wpm:.1f}", style="bold")
+        if self.session_new_pb:
+            summary.append("  ")
+            summary.append("(new personal best!)", style="bold yellow")
+        summary.append("\n")
         summary.append("Accuracy: ")
         if self.session_words_done > 0:
             acc = 100.0 * self.session_words_correct / self.session_words_done
@@ -478,6 +591,16 @@ class DrillApp(App):
                 chord = (row or {}).get("chord") or ""
                 parts.append(f"{w} ({chord})" if chord else w)
             summary.append(" ".join(parts) + "\n", style="red")
+
+        if self.session_top_scores:
+            summary.append(
+                f"\nTop {len(self.session_top_scores)} for {self.layout_key}:\n",
+                style="bold",
+            )
+            for i, entry in enumerate(self.session_top_scores, start=1):
+                summary.append(f"  {i}. ")
+                summary.append(f"{entry['wpm']:.1f} wpm", style="bold cyan")
+                summary.append(f"  {entry['date']}\n", style="dim")
 
         summary.append(
             "\nPress Tab to drill again (Esc to quit).",
