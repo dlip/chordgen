@@ -8,6 +8,11 @@
   this mode the FSRS graduated pool is bypassed and `progress.json`
   is left untouched. Words without a chord in `chords.csv` are
   silently dropped.
+- **TUI layout refresh.** Train and drill modes now render the
+  session stats above the word stream, with the current word
+  horizontally centred on screen. The underline cursor between the
+  word and its chord has been removed so the chord sits directly
+  beneath the word. The keyboard view stays at the bottom.
 
 ## v2.0.0
 

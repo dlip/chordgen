@@ -345,11 +345,9 @@ class DrillApp(App):
         ]
 
         line = Text()
-        cursor_col = 0
         for i, word in enumerate(self.words_to_practice):
             if i > 0:
                 line.append(" ")
-            col_start = len(line)
             if i == 0:
                 if self.flashing:
                     line.append(word, style="bold red reverse")
@@ -360,20 +358,10 @@ class DrillApp(App):
                         line.append(typed, style="green")
                     if rest:
                         line.append(rest, style="bold")
-                if self.letter_index < len(word):
-                    cursor_col = col_start + self.letter_index
-                else:
-                    cursor_col = col_start + col_widths[i]
             else:
                 line.append(word, style="dim")
             if len(word) < col_widths[i]:
                 line.append(" " * (col_widths[i] - len(word)))
-
-        underline = (
-            Text(" " * cursor_col + "‾" + " " * max(0, len(line) - cursor_col - 1))
-            if not self.flashing
-            else Text(" " * len(line))
-        )
 
         chord_line = Text()
         for i, chord in enumerate(chord_strings):
@@ -388,7 +376,6 @@ class DrillApp(App):
                 chord_line.append(" " * col_widths[i])
 
         progress_text = Text()
-        progress_text.append("\n\n")
         if self.config.mode == "count":
             progress_text.append(
                 f"{self.session_words_done}/{self.config.count}", style="cyan"
@@ -399,13 +386,27 @@ class DrillApp(App):
         progress_text.append("  ")
         progress_text.append(f"{self._running_wpm():.0f} wpm", style="dim")
 
+        # Pad each word-line on the left so the current word's column
+        # sits at the centre of the rendered block. The pad width is
+        # the total width of the trailing words (col widths + the
+        # single space separators between them).
+        trailing_width = sum(col_widths[1:]) + max(0, len(self.words_to_practice) - 1)
+        pad = " " * trailing_width
+
+        padded_line = Text()
+        padded_line.append(pad)
+        padded_line.append_text(line)
+
+        padded_chord_line = Text()
+        padded_chord_line.append(pad)
+        padded_chord_line.append_text(chord_line)
+
         rendered = Text()
-        rendered.append_text(line)
-        rendered.append("\n")
-        rendered.append_text(underline)
-        rendered.append("\n")
-        rendered.append_text(chord_line)
         rendered.append_text(progress_text)
+        rendered.append("\n\n")
+        rendered.append_text(padded_line)
+        rendered.append("\n")
+        rendered.append_text(padded_chord_line)
 
         # ASCII keyboard view. Drill only reveals chords after a
         # mistake, so highlights mirror that rule.
