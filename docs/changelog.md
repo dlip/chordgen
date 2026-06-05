@@ -1,5 +1,14 @@
 # Changelog
 
+## v2.1.0
+
+- **Drill mode now accepts arbitrary words.** Pass words as
+  positional arguments (`chordgen drill the quick brown fox`) or
+  point at a whitespace-separated file with `--words-file/-f`. In
+  this mode the FSRS graduated pool is bypassed and `progress.json`
+  is left untouched. Words without a chord in `chords.csv` are
+  silently dropped.
+
 ## v2.0.0
 
 A major release that overhauls the chord-generation pipeline and

@@ -54,6 +54,7 @@ class DrillApp(App):
         keyboard_kind: str = "standard",
         initial_theme: str | None = None,
         on_theme_change: Any = None,
+        custom_words: list[str] | None = None,
     ) -> None:
         super().__init__()
         self.chords_map = {c["word"]: c for c in chords if c["chord"]}
@@ -62,8 +63,11 @@ class DrillApp(App):
         self.keyboard_kind = keyboard_kind
         self._initial_theme = initial_theme
         self._on_theme_change = on_theme_change
-        progress = load_progress()
-        self.graduated_pool = self._collect_graduated(progress)
+        self.custom_words = custom_words
+        if custom_words is not None:
+            self.graduated_pool = self._filter_custom_words(custom_words)
+        else:
+            self.graduated_pool = self._collect_graduated(load_progress())
 
         # Per-keystroke / per-word state.
         self.letter_index = 0
@@ -97,6 +101,12 @@ class DrillApp(App):
             if card is not None and card.state == State.Review:
                 out.append(word)
         return out
+
+    def _filter_custom_words(self, words: list[str]) -> list[str]:
+        """Return only the words from ``words`` that have a chord
+        assigned in chords.csv. Words without a chord are silently
+        dropped."""
+        return [w for w in words if w in self.chords_map]
 
     def _initial_word_list(self) -> list[str]:
         if not self.graduated_pool:
@@ -155,7 +165,10 @@ class DrillApp(App):
         self.session_wpm = 0.0
         # Re-load progress in case the user has just trained more
         # words since launching the drill.
-        self.graduated_pool = self._collect_graduated(load_progress())
+        if self.custom_words is not None:
+            self.graduated_pool = self._filter_custom_words(self.custom_words)
+        else:
+            self.graduated_pool = self._collect_graduated(load_progress())
         self.words_to_practice = self._initial_word_list()
         if self._timer_handle is not None:
             self._timer_handle.stop()
@@ -304,13 +317,22 @@ class DrillApp(App):
             return
 
         if not self.words_to_practice:
-            widget.update(
-                Text.from_markup(
-                    "[b yellow]No graduated words to drill yet.[/]\n\n"
-                    "Run [b]chordgen train[/] until some words have "
-                    "graduated to FSRS Review state, then come back."
+            if self.custom_words is not None:
+                widget.update(
+                    Text.from_markup(
+                        "[b yellow]No drillable words.[/]\n\n"
+                        "None of the words you supplied have a chord "
+                        "assigned in chords.csv."
+                    )
                 )
-            )
+            else:
+                widget.update(
+                    Text.from_markup(
+                        "[b yellow]No graduated words to drill yet.[/]\n\n"
+                        "Run [b]chordgen train[/] until some words have "
+                        "graduated to FSRS Review state, then come back."
+                    )
+                )
             return
 
         chord_strings = [

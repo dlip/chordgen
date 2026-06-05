@@ -19,6 +19,22 @@ against the chords you already know.
   also restarts mid-drill if you want to bail out), or `Esc` /
   `Ctrl+C` to quit.
 
+### Drilling on arbitrary words
+
+You can override the graduated FSRS pool by passing words directly
+on the command line, or by pointing at a whitespace-separated file
+of words. Words without a chord in `chords.csv` are silently
+dropped — they simply won't appear during the drill.
+
+```sh
+chordgen drill the quick brown fox
+chordgen drill --words-file words.txt
+chordgen drill -f words.txt extra inline words
+```
+
+When run this way drill ignores `progress.json` entirely, so you
+can practise on any list of words regardless of FSRS state.
+
 ### Configuration
 
 Relevant `config.yaml` knobs (under `drill`):

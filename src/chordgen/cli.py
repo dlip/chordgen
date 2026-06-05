@@ -216,11 +216,46 @@ def train():
 
 
 @app.command()
-def drill():
-    """Speed-drill on graduated words (no FSRS state changes)."""
+def drill(
+    words: list[str] = typer.Argument(
+        None,
+        help=(
+            "Optional words to drill on instead of the graduated "
+            "FSRS pool. Words without a chord in chords.csv are "
+            "silently dropped."
+        ),
+    ),
+    words_file: Path = typer.Option(
+        None,
+        "--words-file",
+        "-f",
+        help=(
+            "Path to a file containing words to drill on (whitespace-"
+            "separated). Combined with any positional WORDS arguments. "
+            "Words without a chord in chords.csv are silently dropped."
+        ),
+    ),
+):
+    """Speed-drill on graduated words (no FSRS state changes).
+
+    By default the word pool is restricted to words whose FSRS card
+    has graduated to Review state. If WORDS or --words-file is given,
+    drill on those words instead.
+    """
     chords = load_file(State.config.gen.file)
     resolved = resolve_keyboard_layout(State.config)
     keyboard_kind, keyboard_layout = resolved if resolved else ("standard", None)
+
+    custom_words: list[str] | None = None
+    collected: list[str] = list(words) if words else []
+    if words_file is not None:
+        if not words_file.exists():
+            print(f"Error: words file {words_file} does not exist")
+            raise typer.Abort()
+        collected.extend(words_file.read_text().split())
+    if collected:
+        custom_words = collected
+
     app = DrillApp(
         chords,
         State.config.drill,
@@ -228,6 +263,7 @@ def drill():
         keyboard_kind=keyboard_kind,
         initial_theme=State.config.theme,
         on_theme_change=_persist_theme,
+        custom_words=custom_words,
     )
     app.run()
 
