@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.2.0
+
+- **Drill leaderboard stores all PBs, shows top 5.**
+  Only scores that beat or tie the current #1 are recorded, and every
+  PB milestone is kept on disk. The summary screen still caps the
+  display to 5 entries.
+
 ## v2.1.0
 
 - **Drill mode now accepts arbitrary words.** Pass words as

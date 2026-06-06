@@ -5,7 +5,6 @@ from datetime import datetime, timezone
 
 from chordgen.config import Config
 from chordgen.drill import (
-    SCORES_TOP_N,
     _empty_scores,
     record_drill_score,
     top_scores,
@@ -22,24 +21,29 @@ def test_record_drill_score_inserts_when_below_capacity():
     ]
 
 
-def test_record_drill_score_keeps_top_n_sorted_descending():
+def test_record_drill_score_only_records_pb():
     s = _empty_scores()
     when = datetime(2026, 6, 5, tzinfo=timezone.utc)
     for w in [50.0, 60.0, 55.0, 40.0, 70.0, 45.0]:
         record_drill_score(s, "k", w, when=when)
     entries = top_scores(s, "k")
-    assert [e["wpm"] for e in entries] == [70.0, 60.0, 55.0, 50.0, 45.0]
-    assert len(entries) == SCORES_TOP_N
+    # 50 was first (PB); 60 beat it (PB); 70 beat it (PB).
+    # 55, 40, 45 never beat the current #1 so they are not recorded.
+    assert [e["wpm"] for e in entries] == [70.0, 60.0, 50.0]
+    # All PBs stored (no cap); display limits to SCORES_TOP_N.
+    assert len(entries) == 3
 
 
-def test_record_drill_score_rejects_when_below_floor():
+def test_record_drill_score_rejects_when_not_pb():
     s = _empty_scores()
     when = datetime(2026, 6, 5, tzinfo=timezone.utc)
     for w in [50.0, 60.0, 55.0, 40.0, 70.0]:
         record_drill_score(s, "k", w, when=when)
-    # Slowest entry is 40; 35 must be rejected.
+    # Leaderboard is [70, 60, 50] (55, 40 never beat #1).
+    # 65 beats 70? No, so it's not a PB.
+    assert record_drill_score(s, "k", 65.0, when=when) is False
     assert record_drill_score(s, "k", 35.0, when=when) is False
-    assert [e["wpm"] for e in top_scores(s, "k")] == [70.0, 60.0, 55.0, 50.0, 40.0]
+    assert [e["wpm"] for e in top_scores(s, "k")] == [70.0, 60.0, 50.0]
 
 
 def test_record_drill_score_rejects_zero_or_negative():

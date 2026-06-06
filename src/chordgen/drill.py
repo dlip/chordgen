@@ -94,21 +94,22 @@ def record_drill_score(
     when: datetime | None = None,
 ) -> bool:
     """Insert ``wpm`` into the top-N list for ``layout_key`` if it
-    qualifies. Returns True iff a new entry was recorded."""
+    qualifies as a new #1 personal best. Returns True iff a new entry
+    was recorded."""
     if wpm <= 0:
         return False
     when = datetime.now(timezone.utc) if when is None else when
     layouts = scores.setdefault("layouts", {})
     entries = list(layouts.get(layout_key, []))
 
-    # Skip if the leaderboard is already full and this wpm wouldn't
-    # displace the slowest entry.
-    if len(entries) >= SCORES_TOP_N and wpm <= min(e["wpm"] for e in entries):
+    # Only record if this beats or ties the current #1 (or the
+    # leaderboard is empty).
+    if entries and wpm <= entries[0]["wpm"]:
         return False
 
     entries.append({"wpm": float(wpm), "date": when.date().isoformat()})
     entries.sort(key=lambda e: e["wpm"], reverse=True)
-    layouts[layout_key] = entries[:SCORES_TOP_N]
+    layouts[layout_key] = entries
     return True
 
 
@@ -397,16 +398,13 @@ class DrillApp(App):
             self._timer_handle.stop()
             self._timer_handle = None
 
-        # Persist a personal-best entry (per layout) if this run
-        # cracked the top-N. Bail out gracefully if there's nothing
-        # to record (zero WPM, e.g. session ended without typing).
+        # Bail out gracefully if there's nothing to record (zero
+        # WPM, e.g. session ended without typing).
         self.session_new_pb = False
         scores = load_scores()
         if self.session_wpm > 0:
-            self.session_new_pb = record_drill_score(
-                scores, self.layout_key, self.session_wpm
-            )
-            if self.session_new_pb:
+            if record_drill_score(scores, self.layout_key, self.session_wpm):
+                self.session_new_pb = True
                 save_scores(scores)
         self.session_top_scores: list[DrillScore] = top_scores(
             scores, self.layout_key
@@ -593,11 +591,12 @@ class DrillApp(App):
             summary.append(" ".join(parts) + "\n", style="red")
 
         if self.session_top_scores:
+            top_n = self.session_top_scores[:SCORES_TOP_N]
             summary.append(
-                f"\nTop {len(self.session_top_scores)} for {self.layout_key}:\n",
+                f"\nTop {len(top_n)} for {self.layout_key}:\n",
                 style="bold",
             )
-            for i, entry in enumerate(self.session_top_scores, start=1):
+            for i, entry in enumerate(top_n, start=1):
                 summary.append(f"  {i}. ")
                 summary.append(f"{entry['wpm']:.1f} wpm", style="bold cyan")
                 summary.append(f"  {entry['date']}\n", style="dim")
