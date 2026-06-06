@@ -1,5 +1,13 @@
 # Changelog
 
+## v2.2.0
+
+- **Book mode: `↑`/`↓` now move by one line instead of one
+  paragraph.** Paragraph skip is still available via the existing
+  `action_skip_para_fwd`/`action_skip_para_back` methods — only the
+  default keybinding changed. `PgUp`/`PgDn` continue to move by half
+  a screen-page.
+
 ## v2.1.0
 
 - **Drill mode now accepts arbitrary words.** Pass words as

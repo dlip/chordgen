@@ -48,7 +48,7 @@ copyright, etc.). Skip past it with the keyboard:
 | Keys | Action |
 | ---- | ------ |
 | `←` / `→` | Move one word back / forward |
-| `↑` / `↓` | Move one paragraph back / forward |
+| `↑` / `↓` | Move one line back / forward |
 | `PgUp` / `PgDn` | Move half a screen-page of words back / forward |
 | `Esc` / `Ctrl+C` | Save and quit |
 

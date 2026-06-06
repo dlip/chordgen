@@ -563,8 +563,8 @@ class BookApp(App):
         Binding("ctrl+c", "quit", "Quit", priority=True, show=False),
         Binding("left", "skip_word_back", "Word ←", show=False),
         Binding("right", "skip_word_fwd", "Word →", show=False),
-        Binding("up", "skip_para_back", "Para ↑", show=False),
-        Binding("down", "skip_para_fwd", "Para ↓", show=False),
+        Binding("up", "skip_line_back", "Line ↑", show=False),
+        Binding("down", "skip_line_fwd", "Line ↓", show=False),
         Binding("pageup", "skip_half_back", "Half-page ↑", show=False),
         Binding("pagedown", "skip_half_fwd", "Half-page ↓", show=False),
     ]
@@ -707,6 +707,12 @@ class BookApp(App):
 
     def action_skip_half_back(self) -> None:
         self._jump_lines(-self._half_page_lines())
+
+    def action_skip_line_fwd(self) -> None:
+        self._jump_lines(1)
+
+    def action_skip_line_back(self) -> None:
+        self._jump_lines(-1)
 
     def _visible_lines(self) -> int:
         """Number of text lines that fit in the #book-text widget
