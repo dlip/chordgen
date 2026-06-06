@@ -656,6 +656,7 @@ class BookApp(App):
                 pass
         self._tick_handle = self.set_interval(1.0, self._tick)
         self.refresh_view()
+        self.call_after_refresh(self.refresh_view)
 
     def watch_theme(self, theme: str) -> None:
         if self._on_theme_change is not None and theme:
