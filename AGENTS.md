@@ -30,7 +30,7 @@ Minimal guidance for agents working in this repo.
 - New functionality should include unit tests
 - When the user says 'shipit' you should:
   - Update user docs in /docs
-  - Update CHANGELOG.txt - assume the version in pyproject.toml is the release we are targeting
+  - Update CHANGELOG.txt - assume the version in pyproject.toml is the release we are targeting **DO NOT INCREMENT THE VERSION**
   - Ensure unit tests pass
   - Create a git commit with a brief summary
   - Push the changes

@@ -1,20 +1,5 @@
 # Changelog
 
-## v2.3.0
-
-- **Book mode resume uses file content hash.** Progress is now keyed
-  by the SHA-1 of the file's bytes instead of its absolute path, so
-  you can move or rename the book file and still pick up where you
-  left off. The `path` field is no longer stored in `books.json`.
-
-## v2.2.0
-
-- **Book mode: `↑`/`↓` now move by one line instead of one
-  paragraph.** Paragraph skip is still available via the existing
-  `action_skip_para_fwd`/`action_skip_para_back` methods — only the
-  default keybinding changed. `PgUp`/`PgDn` continue to move by half
-  a screen-page.
-
 ## v2.1.0
 
 - **Drill mode now accepts arbitrary words.** Pass words as
@@ -67,6 +52,15 @@
   miscellaneous symbols (™, …, •, ©, ®, °, ×, ÷) are folded to
   their plain ASCII equivalents on load so books typed on a basic
   QWERTY layout never get stuck on an untypeable glyph.
+- **Book mode: `↑`/`↓` now move by one line instead of one
+  paragraph.** Paragraph skip is still available via the existing
+  `action_skip_para_fwd`/`action_skip_para_back` methods — only the
+  default keybinding changed. `PgUp`/`PgDn` continue to move by half
+  a screen-page.
+- **Book mode resume uses file content hash.** Progress is now keyed
+  by the SHA-1 of the file's bytes instead of its absolute path, so
+  you can move or rename the book file and still pick up where you
+  left off. The `path` field is no longer stored in `books.json`.
 
 ## v2.0.0
 
