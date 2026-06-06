@@ -1,16 +1,5 @@
 # Changelog
 
-## v2.2.0
-
-- **Book mode resume uses file content hash.** Progress is now keyed
-  by the SHA-1 of the file's bytes instead of its absolute path, so
-  you can move or rename the book file and still pick up where you
-  left off.
-- **Book mode text fills screen immediately on launch.** A second
-  render is scheduled after the initial layout pass so the text
-  window uses the widget's full height from the start, eliminating
-  the ~1s delay before the view reflowed to fill the terminal.
-
 ## v2.1.0
 
 - **Drill mode now accepts arbitrary words.** Pass words as
@@ -71,7 +60,11 @@
 - **Book mode resume uses file content hash.** Progress is now keyed
   by the SHA-1 of the file's bytes instead of its absolute path, so
   you can move or rename the book file and still pick up where you
-  left off. The `path` field is no longer stored in `books.json`.
+  left off.
+- **Book mode text fills screen immediately on launch.** A second
+  render is scheduled after the initial layout pass so the text
+  window uses the widget's full height from the start, eliminating
+  the ~1s delay before the view reflowed to fill the terminal.
 
 ## v2.0.0
 
