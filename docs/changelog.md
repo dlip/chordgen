@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.3.0
+
+- **Book mode resume uses file content hash.** Progress is now keyed
+  by the SHA-1 of the file's bytes instead of its absolute path, so
+  you can move or rename the book file and still pick up where you
+  left off. The `path` field is no longer stored in `books.json`.
+
 ## v2.2.0
 
 - **Book mode: `↑`/`↓` now move by one line instead of one

@@ -31,10 +31,10 @@ Supported formats:
 ## Resume
 
 Your cursor is automatically saved to `~/.config/chordgen/books.json`
-keyed by the SHA1 of the book's absolute path. Re-running
-`chordgen book <path>` picks up where you left off. Pass
-`--restart` to forget the saved cursor and start from the
-beginning:
+keyed by the SHA-1 of the book file's contents. Re-running
+`chordgen book <path>` picks up where you left off — even if the file
+has been moved or renamed since you last typed. Pass `--restart` to
+forget the saved cursor and start from the beginning:
 
 ```sh
 uv run chordgen book sherlock.epub --restart

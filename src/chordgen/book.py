@@ -318,7 +318,8 @@ def save_book_state(state: dict[str, Any]) -> None:
 
 
 def resume_key_for(path: Path) -> str:
-    return hashlib.sha1(str(path.resolve()).encode("utf-8")).hexdigest()
+    data = path.read_bytes()
+    return hashlib.sha1(data).hexdigest()
 
 
 def get_resume_index(state: dict[str, Any], key: str) -> int:
@@ -334,7 +335,6 @@ def get_resume_index(state: dict[str, Any], key: str) -> int:
 def set_resume_index(
     state: dict[str, Any],
     key: str,
-    path: Path,
     title: str,
     idx: int,
     when: datetime | None = None,
@@ -342,7 +342,6 @@ def set_resume_index(
     when = datetime.now(timezone.utc) if when is None else when
     books = state.setdefault("books", {})
     books[key] = {
-        "path": str(path.resolve()),
         "title": title,
         "token_index": int(idx),
         "updated_at": when.isoformat(),
@@ -595,7 +594,7 @@ class BookApp(App):
         self.book_state = load_book_state()
         if restart:
             set_resume_index(
-                self.book_state, self.resume_key, path, self.book.title, 0
+                self.book_state, self.resume_key, self.book.title, 0
             )
             save_book_state(self.book_state)
 
@@ -829,7 +828,6 @@ class BookApp(App):
         set_resume_index(
             self.book_state,
             self.resume_key,
-            self.path,
             self.book.title,
             self.cursor,
         )

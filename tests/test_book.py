@@ -233,13 +233,12 @@ def test_resume_index_round_trip(tmp_path: Path, monkeypatch):
 
     assert get_resume_index(state, key) == 0
 
-    set_resume_index(state, key, p, "thebook", 42)
+    set_resume_index(state, key, "thebook", 42)
     save_book_state(state)
 
     reloaded = load_book_state()
     assert get_resume_index(reloaded, key) == 42
     assert reloaded["books"][key]["title"] == "thebook"
-    assert reloaded["books"][key]["path"] == str(p.resolve())
 
 
 def test_resume_index_missing_returns_zero():
