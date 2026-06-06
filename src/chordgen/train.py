@@ -327,9 +327,6 @@ class TrainApp(App):
     # ------------------------------------------------------------------
 
     def on_key(self, event) -> None:
-        if self.flashing:
-            return
-
         if not self.words_to_practice:
             return
 

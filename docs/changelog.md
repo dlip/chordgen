@@ -6,6 +6,10 @@
   Only scores that beat or tie the current #1 are recorded, and every
   PB milestone is kept on disk. The summary screen still caps the
   display to 5 entries.
+- **Red flash no longer blocks keystrokes.**
+  The red flash on mistype is purely visual — backspace, correct
+  letters, and space to complete all work during the flash instead of
+  being silently dropped for 400–500 ms.
 
 ## v2.1.0
 

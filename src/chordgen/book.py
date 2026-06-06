@@ -757,8 +757,6 @@ class BookApp(App):
     # ------------------------------------------------------------------
 
     def on_key(self, event) -> None:
-        if self.flashing:
-            return
         if not self.book.tokens:
             return
 

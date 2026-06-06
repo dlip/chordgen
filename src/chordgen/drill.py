@@ -268,9 +268,6 @@ class DrillApp(App):
     # ------------------------------------------------------------------
 
     def on_key(self, event) -> None:
-        if self.flashing:
-            return
-
         if self.session_finished:
             # Tab/Esc/Ctrl+C are handled by bindings; ignore other
             # trailing keystrokes so they don't do anything
