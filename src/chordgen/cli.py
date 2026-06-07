@@ -23,7 +23,7 @@ from chordgen.keyboard_view import resolve_keyboard_layout, resolve_layout_key
 
 
 
-app = typer.Typer()
+app = typer.Typer(no_args_is_help=True)
 
 
 class State:
