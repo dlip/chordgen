@@ -92,11 +92,12 @@ def setup(
         help="Overwrite an existing chords.csv. By default setup keeps it.",
     ),
 ):
-    """Initialise config and chords.csv.
+    """Download vocabulary and create chords.csv.
 
-    chords.csv is generated from a frequency-ranked source (SUBTLEX by
-    default). After setup, chords.csv is yours to edit by hand; running
-    setup again without --force will not touch it.
+    Fetches a frequency-ranked word list (SUBTLEX-US by default),
+    scores every viable chord per word, and writes the initial
+    chords.csv. After setup you own the file — edit by hand, re-run
+    gen to refresh assignments, or run setup --force to start over.
     """
     chords_file = State.config.gen.file
     if chords_file.exists() and not force:
@@ -126,11 +127,23 @@ def setup(
 
 @app.command()
 def gen():
+    """Score, generate alts, and assign chords to every word.
+
+    Picks the optimal chord per word using a sparse minimum-weight
+    bipartite matcher, fills alt1/alt2/alt3 via the category/inflector
+    registry, and writes the result back to chords.csv.
+    """
     run_gen(State.config.gen)
 
 
 @app.command()
 def output():
+    """Emit firmware and training files from chords.csv.
+
+    Writes one file per enabled output format (qmk, zmk, kanata,
+    charachorder, training). Configure which formats are active and
+    their file paths under output.formats in config.yaml.
+    """
     chords = load_file(State.config.gen.file)
     validate_chords(chords)
 
@@ -142,6 +155,7 @@ def output():
 
 @app.command()
 def schema():
+    """Regenerate docs/schema.md from the Pydantic config model."""
     parser = jsonschema2md.Parser()
     md = "".join(parser.parse_schema(Config.model_json_schema()))
     pattern = r"/(?:Users|home)/[^/]+/"
