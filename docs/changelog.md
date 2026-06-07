@@ -1,94 +1,101 @@
 # Changelog
 
-## v2.2.0
+## v2.1.0
+
+A focused release that tightens the training loop, sharpens chord
+assignment defaults, and introduces book mode and drill improvements.
+
+### Training
 
 - **Two-phase chord reveal during initial learning.**
-  Brand-new cards show their chord for the first `show_chord_steps`
-  (default 3) consecutive correct reps, then hide it for the
-  remaining `learning_steps - show_chord_steps` (default 2) reps
-  before graduating. An error resets the FSRS step counter to zero,
-  which brings the chord back. New config knobs: `train.learning_steps`
-  (default 5) and `train.show_chord_steps` (default 3).
+  Brand-new cards show their chord for the first `train.show_chord_steps`
+  (default 3) consecutive correct reps, then hide it for the remaining
+  `train.learning_steps - show_chord_steps` (2) reps before graduating.
+  An error resets the FSRS step counter to zero, which brings the chord
+  back — guided reps first, then recall from memory.
 - **Separate learning vs. relearning step counts.**
-  `make_scheduler` now accepts distinct `learning_steps` (new cards)
-  and `relearn_steps` (lapsed cards) so you can have a longer
-  initial-learning staircase without making lapsed-card re-graduation
-  equally slow. Default `train.relearn_steps` reduced to 2; default
-  `gen.assignment.frequency_exponent` raised to 3.0.
-- **Drill leaderboard stores all PBs, shows top 5.**
-  Only scores that beat or tie the current #1 are recorded, and every
-  PB milestone is kept on disk. The summary screen still caps the
-  display to 5 entries.
+  `make_scheduler` now takes distinct `learning_steps` (new cards,
+  default 5) and `relearn_steps` (lapsed cards, default 2), so you can
+  have a longer initial staircase without making lapsed-card
+  re-graduation equally slow. Previously both shared a single knob.
 - **Red flash no longer blocks keystrokes.**
   The red flash on mistype is purely visual — backspace, correct
   letters, and space to complete all work during the flash instead of
-  being silently dropped for 400–500 ms.
+  being silently dropped for 400–500 ms.
 
-## v2.1.0
+### Chord assignment
 
-- **Drill mode now accepts arbitrary words.** Pass words as
-  positional arguments (`chordgen drill the quick brown fox`) or
-  point at a whitespace-separated file with `--words-file/-f`. In
-  this mode the FSRS graduated pool is bypassed and `progress.json`
-  is left untouched. Words without a chord in `chords.csv` are
-  silently dropped.
-- **TUI layout refresh.** Train and drill modes now render the
-  session stats above the word stream, with the current word
-  horizontally centred on screen. The underline cursor between the
-  word and its chord has been removed so the chord sits directly
-  beneath the word. The keyboard view stays at the bottom.
-- **Drill personal-best leaderboard.** Each completed drill records
-  its WPM into a per-keyboard-layout top-5 leaderboard stored in
-  `~/.config/chordgen/scores.json`. The drill summary screen shows
-  the current layout's top scores (with dates) and tags new entries
-  as `(new personal best!)`. The leaderboard is keyed by
-  `<keyboard-type>:<layout>`; for `layout = custom` it uses the new
-  `gen.keyboard.<type>.custom_layout_name` field (default `custom`)
-  so multiple custom layouts can have separate scoreboards. Stored
-  separately from `progress.json` so high-scores survive FSRS schema
-  migrations.
-- **Failed words captured at first mistype.** Drill mode records a
-  word as failed the moment you mistype it, rather than when the
-  word completes. This means a word the user was stuck on when the
-  timer expires now correctly shows up in the failed-words list.
+- **Default `frequency_exponent` raised to 3.0.** Cubic frequency
+  weighting ensures short chords go to common words. A word at Zipf 6.0
+  is weighted 216× more than one at 1.0. Previously 1.0 (linear) let
+  rare words compete too aggressively.
+
+### Book mode
+
 - **New `book` mode.** `chordgen book PATH` lets you type your way
   through an arbitrary book (`.txt`, `.md`, or `.epub`). The TUI
   shows a window of the text centred on the cursor, your keyboard
   layout pinned to the bottom, and a sliding-window WPM (default
   last 30 seconds, configurable via `book.wpm_window_seconds`).
-  Words for which the user has already learned a chord (FSRS
-  Review state) are highlighted in yellow; mistyping a learned
-  word reveals its chord and lights up the chord keys on the
-  keyboard view, mirroring drill mode's reveal-on-stumble UX.
-  Cursor position is auto-saved per-book to
-  `~/.config/chordgen/books.json` so re-running `chordgen book
-  <path>` resumes where you left off (`--restart` to start over).
-  Navigation: `←`/`→` move by word, `↑`/`↓` by paragraph,
-  `PgUp`/`PgDn` by half a screen-page. Adds `ebooklib` and
-  `beautifulsoup4` as dependencies.
-- **Line-based rendering.** The book view now scrolls by line
-  rather than by word. The cursor's line stays vertically centred
-  with as many previous and following lines as fit on screen, and
-  text is wrapped to a configurable `book.max_width` (default 80
-  columns).
-- **Typeable-character normalisation.** Smart quotes, em/en
-  dashes, ligatures, accented Latin (à, é, ñ, ç, æ, œ, ß, …) and
-  miscellaneous symbols (™, …, •, ©, ®, °, ×, ÷) are folded to
-  their plain ASCII equivalents on load so books typed on a basic
-  QWERTY layout never get stuck on an untypeable glyph.
-- **Book mode: `↑`/`↓` now move by one line instead of one
-  paragraph.** Paragraph skip is still available via the existing
-  `action_skip_para_fwd`/`action_skip_para_back` methods — only the
-  default keybinding changed. `PgUp`/`PgDn` continue to move by half
-  a screen-page.
-- **Book mode resume uses file content hash.** Progress is now keyed
-  by the SHA-1 of the file's bytes instead of its absolute path, so
-  you can move or rename the book file and still pick up where you
-  left off.
-- **Book mode text fills screen immediately on launch.** A second
-  render is scheduled after the initial layout pass so the text
-  window uses the widget's full height from the start, eliminating
-  the ~1s delay before the view reflowed to fill the terminal.
+  Words you've already learned (FSRS Review state) are highlighted in
+  yellow; mistyping a learned word reveals its chord and lights up
+  the chord keys on the keyboard view. Cursor position is auto-saved
+  per-book to `~/.config/chordgen/books.json` so re-running
+  `chordgen book <path>` resumes where you left off (`--restart` to
+  start over). Navigation: `←`/`→` by word, `↑`/`↓` by line,
+  `PgUp`/`PgDn` by half a screen-page.
+- **Line-based rendering.** The book view scrolls by line rather than
+  by word. The cursor's line stays vertically centred with as many
+  previous and following lines as fit on screen, and text wraps to
+  `book.max_width` (default 80 columns).
+- **Typeable-character normalisation.** Smart quotes, em/en dashes,
+  ligatures, accented Latin, and miscellaneous symbols are folded to
+  plain ASCII on load so a basic QWERTY layout never gets stuck.
+- **Resume uses file content hash.** Progress is keyed by SHA-1 of the
+  file's bytes instead of its absolute path, so renamed or moved books
+  still pick up where you left off.
+
+### Drill mode
+
+- **Arbitrary word lists.** Pass words as positional arguments
+  (`chordgen drill the quick brown fox`) or point at a file with
+  `--words-file/-f`. In this mode the FSRS graduated pool is bypassed
+  and `progress.json` is left untouched.
+- **Personal-best leaderboard.** Each completed drill records its WPM
+  into a per-keyboard-layout leaderboard at `~/.config/chordgen/scores.json`.
+  All PB milestones are kept on disk; the summary screen shows the top
+  5 with dates. The leaderboard is keyed by `<keyboard-type>:<layout>`;
+  custom layouts use `custom_layout_name` so multiple layouts can have
+  separate scoreboards. Stored separately from `progress.json` so
+  high-scores survive FSRS schema migrations.
+- **Failed words captured at first mistype.** A word is recorded as
+  failed the moment you mistype it, rather than when the word
+  completes, so words you were stuck on when the timer expires now
+  correctly appear in the failed-words list.
+
+### General
+
+- **TUI layout refresh.** Train and drill modes render session stats
+  above the word stream, with the current word horizontally centred
+  on screen. The underline cursor between the word and its chord has
+  been removed so the chord sits directly beneath the word. The
+  keyboard view stays at the bottom.
+
+### New config keys
+
+| Key | Default | Section | Purpose |
+| --- | ------- | ------- | ------- |
+| `train.learning_steps` | 5 | train | Consecutive corrects before a new card graduates |
+| `train.show_chord_steps` | 3 | train | How many learning steps show the chord |
+| `book.wpm_window_seconds` | 30 | book | Sliding window for running WPM |
+| `book.max_width` | 80 | book | Max width of rendered text block |
+
+### Changed defaults
+
+| Key | Old | New |
+| --- | --- | --- |
+| `train.relearn_steps` | 3 | 2 |
+| `gen.assignment.frequency_exponent` | 1.0 | 3.0 |
 
 ## v2.0.0
 
