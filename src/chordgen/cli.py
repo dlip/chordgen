@@ -201,7 +201,18 @@ def _is_complex_default(value: object) -> bool:
 
 @app.command()
 def learn():
-    """Practice chording with a TUI."""
+    """Learn chords with spaced repetition.
+
+    An interactive TUI that presents words one at a time. New words
+    show their chord until you've typed them correctly a few times;
+    once learned the chord is hidden and only revealed on a mistake.
+
+    Backed by FSRS — each word is scheduled for review based on your
+    performance, with daily quotas for new words and reviews, per-word
+    speed grading, and automatic leech detection.
+
+    Press Ctrl+P to switch themes.
+    """
     chords = load_file(State.config.gen.file)
     resolved = resolve_keyboard_layout(State.config)
     keyboard_kind, keyboard_layout = resolved if resolved else ("standard", None)
