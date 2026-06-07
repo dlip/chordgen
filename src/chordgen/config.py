@@ -18,10 +18,10 @@ DEFAULT_CONFIG = CONFIG_DIR / "config.yaml"
 DEFAULT_CHORDS_FILE = CONFIG_DIR / "chords.csv"
 
 
-class TrainOptions(BaseModel):
+class LearnOptions(BaseModel):
     show_words: int = Field(
         default=10,
-        description="Number of words shown on screen at once during training.",
+        description="Number of words shown on screen at once during learning.",
     )
     new_words_per_day: int = Field(
         default=20,
@@ -349,13 +349,13 @@ class GenOptions(BaseModel):
 class Config(BaseModel):
     gen: GenOptions = GenOptions()
     output: OutputOptions = OutputOptions()
-    train: TrainOptions = TrainOptions()
+    learn: LearnOptions = LearnOptions()
     drill: DrillOptions = DrillOptions()
     book: BookOptions = BookOptions()
     theme: str = Field(
         default="textual-dark",
         description=(
-            "Textual theme used by the train and drill TUIs. Updated "
+            "Textual theme used by the learn and drill TUIs. Updated "
             "automatically when you change the theme via the in-app "
             "command palette (Ctrl+P)."
         ),
@@ -376,6 +376,9 @@ def load_or_create_config(config_file: Path = DEFAULT_CONFIG) -> Config:
 
     if config_file.exists():
         raw = yaml.safe_load(config_file.read_text()) or {}
+        # Migrate old `train` config key to `learn`.
+        if "train" in raw and "learn" not in raw:
+            raw["learn"] = raw.pop("train")
     else:
         print(f"Creating config {config_file}")
         raw = {}

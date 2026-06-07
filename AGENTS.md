@@ -11,7 +11,7 @@ Minimal guidance for agents working in this repo.
   - `scorer.py` — generates and scores candidate chord options per word
   - `alt_generator.py` — category/inflector registry for alt slots
   - `assigner.py` — smart-greedy + 2-swap chord assignment
-  - `output/` — emitters (qmk, zmk, kanata, charachorder, training)
+  - `output/` — emitters (qmk, zmk, kanata, charachorder, training, learn)
   - `keyboards/` — standard and directional keyboard models
   - `config.py` — pydantic schema for `~/.config/chordgen/config.yaml`
   - `chord.py` — `Chord` TypedDict (the row shape of `chords.csv`)

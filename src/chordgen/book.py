@@ -1,6 +1,6 @@
 """Book mode: type your way through a .txt or .epub.
 
-Unlike train and drill, book mode is open-ended. The user types
+Unlike learn and drill, book mode is open-ended. The user types
 through a long-form text file at their own pace, position is
 auto-resumed across sessions, and the only running stat is a
 sliding-window WPM. Words for which the user has already

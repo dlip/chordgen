@@ -1,4 +1,4 @@
-"""Persistence + speed-tracking layer for the chordgen train mode.
+"""Persistence + speed-tracking layer for the chordgen learn mode.
 
 Wraps an FSRS ``Card`` per word using the official ``fsrs`` library
 (open-spaced-repetition/py-fsrs), and maintains a global rolling

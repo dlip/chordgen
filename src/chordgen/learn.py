@@ -1,4 +1,4 @@
-"""Train mode TUI: typing practice with FSRS-backed spaced repetition.
+"""Learn mode TUI: typing practice with FSRS-backed spaced repetition.
 
 Long-term scheduling and the in-session learning queue are delegated
 to the ``fsrs`` library. This module is responsible for the TUI, the
@@ -93,8 +93,8 @@ class WordDisplay(Static):
     pass
 
 
-class TrainApp(App):
-    CSS_PATH = "train.css"
+class LearnApp(App):
+    CSS_PATH = "learn.css"
 
     BINDINGS = [
         Binding("escape", "quit", "Quit"),
@@ -134,7 +134,7 @@ class TrainApp(App):
         self.word_had_flash = False
 
         # Session counters (session WPM is no longer surfaced — the
-        # train mode is about long-term FSRS retention, not speed
+        # learn mode is about long-term FSRS retention, not speed
         # tests; for speed practice see ``chordgen drill``).
         self.session_chars_typed = 0
         self.session_start_time: float | None = None
@@ -290,7 +290,7 @@ class TrainApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        self.title = "chordgen train"
+        self.title = "chordgen learn"
         if self._initial_theme:
             try:
                 self.theme = self._initial_theme

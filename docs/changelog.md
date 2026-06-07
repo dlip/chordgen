@@ -1,5 +1,23 @@
 # Changelog
 
+## v2.2.0
+
+- **Renamed `train` to `learn`.** Command is now `chordgen learn`,
+  config section is `learn`, the TUI title says "chordgen learn".
+  The old `train` config key will be silently ignored.
+- **Red flash no longer blocks keystrokes.** The red flash on mistype
+  is purely visual — backspace, correct letters, and space to
+  complete all work during the flash.
+- **Drill leaderboard stores all PBs, shows top 5.** Only scores that
+  beat the current #1 are recorded; every PB milestone is kept on
+  disk. The summary screen still caps the display to 5 entries.
+- **Book mode: text fills screen immediately on launch.** A second
+  render is scheduled after the initial layout pass so the text
+  window uses the widget's full height from the start.
+- **Book mode: resume uses file content hash.** Progress is keyed by
+  SHA-1 of the file's bytes instead of its absolute path, so moving
+  or renaming the book file preserves your cursor position.
+
 ## v2.1.0
 
 A focused release that tightens the training loop, sharpens chord

@@ -16,7 +16,7 @@ from chordgen.constants import CONFIG_DIR
 from chordgen.gen import gen as run_gen
 from chordgen.vocab import SOURCES
 from chordgen.vocab.pipeline import build_chords_csv
-from chordgen.train import TrainApp
+from chordgen.learn import LearnApp
 from chordgen.drill import DrillApp
 from chordgen.book import BookApp
 from chordgen.keyboard_view import resolve_keyboard_layout, resolve_layout_key
@@ -200,14 +200,14 @@ def _is_complex_default(value: object) -> bool:
 
 
 @app.command()
-def train():
+def learn():
     """Practice chording with a TUI."""
     chords = load_file(State.config.gen.file)
     resolved = resolve_keyboard_layout(State.config)
     keyboard_kind, keyboard_layout = resolved if resolved else ("standard", None)
-    app = TrainApp(
+    app = LearnApp(
         chords,
-        State.config.train,
+        State.config.learn,
         keyboard_layout=keyboard_layout,
         keyboard_kind=keyboard_kind,
         initial_theme=State.config.theme,

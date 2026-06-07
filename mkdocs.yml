@@ -58,7 +58,7 @@ nav:
       - setup: commands/setup.md
       - gen: commands/gen.md
       - output: commands/output.md
-      - train: commands/train.md
+      - learn: commands/learn.md
       - drill: commands/drill.md
       - book: commands/book.md
   - Output formats:

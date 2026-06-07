@@ -1,4 +1,4 @@
-"""ASCII keyboard renderer used by the train and drill TUIs.
+"""ASCII keyboard renderer used by the learn and drill TUIs.
 
 Two layout families are supported:
 
@@ -51,7 +51,7 @@ def resolve_keyboard_layout(config) -> tuple[str, list[list[str]]] | None:
     return None
 
 
-# Backwards-compatible alias retained for the train/drill imports
+# Backwards-compatible alias retained for the learn/drill imports
 # that still phrase things in terms of "standard". Returns just the
 # rows (or None) — used where the kind is irrelevant.
 def resolve_standard_layout(config) -> list[list[str]] | None:

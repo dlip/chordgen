@@ -3,7 +3,7 @@
 Drill mode is a focused speed test on words that have already
 graduated to the FSRS Review state in ``progress.json``. It is
 read-only: the schedule, lapse counters, and daily quotas in
-``progress.json`` are not touched. Use ``chordgen train`` for
+``progress.json`` are not touched. Use ``chordgen learn`` for
 SRS-backed learning; ``chordgen drill`` is for warming up your
 fingers on the words you already know.
 
@@ -118,7 +118,7 @@ class WordDisplay(Static):
 
 
 class DrillApp(App):
-    CSS_PATH = "train.css"
+    CSS_PATH = "learn.css"
 
     BINDINGS = [
         Binding("tab", "restart", "Restart", priority=True),
@@ -433,7 +433,7 @@ class DrillApp(App):
                 widget.update(
                     Text.from_markup(
                         "[b yellow]No graduated words to drill yet.[/]\n\n"
-                        "Run [b]chordgen train[/] until some words have "
+                        "Run [b]chordgen learn[/] until some words have "
                         "graduated to FSRS Review state, then come back."
                     )
                 )
@@ -545,7 +545,7 @@ class DrillApp(App):
     def _chord_for_word(self, word: str, is_current: bool) -> str:
         # Drill mode hides chords by default — these are graduated
         # words you already know — but reveals the chord for the
-        # current word once you stumble on it, the same way train
+        # current word once you stumble on it, the same way learn
         # mode does for mastered words.
         row = self.chords_map.get(word)
         if row is None:

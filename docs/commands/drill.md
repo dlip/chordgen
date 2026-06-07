@@ -6,9 +6,9 @@ daily quotas. Use it as a warm-up or to benchmark your typing speed
 against the chords you already know.
 
 - The word pool is restricted to words whose FSRS card is in
-  Review state (i.e. graduated through the train mode). If no
+  Review state (i.e. graduated through the learn mode). If no
   graduated words exist yet, drill prompts you to run
-  `chordgen train` first.
+  `chordgen learn` first.
 - Words are picked by random shuffle from that pool.
 - A drill ends after a fixed number of words (`drill.mode = count`,
   using `drill.count`) or after a fixed amount of time

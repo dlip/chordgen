@@ -155,7 +155,7 @@
     file: ~/.config/chordgen/training.txt
   ```
 
-- <a id="properties/train"></a>**`train`**: Refer to *[#/$defs/TrainOptions](#%24defs/TrainOptions)*. Default:
+- <a id="properties/learn"></a>**`learn`**: Refer to *[#/$defs/LearnOptions](#%24defs/LearnOptions)*. Default:
 
   ```yaml
   show_words: 10
@@ -187,7 +187,7 @@
   max_width: 80
   ```
 
-- <a id="properties/theme"></a>**`theme`** *(string)*: Textual theme used by the train and drill TUIs. Updated automatically when you change the theme via the in-app command palette (Ctrl+P). Default: `"textual-dark"`.
+- <a id="properties/theme"></a>**`theme`** *(string)*: Textual theme used by the learn and drill TUIs. Updated automatically when you change the theme via the in-app command palette (Ctrl+P). Default: `"textual-dark"`.
 ## Definitions
 
 - <a id="%24defs/AdjectiveAltOptions"></a>**`AdjectiveAltOptions`** *(object)*
@@ -409,6 +409,18 @@
     - '040'
     ```
 
+- <a id="%24defs/LearnOptions"></a>**`LearnOptions`** *(object)*
+  - <a id="%24defs/LearnOptions/properties/show_words"></a>**`show_words`** *(integer)*: Number of words shown on screen at once during learning. Default: `10`.
+  - <a id="%24defs/LearnOptions/properties/new_words_per_day"></a>**`new_words_per_day`** *(integer)*: Maximum number of brand-new words introduced per calendar day, inspired by Anki's 'new cards per day' setting. Once the day's quota is exhausted no more new words are added until tomorrow. Default: `20`.
+  - <a id="%24defs/LearnOptions/properties/reviews_per_day"></a>**`reviews_per_day`** *(integer)*: Maximum number of overdue / re-drilled review words surfaced per calendar day. Prevents a long absence from dumping the entire backlog at once. Default: `200`.
+  - <a id="%24defs/LearnOptions/properties/leech_threshold"></a>**`leech_threshold`** *(integer)*: Number of lapses (Again ratings on a graduated word) after which a word is considered a 'leech' and called out in the session summary. Set to 0 to disable leech detection. Default: `8`.
+  - <a id="%24defs/LearnOptions/properties/mastery_threshold"></a>**`mastery_threshold`** *(integer)*: Number of total FSRS reviews before a word is considered mastered and its chord is hidden during practice. If you make a mistake on a mastered word, its chord is revealed again for that attempt. Default: `3`.
+  - <a id="%24defs/LearnOptions/properties/learning_steps"></a>**`learning_steps`** *(integer)*: Number of consecutive correct repetitions a brand-new word must earn in one session before it graduates to Review state. Each error resets the step counter to zero so the word starts over. Default: `5`.
+  - <a id="%24defs/LearnOptions/properties/show_chord_steps"></a>**`show_chord_steps`** *(integer)*: How many of the initial learning steps show the chord during the learning phase. After this many consecutive correct reps the chord is hidden for the remaining learning steps. An error resets the counter and the chord reappears. Default: `3`.
+  - <a id="%24defs/LearnOptions/properties/relearn_steps"></a>**`relearn_steps`** *(integer)*: Number of consecutive correct repetitions a lapsed word must earn before re-graduating to Review state. Each error resets the step counter to zero so the word starts over. Default: `2`.
+  - <a id="%24defs/LearnOptions/properties/target_retention"></a>**`target_retention`** *(number)*: FSRS desired retention probability. The next review for each word is scheduled when its predicted recall falls to this value. Default: `0.9`.
+  - <a id="%24defs/LearnOptions/properties/slow_wpm_fraction"></a>**`slow_wpm_fraction`** *(number)*: A correct word counts as 'slow' (FSRS hard) when its per-word WPM is below this fraction of the user's rolling median per-word WPM. Set to 0 to disable slow grading. Default: `0.7`.
+  - <a id="%24defs/LearnOptions/properties/slow_min_samples"></a>**`slow_min_samples`** *(integer)*: Minimum number of recorded per-word WPM samples before slow grading activates. Until this is reached all correct words are graded 'good'. Default: `20`.
 - <a id="%24defs/NounAltOptions"></a>**`NounAltOptions`** *(object)*
   - <a id="%24defs/NounAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
   - <a id="%24defs/NounAltOptions/properties/forms"></a>**`forms`** *(array)*: Noun forms to fill alt1..alt3 with, in order. Length must be at most 3. Default: `["plural"]`.
@@ -538,18 +550,6 @@
   - <a id="%24defs/StandardKeyboardOptions/properties/custom_layout_name"></a>**`custom_layout_name`** *(string)*: Display name used for a custom layout in places like the drill score leaderboard. Only meaningful when layout='custom'. Default: `"custom"`.
   - <a id="%24defs/StandardKeyboardOptions/properties/effort_map"></a>**`effort_map`** *(array)*: Default: `["965446", "732116", "865536", "43"]`.
     - <a id="%24defs/StandardKeyboardOptions/properties/effort_map/items"></a>**Items** *(string)*
-- <a id="%24defs/TrainOptions"></a>**`TrainOptions`** *(object)*
-  - <a id="%24defs/TrainOptions/properties/show_words"></a>**`show_words`** *(integer)*: Number of words shown on screen at once during training. Default: `10`.
-  - <a id="%24defs/TrainOptions/properties/new_words_per_day"></a>**`new_words_per_day`** *(integer)*: Maximum number of brand-new words introduced per calendar day, inspired by Anki's 'new cards per day' setting. Once the day's quota is exhausted no more new words are added until tomorrow. Default: `20`.
-  - <a id="%24defs/TrainOptions/properties/reviews_per_day"></a>**`reviews_per_day`** *(integer)*: Maximum number of overdue / re-drilled review words surfaced per calendar day. Prevents a long absence from dumping the entire backlog at once. Default: `200`.
-  - <a id="%24defs/TrainOptions/properties/leech_threshold"></a>**`leech_threshold`** *(integer)*: Number of lapses (Again ratings on a graduated word) after which a word is considered a 'leech' and called out in the session summary. Set to 0 to disable leech detection. Default: `8`.
-  - <a id="%24defs/TrainOptions/properties/mastery_threshold"></a>**`mastery_threshold`** *(integer)*: Number of total FSRS reviews before a word is considered mastered and its chord is hidden during practice. If you make a mistake on a mastered word, its chord is revealed again for that attempt. Default: `3`.
-  - <a id="%24defs/TrainOptions/properties/learning_steps"></a>**`learning_steps`** *(integer)*: Number of consecutive correct repetitions a brand-new word must earn in one session before it graduates to Review state. Each error resets the step counter to zero so the word starts over. Default: `5`.
-  - <a id="%24defs/TrainOptions/properties/show_chord_steps"></a>**`show_chord_steps`** *(integer)*: How many of the initial learning steps show the chord during the learning phase. After this many consecutive correct reps the chord is hidden for the remaining learning steps. An error resets the counter and the chord reappears. Default: `3`.
-  - <a id="%24defs/TrainOptions/properties/relearn_steps"></a>**`relearn_steps`** *(integer)*: Number of consecutive correct repetitions a lapsed word must earn before re-graduating to Review state. Each error resets the step counter to zero so the word starts over. Default: `2`.
-  - <a id="%24defs/TrainOptions/properties/target_retention"></a>**`target_retention`** *(number)*: FSRS desired retention probability. The next review for each word is scheduled when its predicted recall falls to this value. Default: `0.9`.
-  - <a id="%24defs/TrainOptions/properties/slow_wpm_fraction"></a>**`slow_wpm_fraction`** *(number)*: A correct word counts as 'slow' (FSRS hard) when its per-word WPM is below this fraction of the user's rolling median per-word WPM. Set to 0 to disable slow grading. Default: `0.7`.
-  - <a id="%24defs/TrainOptions/properties/slow_min_samples"></a>**`slow_min_samples`** *(integer)*: Minimum number of recorded per-word WPM samples before slow grading activates. Until this is reached all correct words are graded 'good'. Default: `20`.
 - <a id="%24defs/TrainingOutput"></a>**`TrainingOutput`** *(object)*
   - <a id="%24defs/TrainingOutput/properties/file"></a>**`file`** *(string, format: path)*: Default: `"~/.config/chordgen/training.txt"`.
 - <a id="%24defs/VerbAltOptions"></a>**`VerbAltOptions`** *(object)*

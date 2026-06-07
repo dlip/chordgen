@@ -18,10 +18,10 @@ are a useful reference.
 - **`output`** — which output formats to emit and per-format options
   (key codes, key positions, chord timeouts, ...). See
   [Output formats](output-formats/qmk.md).
-- **`train`** — train-mode TUI knobs (daily quotas, leech / mastery
-  thresholds, slow grading). See [train](commands/train.md).
+- **`learn`** — learn-mode TUI knobs (daily quotas, leech / mastery
+  thresholds, slow grading). See [learn](commands/learn.md).
 - **`drill`** — drill-mode TUI knobs (mode, count, timer). See
   [drill](commands/drill.md).
-- **`theme`** — Textual theme used by the train and drill TUIs.
+- **`theme`** — Textual theme used by the learn and drill TUIs.
   Updated automatically when you change the theme via the in-app
   command palette (`Ctrl+P`).
