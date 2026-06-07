@@ -19,6 +19,12 @@ class Scorer:
             return chord
 
         combinations = find_combinations(chord["word"].lower())
+        replacements = self._options.key_replacement
+        if replacements:
+            combinations = [
+                "".join(replacements.get(c, c) for c in combo)
+                for combo in combinations
+            ]
         scores = [self._keyboard.score(combination) for combination in combinations]
         options: list[Option] = [
             {"chord": combination, "score": scores[i]}

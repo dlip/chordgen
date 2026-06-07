@@ -75,6 +75,7 @@
     unmatched_penalty: 10000.0
   min_word_length: 3
   min_chord_length: 0
+  key_replacement: {}
   ```
 
 - <a id="properties/output"></a>**`output`**: Refer to *[#/$defs/OutputOptions](#%24defs/OutputOptions)*. Default:
@@ -340,6 +341,8 @@
 
   - <a id="%24defs/GenOptions/properties/min_word_length"></a>**`min_word_length`** *(integer)*: Default: `3`.
   - <a id="%24defs/GenOptions/properties/min_chord_length"></a>**`min_chord_length`** *(integer)*: The minimum length a chord, setting this to 2 and disabling the chord key is a way to avoid needing a chord key. This works well on CharaChorder, but you will need to lower the chord timeout to avoid missfires on other keyboards. Default: `0`.
+  - <a id="%24defs/GenOptions/properties/key_replacement"></a>**`key_replacement`** *(object)*: Map letters to replacements when generating chord candidates. For example, if your keyboard lacks 'q' and 'z', set {'q': 'k', 'z': 's'} so chords use 'k' instead of 'q' and 's' instead of 'z' -- the typed word is unaffected, only the chord string changes. Each key must be a single lowercase letter; its replacement must also be a single lowercase letter that exists on your keyboard. Can contain additional properties. Default: `{}`.
+    - <a id="%24defs/GenOptions/properties/key_replacement/additionalProperties"></a>**Additional properties** *(string)*
 - <a id="%24defs/KanataOutput"></a>**`KanataOutput`** *(object)*
   - <a id="%24defs/KanataOutput/properties/file"></a>**`file`** *(string, format: path)*: Default: `"~/.config/chordgen/kanata_chords.kbd"`.
   - <a id="%24defs/KanataOutput/properties/chord_keys"></a>**`chord_keys`** *(array)*: Default: `["prtsc"]`.

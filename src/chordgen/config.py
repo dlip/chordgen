@@ -326,6 +326,18 @@ class GenOptions(BaseModel):
         default=0,
         description="The minimum length a chord, setting this to 2 and disabling the chord key is a way to avoid needing a chord key. This works well on CharaChorder, but you will need to lower the chord timeout to avoid missfires on other keyboards.",
     )
+    key_replacement: dict[str, str] = Field(
+        default={},
+        description=(
+            "Map letters to replacements when generating chord candidates. "
+            "For example, if your keyboard lacks 'q' and 'z', set "
+            "{'q': 'k', 'z': 's'} so chords use 'k' instead of 'q' and "
+            "'s' instead of 'z' -- the typed word is unaffected, only the "
+            "chord string changes. Each key must be a single lowercase "
+            "letter; its replacement must also be a single lowercase letter "
+            "that exists on your keyboard."
+        ),
+    )
 
     @field_validator("file", mode="after")
     @classmethod

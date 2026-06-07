@@ -47,3 +47,22 @@ cost = chord_score × frequency^frequency_exponent
 Raise this if you still see rare words getting short chords at the
 expense of common ones. Set to 0 if you want every word treated
 equally regardless of how often you'll type it.
+
+### key_replacement
+
+If your keyboard is missing certain keys (e.g. no `q` or `z`), you can
+map them to alternate letters when generating chord candidates. The
+replacement affects only the chord string — the typed word stays the
+same.
+
+```yaml
+gen:
+  key_replacement:
+    q: k        # "quick" → chord uses "k" instead of "q"
+    z: s        # "zebra" → chord uses "s" instead of "z"
+```
+
+Each key must be a single lowercase letter that is absent from your
+layout; each value must be a single lowercase letter that *is* present.
+Chords containing a replaced letter will be scored against the
+replacement letter's key position and effort on your keyboard.

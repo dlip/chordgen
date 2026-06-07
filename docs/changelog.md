@@ -29,6 +29,10 @@ assignment defaults, and introduces book mode and drill improvements.
   weighting ensures short chords go to common words. A word at Zipf 6.0
   is weighted 216× more than one at 1.0. Previously 1.0 (linear) let
   rare words compete too aggressively.
+- **Key replacement for missing layout keys.** If your keyboard lacks
+  certain letters (e.g. `q` or `z`), set `gen.key_replacement` in
+  `config.yaml` to substitute them in chord candidates — chords use
+  `k` for `q`, `s` for `z`, while the typed word stays unchanged.
 
 ### Book mode
 
@@ -89,6 +93,7 @@ assignment defaults, and introduces book mode and drill improvements.
 | `train.show_chord_steps` | 3 | train | How many learning steps show the chord |
 | `book.wpm_window_seconds` | 30 | book | Sliding window for running WPM |
 | `book.max_width` | 80 | book | Max width of rendered text block |
+| `gen.key_replacement` | `{}` | gen | Map missing layout keys to replacements |
 
 ### Changed defaults
 
