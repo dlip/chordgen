@@ -29,6 +29,7 @@ Minimal guidance for agents working in this repo.
   can see alt-coverage relationships.
 - New functionality should include unit tests
 - When the user says 'shipit' you should:
+  - run `uv run chordgen schema`
   - Update user docs in /docs
   - Update CHANGELOG.txt 
       - Create a heading with the version in pyproject.toml if it doesn't exist otherwise append to the existing list
