@@ -2,6 +2,18 @@
 
 ## v2.2.0
 
+- **Two-phase chord reveal during initial learning.**
+  Brand-new cards show their chord for the first `show_chord_steps`
+  (default 3) consecutive correct reps, then hide it for the
+  remaining `learning_steps - show_chord_steps` (default 2) reps
+  before graduating. An error resets the FSRS step counter to zero,
+  which brings the chord back. New config knobs: `train.learning_steps`
+  (default 5) and `train.show_chord_steps` (default 3).
+- **Separate learning vs. relearning step counts.**
+  `make_scheduler` now accepts distinct `learning_steps` (new cards)
+  and `relearn_steps` (lapsed cards) so you can have a longer
+  initial-learning staircase without making lapsed-card re-graduation
+  equally slow. `train.relearn_steps` is unchanged at 3.
 - **Drill leaderboard stores all PBs, shows top 5.**
   Only scores that beat or tie the current #1 are recorded, and every
   PB milestone is kept on disk. The summary screen still caps the

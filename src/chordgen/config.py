@@ -58,13 +58,32 @@ class TrainOptions(BaseModel):
             "again for that attempt."
         ),
     )
+    learning_steps: int = Field(
+        default=5,
+        description=(
+            "Number of consecutive correct repetitions a brand-new "
+            "word must earn in one session before it graduates to "
+            "Review state. Each error resets the step counter to "
+            "zero so the word starts over."
+        ),
+    )
+    show_chord_steps: int = Field(
+        default=3,
+        description=(
+            "How many of the initial learning steps show the chord "
+            "during the learning phase. After this many consecutive "
+            "correct reps the chord is hidden for the remaining "
+            "learning steps. An error resets the counter and the "
+            "chord reappears."
+        ),
+    )
     relearn_steps: int = Field(
         default=3,
         description=(
-            "Number of in-session correct repetitions a new or lapsed "
-            "word must earn before it graduates and its FSRS state is "
-            "updated. Higher values give more drilling on hard words "
-            "but slow down session progress."
+            "Number of consecutive correct repetitions a lapsed "
+            "word must earn before re-graduating to Review state. "
+            "Each error resets the step counter to zero so the "
+            "word starts over."
         ),
     )
     target_retention: float = Field(

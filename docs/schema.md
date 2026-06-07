@@ -162,6 +162,8 @@
   reviews_per_day: 200
   leech_threshold: 8
   mastery_threshold: 3
+  learning_steps: 5
+  show_chord_steps: 3
   relearn_steps: 3
   target_retention: 0.9
   slow_wpm_fraction: 0.7
@@ -539,7 +541,9 @@
   - <a id="%24defs/TrainOptions/properties/reviews_per_day"></a>**`reviews_per_day`** *(integer)*: Maximum number of overdue / re-drilled review words surfaced per calendar day. Prevents a long absence from dumping the entire backlog at once. Default: `200`.
   - <a id="%24defs/TrainOptions/properties/leech_threshold"></a>**`leech_threshold`** *(integer)*: Number of lapses (Again ratings on a graduated word) after which a word is considered a 'leech' and called out in the session summary. Set to 0 to disable leech detection. Default: `8`.
   - <a id="%24defs/TrainOptions/properties/mastery_threshold"></a>**`mastery_threshold`** *(integer)*: Number of total FSRS reviews before a word is considered mastered and its chord is hidden during practice. If you make a mistake on a mastered word, its chord is revealed again for that attempt. Default: `3`.
-  - <a id="%24defs/TrainOptions/properties/relearn_steps"></a>**`relearn_steps`** *(integer)*: Number of in-session correct repetitions a new or lapsed word must earn before it graduates and its FSRS state is updated. Higher values give more drilling on hard words but slow down session progress. Default: `3`.
+  - <a id="%24defs/TrainOptions/properties/learning_steps"></a>**`learning_steps`** *(integer)*: Number of consecutive correct repetitions a brand-new word must earn in one session before it graduates to Review state. Each error resets the step counter to zero so the word starts over. Default: `5`.
+  - <a id="%24defs/TrainOptions/properties/show_chord_steps"></a>**`show_chord_steps`** *(integer)*: How many of the initial learning steps show the chord during the learning phase. After this many consecutive correct reps the chord is hidden for the remaining learning steps. An error resets the counter and the chord reappears. Default: `3`.
+  - <a id="%24defs/TrainOptions/properties/relearn_steps"></a>**`relearn_steps`** *(integer)*: Number of consecutive correct repetitions a lapsed word must earn before re-graduating to Review state. Each error resets the step counter to zero so the word starts over. Default: `3`.
   - <a id="%24defs/TrainOptions/properties/target_retention"></a>**`target_retention`** *(number)*: FSRS desired retention probability. The next review for each word is scheduled when its predicted recall falls to this value. Default: `0.9`.
   - <a id="%24defs/TrainOptions/properties/slow_wpm_fraction"></a>**`slow_wpm_fraction`** *(number)*: A correct word counts as 'slow' (FSRS hard) when its per-word WPM is below this fraction of the user's rolling median per-word WPM. Set to 0 to disable slow grading. Default: `0.7`.
   - <a id="%24defs/TrainOptions/properties/slow_min_samples"></a>**`slow_min_samples`** *(integer)*: Minimum number of recorded per-word WPM samples before slow grading activates. Until this is reached all correct words are graded 'good'. Default: `20`.

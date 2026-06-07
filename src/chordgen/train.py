@@ -121,6 +121,7 @@ class TrainApp(App):
         self._on_theme_change = on_theme_change
         self.progress: ProgressFile = load_progress()
         self.scheduler: Scheduler = make_scheduler(
+            learning_steps=config.learning_steps,
             relearn_steps=config.relearn_steps,
             target_retention=config.target_retention,
         )
@@ -597,15 +598,28 @@ class TrainApp(App):
         if not chord:
             return ""
 
-        threshold = self.config.mastery_threshold
+        mastery_threshold = self.config.mastery_threshold
+        show_chord_threshold = self.config.show_chord_steps
         card = get_card(self.progress, word)
         reps = get_reps(self.progress, word)
-        # Mastered = at least ``threshold`` total reviews and currently
-        # in the Review state (i.e. not actively in a learning step).
+
+        # During initial learning (brand-new cards), the chord is
+        # shown for the first ``show_chord_steps`` consecutive
+        # correct reps and hidden thereafter. An error resets the
+        # FSRS step counter to zero, which brings the chord back.
+        if card is not None and card.state == State.Learning:
+            if (card.step or 0) >= show_chord_threshold and not (
+                is_current and self.current_word_had_error
+            ):
+                return ""
+
+        # Mastered = at least ``mastery_threshold`` total reviews and
+        # currently in the Review state (i.e. not actively in a
+        # learning / relearning step).
         mastered = (
             card is not None
             and getattr(card, "state", None) == State.Review
-            and reps >= threshold
+            and reps >= mastery_threshold
         )
 
         if mastered and not (is_current and self.current_word_had_error):

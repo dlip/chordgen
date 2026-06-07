@@ -116,21 +116,23 @@ def save_progress(progress: ProgressFile) -> None:
 
 
 def make_scheduler(
+    learning_steps: int = 5,
     relearn_steps: int = 3,
     target_retention: float = 0.9,
 ) -> Scheduler:
     """Build an FSRS scheduler configured for in-session drilling.
 
-    ``relearn_steps`` becomes a tuple of 1-minute steps for both
-    ``learning_steps`` and ``relearning_steps``. The 1-minute spacing
-    is irrelevant in-session because we always loop straight back to
-    the word; only the *count* matters."""
-    n = max(1, int(relearn_steps))
-    steps = tuple(timedelta(minutes=1) for _ in range(n))
+    ``learning_steps`` controls graduation for brand-new cards;
+    ``relearn_steps`` controls re-graduation for lapsed cards. The
+    1-minute spacing between steps is irrelevant in-session because
+    we always loop straight back to the word; only the *count*
+    matters."""
+    l_steps = tuple(timedelta(minutes=1) for _ in range(max(1, int(learning_steps))))
+    r_steps = tuple(timedelta(minutes=1) for _ in range(max(1, int(relearn_steps))))
     return Scheduler(
         desired_retention=float(target_retention),
-        learning_steps=steps,
-        relearning_steps=steps,
+        learning_steps=l_steps,
+        relearning_steps=r_steps,
         enable_fuzzing=False,
     )
 
