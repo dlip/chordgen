@@ -117,7 +117,7 @@ def save_progress(progress: ProgressFile) -> None:
 
 def make_scheduler(
     learning_steps: int = 5,
-    relearn_steps: int = 3,
+    relearn_steps: int = 2,
     target_retention: float = 0.9,
 ) -> Scheduler:
     """Build an FSRS scheduler configured for in-session drilling.

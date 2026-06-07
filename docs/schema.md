@@ -69,7 +69,7 @@
       - past
       - gerund
   assignment:
-    frequency_exponent: 1.0
+    frequency_exponent: 3.0
     min_frequency_weight: 1.0
     priority_tiers: []
     unmatched_penalty: 10000.0
@@ -164,7 +164,7 @@
   mastery_threshold: 3
   learning_steps: 5
   show_chord_steps: 3
-  relearn_steps: 3
+  relearn_steps: 2
   target_retention: 0.9
   slow_wpm_fraction: 0.7
   slow_min_samples: 20
@@ -236,7 +236,7 @@
 - <a id="%24defs/AssignmentOptions"></a>**`AssignmentOptions`** *(object)*
   - <a id="%24defs/AssignmentOptions/properties/min_frequency_weight"></a>**`min_frequency_weight`** *(number)*: Floor for the weight applied to words missing a frequency value. Treats them as low-priority but still eligible. Default: `1.0`.
   - <a id="%24defs/AssignmentOptions/properties/unmatched_penalty"></a>**`unmatched_penalty`** *(number)*: Cost charged per word that ends up without a chord. Acts as a soft constraint in the optimal matcher: if recovering a word would cost more than this, leaving it unmatched is allowed. Default: `10000.0`.
-  - <a id="%24defs/AssignmentOptions/properties/frequency_exponent"></a>**`frequency_exponent`** *(number)*: Exponent applied to each word's frequency weight before it multiplies the chord score. The default 1.0 reproduces the original linear cost model. Values > 1 (try 2.0 or 3.0) make frequent words dominate the cost so the matcher won't trade a common word's short chord to a rare word that happens to improve the global sum slightly. Must be > 0. Default: `1.0`.
+  - <a id="%24defs/AssignmentOptions/properties/frequency_exponent"></a>**`frequency_exponent`** *(number)*: Exponent applied to each word's frequency weight before it multiplies the chord score. The default 1.0 reproduces the original linear cost model. Values > 1 (try 2.0 or 3.0) make frequent words dominate the cost so the matcher won't trade a common word's short chord to a rare word that happens to improve the global sum slightly. Must be > 0. Default: `3.0`.
   - <a id="%24defs/AssignmentOptions/properties/priority_tiers"></a>**`priority_tiers`** *(array)*: Cumulative frequency-rank cutoffs for tiered assignment. The pool (already in descending-frequency order) is split at each cutoff, then each tier is solved by the optimal matcher in order, with previous tiers' chord keys reserved out. Default [] runs a single global pass. Example [500, 1000] runs three passes: top 500 -> next 500 -> rest. Cutoffs must be strictly increasing; values >= len(pool) are clamped. Default: `[]`.
     - <a id="%24defs/AssignmentOptions/properties/priority_tiers/items"></a>**Items** *(integer)*
 - <a id="%24defs/BookOptions"></a>**`BookOptions`** *(object)*
@@ -334,7 +334,7 @@
     ```yaml
     min_frequency_weight: 1.0
     unmatched_penalty: 10000.0
-    frequency_exponent: 1.0
+    frequency_exponent: 3.0
     priority_tiers: []
     ```
 
@@ -543,7 +543,7 @@
   - <a id="%24defs/TrainOptions/properties/mastery_threshold"></a>**`mastery_threshold`** *(integer)*: Number of total FSRS reviews before a word is considered mastered and its chord is hidden during practice. If you make a mistake on a mastered word, its chord is revealed again for that attempt. Default: `3`.
   - <a id="%24defs/TrainOptions/properties/learning_steps"></a>**`learning_steps`** *(integer)*: Number of consecutive correct repetitions a brand-new word must earn in one session before it graduates to Review state. Each error resets the step counter to zero so the word starts over. Default: `5`.
   - <a id="%24defs/TrainOptions/properties/show_chord_steps"></a>**`show_chord_steps`** *(integer)*: How many of the initial learning steps show the chord during the learning phase. After this many consecutive correct reps the chord is hidden for the remaining learning steps. An error resets the counter and the chord reappears. Default: `3`.
-  - <a id="%24defs/TrainOptions/properties/relearn_steps"></a>**`relearn_steps`** *(integer)*: Number of consecutive correct repetitions a lapsed word must earn before re-graduating to Review state. Each error resets the step counter to zero so the word starts over. Default: `3`.
+  - <a id="%24defs/TrainOptions/properties/relearn_steps"></a>**`relearn_steps`** *(integer)*: Number of consecutive correct repetitions a lapsed word must earn before re-graduating to Review state. Each error resets the step counter to zero so the word starts over. Default: `2`.
   - <a id="%24defs/TrainOptions/properties/target_retention"></a>**`target_retention`** *(number)*: FSRS desired retention probability. The next review for each word is scheduled when its predicted recall falls to this value. Default: `0.9`.
   - <a id="%24defs/TrainOptions/properties/slow_wpm_fraction"></a>**`slow_wpm_fraction`** *(number)*: A correct word counts as 'slow' (FSRS hard) when its per-word WPM is below this fraction of the user's rolling median per-word WPM. Set to 0 to disable slow grading. Default: `0.7`.
   - <a id="%24defs/TrainOptions/properties/slow_min_samples"></a>**`slow_min_samples`** *(integer)*: Minimum number of recorded per-word WPM samples before slow grading activates. Until this is reached all correct words are graded 'good'. Default: `20`.

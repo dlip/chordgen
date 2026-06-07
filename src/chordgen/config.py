@@ -78,7 +78,7 @@ class TrainOptions(BaseModel):
         ),
     )
     relearn_steps: int = Field(
-        default=3,
+        default=2,
         description=(
             "Number of consecutive correct repetitions a lapsed "
             "word must earn before re-graduating to Review state. "
@@ -275,7 +275,7 @@ class AssignmentOptions(BaseModel):
         ),
     )
     frequency_exponent: float = Field(
-        default=1.0,
+        default=3.0,
         description=(
             "Exponent applied to each word's frequency weight before it "
             "multiplies the chord score. The default 1.0 reproduces the "

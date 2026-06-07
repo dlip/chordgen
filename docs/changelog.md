@@ -13,7 +13,8 @@
   `make_scheduler` now accepts distinct `learning_steps` (new cards)
   and `relearn_steps` (lapsed cards) so you can have a longer
   initial-learning staircase without making lapsed-card re-graduation
-  equally slow. `train.relearn_steps` is unchanged at 3.
+  equally slow. Default `train.relearn_steps` reduced to 2; default
+  `gen.assignment.frequency_exponent` raised to 3.0.
 - **Drill leaderboard stores all PBs, shows top 5.**
   Only scores that beat or tie the current #1 are recorded, and every
   PB milestone is kept on disk. The summary screen still caps the
