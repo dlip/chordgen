@@ -2,3 +2,6 @@ v2.2.0
 
 - Book mode: the current word is now highlighted yellow when it's a
   learned chord (previously only upcoming words were highlighted).
+- Learn mode: overdue detection now uses calendar date instead of
+  wall-clock time, matching Anki's behavior — cards due later today
+  are no longer skipped.

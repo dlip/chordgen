@@ -211,6 +211,8 @@ class LearnApp(App):
         # are buried until tomorrow even if FSRS schedules them
         # sooner — otherwise a freshly-graduated card can pop right
         # back onto the queue minutes later.
+        # Due-check uses calendar date (like Anki), not wall-clock
+        # time, so a card due later today still appears.
         overdue: list[tuple[float, str]] = []
         for word, entry in words_state.items():
             if word not in self.chords_map or word in excluded:
@@ -218,7 +220,9 @@ class LearnApp(App):
             if entry.get("last_seen_date") == today:
                 continue
             card = Card.from_dict(entry["card"])
-            if card.due is None or card.due > now:
+            if card.due is None:
+                continue
+            if card.due.date() > now.date():
                 continue
             r = self.scheduler.get_card_retrievability(card, current_datetime=now)
             overdue.append((r, word))
