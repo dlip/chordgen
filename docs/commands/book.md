@@ -21,8 +21,9 @@ Supported formats:
   WPM (default last 30 seconds — see `book.wpm_window_seconds`).
 - Middle: a window of the book centred on the word you're typing.
   Words you have already mastered (FSRS Review state) are
-  highlighted in **yellow** so you can see where to apply your
-  learned chords; everything else is rendered plain.
+  highlighted in **yellow** — including the word you're currently
+  typing — so you can see where to apply your learned chords;
+  everything else is rendered plain.
 - Below the text: a one-line chord display, only shown when you've
   mistyped a learned word. Same reveal-on-stumble UX as drill mode.
 - Bottom: your keyboard layout. When you mistype a learned word

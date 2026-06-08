@@ -918,7 +918,10 @@ class BookApp(App):
             if typed:
                 out.append(typed, style="green")
             if rest:
-                out.append(rest, style="bold")
+                if tok.word_key in self.learned_words:
+                    out.append(rest, style="bold yellow")
+                else:
+                    out.append(rest, style="bold")
             return
 
         # Upcoming token.
