@@ -27,8 +27,9 @@ learning words have graduated.
   steps before graduating. An error resets the step counter to zero,
   which brings the chord back.
 - Once a word has graduated to FSRS Review state and accumulated
-  `learn.mastery_threshold` total reviews, the chord is hidden until
-  you lapse on it again.
+  `learn.mastery_threshold` total reviews, the chord is hidden. If
+  you later lapse on the word, the chord stays hidden during
+  relearning — it only reappears on a current-word error.
 - Any mistake during a word grades the review as `Again`, sending the
   card back into the learning queue. An `Again` on a card already in
   Review counts as a *lapse*; words that accumulate

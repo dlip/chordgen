@@ -617,6 +617,12 @@ class LearnApp(App):
             ):
                 return ""
 
+        # Relearning (lapsed cards): chord stays hidden — the user
+        # already learned it. Only revealed on a current-word error.
+        if card is not None and card.state == State.Relearning:
+            if not (is_current and self.current_word_had_error):
+                return ""
+
         # Mastered = at least ``mastery_threshold`` total reviews and
         # currently in the Review state (i.e. not actively in a
         # learning / relearning step).

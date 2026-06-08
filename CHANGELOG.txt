@@ -5,3 +5,6 @@ v2.2.0
 - Learn mode: overdue detection now uses calendar date instead of
   wall-clock time, matching Anki's behavior — cards due later today
   are no longer skipped.
+- Learn mode: lapsed (Relearning) cards no longer show the chord by
+  default — it only reappears on a current-word error, same as
+  mastered words.
