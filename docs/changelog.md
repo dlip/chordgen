@@ -2,135 +2,138 @@
 
 ## v2.1.0
 
-- **Book mode: current learned word highlighted yellow.** Previously
-  only upcoming learned words were highlighted; now the word you're
-  actively typing also gets the yellow highlight when it's a learned
-  chord.
-- **Learn mode: calendar-date overdue check.** Overdue cards are now
-  matched by calendar date (Anki-style) instead of wall-clock time,
-  so cards due later today appear in the review queue immediately.
-- **Learn mode: chord hidden during relearning.** When a mastered word
-  lapses and returns to Relearning, the chord no longer reappears by
-  default — it only shows on a current-word error, same as mastered
-  words.
-- **Alt generation: skip inflector import when slots are filled.**
-  When `alts.overwrite` is `false` and all three alt slots are
-  already populated, the expensive `pattern` library import is
-  avoided entirely, making `chordgen gen` much faster on re-runs.
-- **Renamed `train` to `learn`.** Command is now `chordgen learn`,
-  config section is `learn`, the TUI title says "chordgen learn".
-  The old `train` config key will be silently ignored.
-- **Red flash no longer blocks keystrokes.** The red flash on mistype
-  is purely visual — backspace, correct letters, and space to
-  complete all work during the flash.
-- **Drill leaderboard stores all PBs, shows top 5.** Only scores that
-  beat the current #1 are recorded; every PB milestone is kept on
-  disk. The summary screen still caps the display to 5 entries.
-- **Book mode: text fills screen immediately on launch.** A second
-  render is scheduled after the initial layout pass so the text
-  window uses the widget's full height from the start.
-- **Book mode: resume uses file content hash.** Progress is keyed by
-  SHA-1 of the file's bytes instead of its absolute path, so moving
-  or renaming the book file preserves your cursor position.
-
 A focused release that tightens the training loop, sharpens chord
-assignment defaults, and introduces book mode and drill improvements.
+assignment defaults, and introduces book mode and drill
+improvements.
 
-### Training
+### Renamed `train` → `learn`
 
-- **Two-phase chord reveal during initial learning.**
-  Brand-new cards show their chord for the first `train.show_chord_steps`
-  (default 3) consecutive correct reps, then hide it for the remaining
-  `train.learning_steps - show_chord_steps` (2) reps before graduating.
-  An error resets the FSRS step counter to zero, which brings the chord
-  back — guided reps first, then recall from memory.
+The interactive spaced-repetition command is now `chordgen learn`,
+the matching `config.yaml` section is `learn`, and the TUI title
+reads "chordgen learn". The old `train` config key is silently
+ignored.
+
+### Learn mode
+
+- **Two-phase chord reveal during initial learning.** Brand-new
+  cards show their chord for the first `learn.show_chord_steps`
+  (default 3) consecutive correct reps, then hide it for the
+  remaining `learn.learning_steps - show_chord_steps` (2) reps
+  before graduating. An error resets the FSRS step counter to
+  zero, which brings the chord back — guided reps first, then
+  recall from memory.
 - **Separate learning vs. relearning step counts.**
   `make_scheduler` now takes distinct `learning_steps` (new cards,
-  default 5) and `relearn_steps` (lapsed cards, default 2), so you can
-  have a longer initial staircase without making lapsed-card
-  re-graduation equally slow. Previously both shared a single knob.
-- **Red flash no longer blocks keystrokes.**
-  The red flash on mistype is purely visual — backspace, correct
-  letters, and space to complete all work during the flash instead of
-  being silently dropped for 400–500 ms.
-
-### Chord assignment
-
-- **Default `frequency_exponent` raised to 3.0.** Cubic frequency
-  weighting ensures short chords go to common words. A word at Zipf 6.0
-  is weighted 216× more than one at 1.0. Previously 1.0 (linear) let
-  rare words compete too aggressively.
-- **Key replacement for missing layout keys.** If your keyboard lacks
-  certain letters (e.g. `q` or `z`), set `gen.key_replacement` in
-  `config.yaml` to substitute them in chord candidates — chords use
-  `k` for `q`, `s` for `z`, while the typed word stays unchanged.
+  default 5) and `relearn_steps` (lapsed cards, default 2), so a
+  longer initial staircase no longer drags out lapsed-card
+  re-graduation.
+- **Calendar-date overdue check.** Overdue cards are matched by
+  calendar date (Anki-style) instead of wall-clock time, so cards
+  due later today appear in the review queue immediately.
+- **Chord stays hidden during relearning.** When a mastered word
+  lapses and returns to Relearning, the chord no longer reappears
+  by default — it only shows on a current-word error, same as
+  mastered words.
+- **Red flash no longer blocks keystrokes.** The red flash on
+  mistype is purely visual — backspace, correct letters, and
+  space-to-complete all work during the flash instead of being
+  silently dropped for 400–500 ms.
 
 ### Book mode
 
-- **New `book` mode.** `chordgen book PATH` lets you type your way
-  through an arbitrary book (`.txt`, `.md`, or `.epub`). The TUI
-  shows a window of the text centred on the cursor, your keyboard
-  layout pinned to the bottom, and a sliding-window WPM (default
-  last 30 seconds, configurable via `book.wpm_window_seconds`).
-  Words you've already learned (FSRS Review state) are highlighted in
-  yellow; mistyping a learned word reveals its chord and lights up
-  the chord keys on the keyboard view. Cursor position is auto-saved
-  per-book to `~/.config/chordgen/books.json` so re-running
-  `chordgen book <path>` resumes where you left off (`--restart` to
-  start over). Navigation: `←`/`→` by word, `↑`/`↓` by line,
-  `PgUp`/`PgDn` by half a screen-page.
-- **Line-based rendering.** The book view scrolls by line rather than
-  by word. The cursor's line stays vertically centred with as many
-  previous and following lines as fit on screen, and text wraps to
-  `book.max_width` (default 80 columns).
-- **Typeable-character normalisation.** Smart quotes, em/en dashes,
-  ligatures, accented Latin, and miscellaneous symbols are folded to
-  plain ASCII on load so a basic QWERTY layout never gets stuck.
-- **Resume uses file content hash.** Progress is keyed by SHA-1 of the
-  file's bytes instead of its absolute path, so renamed or moved books
-  still pick up where you left off.
+- **New `chordgen book PATH` command.** Type your way through an
+  arbitrary book (`.txt`, `.md`, or `.epub`). The TUI shows a
+  window of the text centred on the cursor, your keyboard layout
+  pinned to the bottom, and a sliding-window WPM (default last 30
+  seconds, configurable via `book.wpm_window_seconds`). Words
+  you've already learned (FSRS Review state) are highlighted in
+  yellow — including the current word — and mistyping a learned
+  word reveals its chord and lights up the chord keys on the
+  keyboard view. Cursor position is auto-saved per-book to
+  `~/.config/chordgen/books.json` so re-running `chordgen book
+  <path>` resumes where you left off (`--restart` to start over).
+  Navigation: `←`/`→` by word, `↑`/`↓` by paragraph, `PgUp`/`PgDn`
+  by half a screen-page.
+- **Line-based rendering with max width.** The book view scrolls
+  by line rather than by word. The cursor's line stays vertically
+  centred with as many previous and following lines as fit on
+  screen, and text wraps to `book.max_width` (default 80
+  columns). The view fills the available height immediately on
+  launch — a second render is scheduled after the initial layout
+  pass so the text window uses the widget's full height from the
+  start.
+- **Typeable-character normalisation.** Smart quotes, em/en
+  dashes, ligatures, accented Latin (à, é, ñ, ç, æ, œ, ß, …) and
+  miscellaneous symbols (™, …, •, ©, ®, °, ×, ÷) are folded to
+  plain ASCII on load so a basic QWERTY layout never gets stuck
+  on an untypeable glyph.
+- **Resume uses file content hash.** Progress is keyed by SHA-1
+  of the file's bytes instead of its absolute path, so renamed or
+  moved books still pick up where you left off.
 
 ### Drill mode
 
 - **Arbitrary word lists.** Pass words as positional arguments
   (`chordgen drill the quick brown fox`) or point at a file with
-  `--words-file/-f`. In this mode the FSRS graduated pool is bypassed
-  and `progress.json` is left untouched.
-- **Personal-best leaderboard.** Each completed drill records its WPM
-  into a per-keyboard-layout leaderboard at `~/.config/chordgen/scores.json`.
-  All PB milestones are kept on disk; the summary screen shows the top
-  5 with dates. The leaderboard is keyed by `<keyboard-type>:<layout>`;
-  custom layouts use `custom_layout_name` so multiple layouts can have
-  separate scoreboards. Stored separately from `progress.json` so
-  high-scores survive FSRS schema migrations.
-- **Failed words captured at first mistype.** A word is recorded as
-  failed the moment you mistype it, rather than when the word
-  completes, so words you were stuck on when the timer expires now
-  correctly appear in the failed-words list.
+  `--words-file/-f`. In this mode the FSRS graduated pool is
+  bypassed and `progress.json` is left untouched. Words without a
+  chord in `chords.csv` are silently dropped.
+- **Personal-best leaderboard.** Each completed drill records its
+  WPM into a per-keyboard-layout leaderboard at
+  `~/.config/chordgen/scores.json`, stored separately from
+  `progress.json` so high-scores survive FSRS schema migrations.
+  Only scores that beat the current #1 are recorded; every PB
+  milestone is kept on disk and the summary screen shows the top
+  5 with dates. The leaderboard is keyed by
+  `<keyboard-type>:<layout>`; custom layouts use the new
+  `gen.keyboard.<type>.custom_layout_name` field (default
+  `custom`) so multiple custom layouts can keep separate
+  scoreboards.
+- **Failed words captured at first mistype.** A word is recorded
+  as failed the moment you mistype it, rather than when the word
+  completes, so words you were stuck on when the timer expires
+  now correctly appear in the failed-words list.
 
-### General
+### Chord assignment
 
-- **TUI layout refresh.** Train and drill modes render session stats
-  above the word stream, with the current word horizontally centred
-  on screen. The underline cursor between the word and its chord has
-  been removed so the chord sits directly beneath the word. The
-  keyboard view stays at the bottom.
+- **Default `frequency_exponent` raised to 3.0.** Cubic frequency
+  weighting ensures short chords go to common words. A word at
+  Zipf 6.0 is now weighted 216× more than one at 1.0. Previously
+  1.0 (linear) let rare words compete too aggressively.
+- **Key replacement for missing layout keys.** If your keyboard
+  lacks certain letters (e.g. `q` or `z`), set
+  `gen.key_replacement` in `config.yaml` to substitute them in
+  chord candidates — chords use `k` for `q`, `s` for `z`, while
+  the typed word stays unchanged.
+- **Faster re-runs.** When `alts.overwrite` is `false` and all
+  three alt slots are already populated, the expensive `pattern`
+  library import is skipped entirely, making `chordgen gen` much
+  faster on iterations.
+
+### TUI / general
+
+- **Layout refresh.** Learn and drill modes render session stats
+  above the word stream, with the current word horizontally
+  centred on screen. The underline cursor between the word and
+  its chord has been removed so the chord sits directly beneath
+  the word. The keyboard view stays at the bottom.
 
 ### New config keys
 
 | Key | Default | Section | Purpose |
 | --- | ------- | ------- | ------- |
-| `train.learning_steps` | 5 | train | Consecutive corrects before a new card graduates |
-| `train.show_chord_steps` | 3 | train | How many learning steps show the chord |
+| `learn.learning_steps` | 5 | learn | Consecutive corrects before a new card graduates |
+| `learn.show_chord_steps` | 3 | learn | How many learning steps show the chord |
 | `book.wpm_window_seconds` | 30 | book | Sliding window for running WPM |
 | `book.max_width` | 80 | book | Max width of rendered text block |
 | `gen.key_replacement` | `{}` | gen | Map missing layout keys to replacements |
+| `gen.keyboard.<type>.custom_layout_name` | `"custom"` | gen.keyboard | Leaderboard label for the custom layout |
 
 ### Changed defaults
 
 | Key | Old | New |
 | --- | --- | --- |
-| `train.relearn_steps` | 3 | 2 |
+| `learn.relearn_steps` | 3 | 2 |
 | `gen.assignment.frequency_exponent` | 1.0 | 3.0 |
 
 ## v2.0.0
