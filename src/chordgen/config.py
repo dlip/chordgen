@@ -345,6 +345,26 @@ class GenOptions(BaseModel):
         v.parent.mkdir(parents=True, exist_ok=True)
         return v
 
+    @field_validator("key_replacement", mode="after")
+    @classmethod
+    def validate_key_replacement(cls, v: dict[str, str]) -> dict[str, str]:
+        for key, replacement in v.items():
+            if len(key) != 1 or not key.isalpha() or not key.islower():
+                raise ValueError(
+                    f"key_replacement key {key!r} must be a single "
+                    f"lowercase letter"
+                )
+            if (
+                len(replacement) != 1
+                or not replacement.isalpha()
+                or not replacement.islower()
+            ):
+                raise ValueError(
+                    f"key_replacement value {replacement!r} for "
+                    f"{key!r} must be a single lowercase letter"
+                )
+        return v
+
 
 class Config(BaseModel):
     gen: GenOptions = GenOptions()
@@ -379,6 +399,10 @@ def load_or_create_config(config_file: Path = DEFAULT_CONFIG) -> Config:
         # Migrate old `train` config key to `learn`.
         if "train" in raw and "learn" not in raw:
             raw["learn"] = raw.pop("train")
+            print(
+                f"Note: migrated 'train' config key to 'learn' in "
+                f"{config_file}; re-check any hand-edits."
+            )
     else:
         print(f"Creating config {config_file}")
         raw = {}

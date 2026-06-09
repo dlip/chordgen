@@ -50,6 +50,11 @@ from chordgen.srs import get_card, load_progress
 
 _WORD_KEY_RE = re.compile(r"[^a-z']+")
 
+# Fallback line count used before the #book-text widget has been
+# laid out (i.e. before ``_visible_lines()`` can read the real
+# height from the widget).
+_DEFAULT_VISIBLE_LINES = 7
+
 
 # Map of non-typeable characters → ASCII replacements. Applied to all
 # book text so users typing on a plain QWERTY-style layout don't get
@@ -605,6 +610,7 @@ class BookApp(App):
         self.letter_index = 0
         self.current_word_had_error = False
         self.flashing = False
+        self.at_end_of_book = False
 
         self.wpm = WpmWindow(window_seconds=float(self.config.wpm_window_seconds))
         self._tick_handle = None
@@ -687,6 +693,7 @@ class BookApp(App):
         self.cursor = self._clamp_to_word(idx)
         self.letter_index = 0
         self.current_word_had_error = False
+        self.at_end_of_book = False
         self._persist_cursor()
         self.refresh_view()
 
@@ -716,16 +723,17 @@ class BookApp(App):
 
     def _visible_lines(self) -> int:
         """Number of text lines that fit in the #book-text widget
-        right now. Falls back to 7 before the widget is laid out."""
+        right now. Falls back to ``_DEFAULT_VISIBLE_LINES`` before the
+        widget is laid out."""
         try:
             widget = self.query_one("#book-text", BookText)
         except Exception:
-            return 7
+            return _DEFAULT_VISIBLE_LINES
         # ``size`` is the outer box; padding is ``1 2`` (top/bottom = 1
         # each), so subtract 2 for the inner content height.
         h = widget.size.height - 2
         if h <= 0:
-            return 7
+            return _DEFAULT_VISIBLE_LINES
         return h
 
     def _half_page_lines(self) -> int:
@@ -814,7 +822,10 @@ class BookApp(App):
     def _complete_current_word(self) -> None:
         nxt = next_word_index(self.book.tokens, self.cursor)
         if nxt == self.cursor:
-            # End of book — leave cursor on the last word.
+            # End of book — leave cursor on the last word and surface
+            # an "End of book" status so the user knows there's
+            # nothing more to type.
+            self.at_end_of_book = True
             self.refresh_view()
             return
         self.cursor = nxt
@@ -856,6 +867,9 @@ class BookApp(App):
         line.append(f"¶ {cur_para}/{total_paragraphs}", style="dim")
         line.append("   ")
         line.append(f"{self.wpm.wpm():.0f} wpm (last {int(self.wpm.window_seconds)}s)", style="cyan")
+        if self.at_end_of_book:
+            line.append("   ")
+            line.append("📖 End of book", style="bold green")
         widget.update(line)
 
     def _render_text(self) -> None:

@@ -102,8 +102,9 @@ def record_drill_score(
     layouts = scores.setdefault("layouts", {})
     entries = list(layouts.get(layout_key, []))
 
-    # Only record if this beats or ties the current #1 (or the
-    # leaderboard is empty).
+    # Only record if this strictly beats the current #1 (or the
+    # leaderboard is empty). Ties are dropped to avoid filling the
+    # board with identical PB runs.
     if entries and wpm <= entries[0]["wpm"]:
         return False
 
