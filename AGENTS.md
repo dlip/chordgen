@@ -31,9 +31,9 @@ Minimal guidance for agents working in this repo.
 - When the user says 'shipit' you should:
   - run `uv run chordgen schema`
   - Update user docs in /docs
-  - Update CHANGELOG.txt
+  - Update CHANGELOG.md
       - Find the heading matching the version string in pyproject.toml.
-      - If no such heading exists in CHANGELOG.txt, add it at the top.
+      - If no such heading exists in CHANGELOG.md, add it at the top.
       - Append new entries as bullet points under that heading. Do NOT
         create a heading for a different version or remove existing
         entries.

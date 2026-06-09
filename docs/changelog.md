@@ -1,7 +1,22 @@
 # Changelog
 
-## v2.2.0
+## v2.1.0
 
+- **Book mode: current learned word highlighted yellow.** Previously
+  only upcoming learned words were highlighted; now the word you're
+  actively typing also gets the yellow highlight when it's a learned
+  chord.
+- **Learn mode: calendar-date overdue check.** Overdue cards are now
+  matched by calendar date (Anki-style) instead of wall-clock time,
+  so cards due later today appear in the review queue immediately.
+- **Learn mode: chord hidden during relearning.** When a mastered word
+  lapses and returns to Relearning, the chord no longer reappears by
+  default — it only shows on a current-word error, same as mastered
+  words.
+- **Alt generation: skip inflector import when slots are filled.**
+  When `alts.overwrite` is `false` and all three alt slots are
+  already populated, the expensive `pattern` library import is
+  avoided entirely, making `chordgen gen` much faster on re-runs.
 - **Renamed `train` to `learn`.** Command is now `chordgen learn`,
   config section is `learn`, the TUI title says "chordgen learn".
   The old `train` config key will be silently ignored.
@@ -17,8 +32,6 @@
 - **Book mode: resume uses file content hash.** Progress is keyed by
   SHA-1 of the file's bytes instead of its absolute path, so moving
   or renaming the book file preserves your cursor position.
-
-## v2.1.0
 
 A focused release that tightens the training loop, sharpens chord
 assignment defaults, and introduces book mode and drill improvements.
