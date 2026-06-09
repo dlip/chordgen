@@ -11,7 +11,7 @@ Minimal guidance for agents working in this repo.
   - `scorer.py` — generates and scores candidate chord options per word
   - `alt_generator.py` — category/inflector registry for alt slots
   - `assigner.py` — smart-greedy + 2-swap chord assignment
-  - `output/` — emitters (qmk, zmk, kanata, charachorder, training)
+  - `output/` — emitters (qmk, zmk, kanata, charachorder, training, learn)
   - `keyboards/` — standard and directional keyboard models
   - `config.py` — pydantic schema for `~/.config/chordgen/config.yaml`
   - `chord.py` — `Chord` TypedDict (the row shape of `chords.csv`)
@@ -27,6 +27,19 @@ Minimal guidance for agents working in this repo.
   SUBTLEX). Don't assume Zipf in code — treat it as a float.
 - Alt generation must run before chord assignment in `gen.py` so the assigner
   can see alt-coverage relationships.
+- New functionality should include unit tests
+- When the user says 'shipit' you should:
+  - run `uv run chordgen schema`
+  - Update user docs in /docs
+  - Update CHANGELOG.md
+      - Find the heading matching the version string in pyproject.toml.
+      - If no such heading exists in CHANGELOG.md, add it at the top.
+      - Append new entries as bullet points under that heading. Do NOT
+        create a heading for a different version or remove existing
+        entries.
+  - Ensure unit tests pass
+  - Create a git commit with a brief summary
+  - Push the changes
 
 ## Common commands
 
@@ -35,8 +48,3 @@ uv run chordgen setup --force   # regenerate config.yaml + chords.csv
 uv run chordgen gen             # assign chords + alts
 uv run chordgen output          # write firmware/training files
 ```
-
-## Versioning
-
-Current version: `2.0.0` (see [pyproject.toml](./pyproject.toml)). Breaking
-changes are documented in [CHANGELOG.md](./CHANGELOG.md).

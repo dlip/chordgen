@@ -1,4 +1,4 @@
-"""Tests for the ASCII keyboard renderer used by train and drill."""
+"""Tests for the ASCII keyboard renderer used by learn and drill."""
 
 from chordgen.keyboard_view import (
     KEY_HIGHLIGHT_STYLE,

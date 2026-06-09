@@ -1,4 +1,4 @@
-"""ASCII keyboard renderer used by the train and drill TUIs.
+"""ASCII keyboard renderer used by the learn and drill TUIs.
 
 Two layout families are supported:
 
@@ -51,7 +51,7 @@ def resolve_keyboard_layout(config) -> tuple[str, list[list[str]]] | None:
     return None
 
 
-# Backwards-compatible alias retained for the train/drill imports
+# Backwards-compatible alias retained for the learn/drill imports
 # that still phrase things in terms of "standard". Returns just the
 # rows (or None) — used where the kind is irrelevant.
 def resolve_standard_layout(config) -> list[list[str]] | None:
@@ -59,6 +59,27 @@ def resolve_standard_layout(config) -> list[list[str]] | None:
     if resolved is None:
         return None
     return resolved[1]
+
+
+def resolve_layout_key(config) -> str:
+    """Return a stable identifier for the configured keyboard layout
+    (e.g. ``"standard:qwerty"`` or ``"directional:charachorder"``).
+
+    For ``layout="custom"`` the user-supplied ``custom_layout_name``
+    is used in place of ``"custom"`` so that personal-best
+    leaderboards can be split per custom layout. Falls back to
+    ``"unknown"`` if no layout can be resolved."""
+    keyboard = getattr(config, "gen", None)
+    keyboard = getattr(keyboard, "keyboard", None) if keyboard else None
+    if keyboard is None:
+        return "unknown"
+    kind = getattr(keyboard, "type", None) or "unknown"
+    opts = getattr(keyboard, kind, None)
+    name = getattr(opts, "layout", None) if opts is not None else None
+    if name == "custom":
+        custom_name = getattr(opts, "custom_layout_name", None) or "custom"
+        name = custom_name
+    return f"{kind}:{name or 'unknown'}"
 
 
 def _append_key(out: Text, key: str, highlights: set[str]) -> None:

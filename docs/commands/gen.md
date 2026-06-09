@@ -26,3 +26,43 @@ first, then the next 500, then the rest, with each tier's chords
 reserved out of the next. This protects common words like `the` /
 `and` / `have` from being out-bid by rare words competing for the
 same key.
+
+### frequency_exponent
+
+Controls how sharply frequency amplifies cost differences between
+competing words. The cost formula is:
+
+```
+cost = chord_score × frequency^frequency_exponent
+```
+
+- **0.0** — all words have equal weight; frequency is ignored entirely.
+  Every key goes to whichever word happens to claim it cheapest.
+- **1.0** — linear weighting. A word with frequency 6.0 is weighted 6×
+  as much as a word with frequency 1.0.
+- **3.0** (default) — cubic weighting. A word with frequency 6.0 is
+  weighted 216× as much as a word with frequency 1.0. This strongly
+  favours short chords going to high-frequency words.
+
+Raise this if you still see rare words getting short chords at the
+expense of common ones. Set to 0 if you want every word treated
+equally regardless of how often you'll type it.
+
+### key_replacement
+
+If your keyboard is missing certain keys (e.g. no `q` or `z`), you can
+map them to alternate letters when generating chord candidates. The
+replacement affects only the chord string — the typed word stays the
+same.
+
+```yaml
+gen:
+  key_replacement:
+    q: k        # "quick" → chord uses "k" instead of "q"
+    z: s        # "zebra" → chord uses "s" instead of "z"
+```
+
+Each key must be a single lowercase letter that is absent from your
+layout; each value must be a single lowercase letter that *is* present.
+Chords containing a replaced letter will be scored against the
+replacement letter's key position and effort on your keyboard.

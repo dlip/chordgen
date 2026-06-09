@@ -1,7 +1,7 @@
 # Training file
 
 !!! note
-    Check the [`train`](../commands/train.md) command for the new
+    Check the [`learn`](../commands/learn.md) command for the new
     interactive approach.
 
 Plain-text drill file for typing-practice tools like

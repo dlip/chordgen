@@ -16,13 +16,14 @@ from chordgen.constants import CONFIG_DIR
 from chordgen.gen import gen as run_gen
 from chordgen.vocab import SOURCES
 from chordgen.vocab.pipeline import build_chords_csv
-from chordgen.train import TrainApp
+from chordgen.learn import LearnApp
 from chordgen.drill import DrillApp
-from chordgen.keyboard_view import resolve_keyboard_layout
+from chordgen.book import BookApp
+from chordgen.keyboard_view import resolve_keyboard_layout, resolve_layout_key
 
 
 
-app = typer.Typer()
+app = typer.Typer(no_args_is_help=True)
 
 
 class State:
@@ -91,11 +92,12 @@ def setup(
         help="Overwrite an existing chords.csv. By default setup keeps it.",
     ),
 ):
-    """Initialise config and chords.csv.
+    """Download vocabulary and create chords.csv.
 
-    chords.csv is generated from a frequency-ranked source (SUBTLEX by
-    default). After setup, chords.csv is yours to edit by hand; running
-    setup again without --force will not touch it.
+    Fetches a frequency-ranked word list (SUBTLEX-US by default),
+    scores every viable chord per word, and writes the initial
+    chords.csv. After setup you own the file — edit by hand, re-run
+    gen to refresh assignments, or run setup --force to start over.
     """
     chords_file = State.config.gen.file
     if chords_file.exists() and not force:
@@ -125,11 +127,23 @@ def setup(
 
 @app.command()
 def gen():
+    """Score, generate alts, and assign chords to every word.
+
+    Picks the optimal chord per word using a sparse minimum-weight
+    bipartite matcher, fills alt1/alt2/alt3 via the category/inflector
+    registry, and writes the result back to chords.csv.
+    """
     run_gen(State.config.gen)
 
 
 @app.command()
 def output():
+    """Emit firmware and training files from chords.csv.
+
+    Writes one file per enabled output format (qmk, zmk, kanata,
+    charachorder, training). Configure which formats are active and
+    their file paths under output.formats in config.yaml.
+    """
     chords = load_file(State.config.gen.file)
     validate_chords(chords)
 
@@ -141,6 +155,7 @@ def output():
 
 @app.command()
 def schema():
+    """Regenerate docs/schema.md from the Pydantic config model."""
     parser = jsonschema2md.Parser()
     md = "".join(parser.parse_schema(Config.model_json_schema()))
     pattern = r"/(?:Users|home)/[^/]+/"
@@ -199,14 +214,25 @@ def _is_complex_default(value: object) -> bool:
 
 
 @app.command()
-def train():
-    """Practice chording with a TUI."""
+def learn():
+    """Learn chords with spaced repetition.
+
+    An interactive TUI that presents words one at a time. New words
+    show their chord until you've typed them correctly a few times;
+    once learned the chord is hidden and only revealed on a mistake.
+
+    Backed by FSRS — each word is scheduled for review based on your
+    performance, with daily quotas for new words and reviews, per-word
+    speed grading, and automatic leech detection.
+
+    Press Ctrl+P to switch themes.
+    """
     chords = load_file(State.config.gen.file)
     resolved = resolve_keyboard_layout(State.config)
     keyboard_kind, keyboard_layout = resolved if resolved else ("standard", None)
-    app = TrainApp(
+    app = LearnApp(
         chords,
-        State.config.train,
+        State.config.learn,
         keyboard_layout=keyboard_layout,
         keyboard_kind=keyboard_kind,
         initial_theme=State.config.theme,
@@ -216,14 +242,90 @@ def train():
 
 
 @app.command()
-def drill():
-    """Speed-drill on graduated words (no FSRS state changes)."""
+def drill(
+    words: list[str] = typer.Argument(
+        None,
+        help=(
+            "Optional words to drill on instead of the graduated "
+            "FSRS pool. Words without a chord in chords.csv are "
+            "silently dropped."
+        ),
+    ),
+    words_file: Path = typer.Option(
+        None,
+        "--words-file",
+        "-f",
+        help=(
+            "Path to a file containing words to drill on (whitespace-"
+            "separated). Combined with any positional WORDS arguments. "
+            "Words without a chord in chords.csv are silently dropped."
+        ),
+    ),
+):
+    """Speed-drill on graduated words (no FSRS state changes).
+
+    By default the word pool is restricted to words whose FSRS card
+    has graduated to Review state. If WORDS or --words-file is given,
+    drill on those words instead.
+    """
     chords = load_file(State.config.gen.file)
     resolved = resolve_keyboard_layout(State.config)
     keyboard_kind, keyboard_layout = resolved if resolved else ("standard", None)
+
+    custom_words: list[str] | None = None
+    collected: list[str] = list(words) if words else []
+    if words_file is not None:
+        if not words_file.exists():
+            print(f"Error: words file {words_file} does not exist")
+            raise typer.Abort()
+        collected.extend(words_file.read_text().split())
+    if collected:
+        custom_words = collected
+
     app = DrillApp(
         chords,
         State.config.drill,
+        keyboard_layout=keyboard_layout,
+        keyboard_kind=keyboard_kind,
+        layout_key=resolve_layout_key(State.config),
+        initial_theme=State.config.theme,
+        on_theme_change=_persist_theme,
+        custom_words=custom_words,
+    )
+    app.run()
+
+
+@app.command()
+def book(
+    path: Path = typer.Argument(
+        ..., help="Path to a book file (.txt, .md, or .epub) to type through."
+    ),
+    restart: bool = typer.Option(
+        False,
+        "--restart",
+        help="Reset the saved cursor for this book and start from the beginning.",
+    ),
+):
+    """Type through an arbitrary book.
+
+    Renders a book's text in a TUI with the user's keyboard pinned
+    to the bottom. Words for which the user has already learned a
+    chord (FSRS Review state) are highlighted; mistyping a learned
+    word reveals its chord on the keyboard. The cursor position is
+    auto-saved so you can resume next time.
+    """
+    chords = load_file(State.config.gen.file)
+    resolved = resolve_keyboard_layout(State.config)
+    keyboard_kind, keyboard_layout = resolved if resolved else ("standard", None)
+    if not path.exists():
+        print(f"Error: book file {path} does not exist")
+        raise typer.Abort()
+
+    app = BookApp(
+        chords=chords,
+        config=State.config.book,
+        path=path,
+        restart=restart,
         keyboard_layout=keyboard_layout,
         keyboard_kind=keyboard_kind,
         initial_theme=State.config.theme,

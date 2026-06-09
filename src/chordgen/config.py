@@ -18,10 +18,10 @@ DEFAULT_CONFIG = CONFIG_DIR / "config.yaml"
 DEFAULT_CHORDS_FILE = CONFIG_DIR / "chords.csv"
 
 
-class TrainOptions(BaseModel):
+class LearnOptions(BaseModel):
     show_words: int = Field(
         default=10,
-        description="Number of words shown on screen at once during training.",
+        description="Number of words shown on screen at once during learning.",
     )
     new_words_per_day: int = Field(
         default=20,
@@ -58,13 +58,32 @@ class TrainOptions(BaseModel):
             "again for that attempt."
         ),
     )
-    relearn_steps: int = Field(
+    learning_steps: int = Field(
+        default=5,
+        description=(
+            "Number of consecutive correct repetitions a brand-new "
+            "word must earn in one session before it graduates to "
+            "Review state. Each error resets the step counter to "
+            "zero so the word starts over."
+        ),
+    )
+    show_chord_steps: int = Field(
         default=3,
         description=(
-            "Number of in-session correct repetitions a new or lapsed "
-            "word must earn before it graduates and its FSRS state is "
-            "updated. Higher values give more drilling on hard words "
-            "but slow down session progress."
+            "How many of the initial learning steps show the chord "
+            "during the learning phase. After this many consecutive "
+            "correct reps the chord is hidden for the remaining "
+            "learning steps. An error resets the counter and the "
+            "chord reappears."
+        ),
+    )
+    relearn_steps: int = Field(
+        default=2,
+        description=(
+            "Number of consecutive correct repetitions a lapsed "
+            "word must earn before re-graduating to Review state. "
+            "Each error resets the step counter to zero so the "
+            "word starts over."
         ),
     )
     target_retention: float = Field(
@@ -118,6 +137,24 @@ class DrillOptions(BaseModel):
         description=(
             "Duration of the drill in seconds when ``mode = time``. "
             "Ignored when ``mode = count``."
+        ),
+    )
+
+
+class BookOptions(BaseModel):
+    wpm_window_seconds: int = Field(
+        default=30,
+        description=(
+            "Sliding window (in seconds) over which the running WPM "
+            "is computed in book mode."
+        ),
+    )
+    max_width: int = Field(
+        default=80,
+        description=(
+            "Maximum width (in characters) of the rendered text "
+            "block in book mode. Long paragraphs are wrapped to this "
+            "width."
         ),
     )
 
@@ -238,7 +275,7 @@ class AssignmentOptions(BaseModel):
         ),
     )
     frequency_exponent: float = Field(
-        default=1.0,
+        default=3.0,
         description=(
             "Exponent applied to each word's frequency weight before it "
             "multiplies the chord score. The default 1.0 reproduces the "
@@ -289,6 +326,18 @@ class GenOptions(BaseModel):
         default=0,
         description="The minimum length a chord, setting this to 2 and disabling the chord key is a way to avoid needing a chord key. This works well on CharaChorder, but you will need to lower the chord timeout to avoid missfires on other keyboards.",
     )
+    key_replacement: dict[str, str] = Field(
+        default={},
+        description=(
+            "Map letters to replacements when generating chord candidates. "
+            "For example, if your keyboard lacks 'q' and 'z', set "
+            "{'q': 'k', 'z': 's'} so chords use 'k' instead of 'q' and "
+            "'s' instead of 'z' -- the typed word is unaffected, only the "
+            "chord string changes. Each key must be a single lowercase "
+            "letter; its replacement must also be a single lowercase letter "
+            "that exists on your keyboard."
+        ),
+    )
 
     @field_validator("file", mode="after")
     @classmethod
@@ -296,16 +345,37 @@ class GenOptions(BaseModel):
         v.parent.mkdir(parents=True, exist_ok=True)
         return v
 
+    @field_validator("key_replacement", mode="after")
+    @classmethod
+    def validate_key_replacement(cls, v: dict[str, str]) -> dict[str, str]:
+        for key, replacement in v.items():
+            if len(key) != 1 or not key.isalpha() or not key.islower():
+                raise ValueError(
+                    f"key_replacement key {key!r} must be a single "
+                    f"lowercase letter"
+                )
+            if (
+                len(replacement) != 1
+                or not replacement.isalpha()
+                or not replacement.islower()
+            ):
+                raise ValueError(
+                    f"key_replacement value {replacement!r} for "
+                    f"{key!r} must be a single lowercase letter"
+                )
+        return v
+
 
 class Config(BaseModel):
     gen: GenOptions = GenOptions()
     output: OutputOptions = OutputOptions()
-    train: TrainOptions = TrainOptions()
+    learn: LearnOptions = LearnOptions()
     drill: DrillOptions = DrillOptions()
+    book: BookOptions = BookOptions()
     theme: str = Field(
         default="textual-dark",
         description=(
-            "Textual theme used by the train and drill TUIs. Updated "
+            "Textual theme used by the learn and drill TUIs. Updated "
             "automatically when you change the theme via the in-app "
             "command palette (Ctrl+P)."
         ),
@@ -326,6 +396,13 @@ def load_or_create_config(config_file: Path = DEFAULT_CONFIG) -> Config:
 
     if config_file.exists():
         raw = yaml.safe_load(config_file.read_text()) or {}
+        # Migrate old `train` config key to `learn`.
+        if "train" in raw and "learn" not in raw:
+            raw["learn"] = raw.pop("train")
+            print(
+                f"Note: migrated 'train' config key to 'learn' in "
+                f"{config_file}; re-check any hand-edits."
+            )
     else:
         print(f"Creating config {config_file}")
         raw = {}

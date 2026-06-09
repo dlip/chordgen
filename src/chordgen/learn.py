@@ -1,4 +1,4 @@
-"""Train mode TUI: typing practice with FSRS-backed spaced repetition.
+"""Learn mode TUI: typing practice with FSRS-backed spaced repetition.
 
 Long-term scheduling and the in-session learning queue are delegated
 to the ``fsrs`` library. This module is responsible for the TUI, the
@@ -93,8 +93,8 @@ class WordDisplay(Static):
     pass
 
 
-class TrainApp(App):
-    CSS_PATH = "train.css"
+class LearnApp(App):
+    CSS_PATH = "learn.css"
 
     BINDINGS = [
         Binding("escape", "quit", "Quit"),
@@ -121,6 +121,7 @@ class TrainApp(App):
         self._on_theme_change = on_theme_change
         self.progress: ProgressFile = load_progress()
         self.scheduler: Scheduler = make_scheduler(
+            learning_steps=config.learning_steps,
             relearn_steps=config.relearn_steps,
             target_retention=config.target_retention,
         )
@@ -133,7 +134,7 @@ class TrainApp(App):
         self.word_had_flash = False
 
         # Session counters (session WPM is no longer surfaced — the
-        # train mode is about long-term FSRS retention, not speed
+        # learn mode is about long-term FSRS retention, not speed
         # tests; for speed practice see ``chordgen drill``).
         self.session_chars_typed = 0
         self.session_start_time: float | None = None
@@ -210,6 +211,8 @@ class TrainApp(App):
         # are buried until tomorrow even if FSRS schedules them
         # sooner — otherwise a freshly-graduated card can pop right
         # back onto the queue minutes later.
+        # Due-check uses calendar date (like Anki), not wall-clock
+        # time, so a card due later today still appears.
         overdue: list[tuple[float, str]] = []
         for word, entry in words_state.items():
             if word not in self.chords_map or word in excluded:
@@ -217,7 +220,9 @@ class TrainApp(App):
             if entry.get("last_seen_date") == today:
                 continue
             card = Card.from_dict(entry["card"])
-            if card.due is None or card.due > now:
+            if card.due is None:
+                continue
+            if card.due.date() > now.date():
                 continue
             r = self.scheduler.get_card_retrievability(card, current_datetime=now)
             overdue.append((r, word))
@@ -289,7 +294,7 @@ class TrainApp(App):
         yield Footer()
 
     def on_mount(self) -> None:
-        self.title = "chordgen train"
+        self.title = "chordgen learn"
         if self._initial_theme:
             try:
                 self.theme = self._initial_theme
@@ -327,9 +332,6 @@ class TrainApp(App):
     # ------------------------------------------------------------------
 
     def on_key(self, event) -> None:
-        if self.flashing:
-            return
-
         if not self.words_to_practice:
             return
 
@@ -508,12 +510,9 @@ class TrainApp(App):
         ]
 
         line = Text()
-        cursor_col = 0
-
         for i, word in enumerate(self.words_to_practice):
             if i > 0:
                 line.append(" ")
-            col_start = len(line)
 
             if i == 0:
                 if self.flashing:
@@ -525,22 +524,11 @@ class TrainApp(App):
                         line.append(typed, style="green")
                     if rest:
                         line.append(rest, style="bold")
-
-                if self.letter_index < len(word):
-                    cursor_col = col_start + self.letter_index
-                else:
-                    cursor_col = col_start + col_widths[i]
             else:
                 line.append(word, style="dim")
 
             if len(word) < col_widths[i]:
                 line.append(" " * (col_widths[i] - len(word)))
-
-        underline = (
-            Text(" " * cursor_col + "‾" + " " * max(0, len(line) - cursor_col - 1))
-            if not self.flashing
-            else Text(" " * len(line))
-        )
 
         chord_line = Text()
         for i, chord in enumerate(chord_strings):
@@ -560,20 +548,34 @@ class TrainApp(App):
 
         new_count, learning_count, review_count = self._queue_state_counts()
         progress_text = Text()
-        progress_text.append("\n\n")
         progress_text.append(str(new_count), style="blue")
         progress_text.append("  ")
         progress_text.append(str(learning_count), style="red")
         progress_text.append("  ")
         progress_text.append(str(review_count), style="green")
 
+        # Pad each word-line on the left so the current word's column
+        # sits at the centre of the rendered block. The pad width is
+        # the total width of the trailing words (including their
+        # separator spaces); see the geometry in the drill renderer
+        # for the derivation.
+        trailing_width = sum(col_widths[1:]) + max(0, len(self.words_to_practice) - 1)
+        pad = " " * trailing_width
+
+        padded_line = Text()
+        padded_line.append(pad)
+        padded_line.append_text(line)
+
+        padded_chord_line = Text()
+        padded_chord_line.append(pad)
+        padded_chord_line.append_text(chord_line)
+
         rendered = Text()
-        rendered.append_text(line)
-        rendered.append("\n")
-        rendered.append_text(underline)
-        rendered.append("\n")
-        rendered.append_text(chord_line)
         rendered.append_text(progress_text)
+        rendered.append("\n\n")
+        rendered.append_text(padded_line)
+        rendered.append("\n")
+        rendered.append_text(padded_chord_line)
 
         # ASCII keyboard view. Highlight the chord keys only when the
         # current word's chord is actually being shown above (i.e.
@@ -600,15 +602,34 @@ class TrainApp(App):
         if not chord:
             return ""
 
-        threshold = self.config.mastery_threshold
+        mastery_threshold = self.config.mastery_threshold
+        show_chord_threshold = self.config.show_chord_steps
         card = get_card(self.progress, word)
         reps = get_reps(self.progress, word)
-        # Mastered = at least ``threshold`` total reviews and currently
-        # in the Review state (i.e. not actively in a learning step).
+
+        # During initial learning (brand-new cards), the chord is
+        # shown for the first ``show_chord_steps`` consecutive
+        # correct reps and hidden thereafter. An error resets the
+        # FSRS step counter to zero, which brings the chord back.
+        if card is not None and card.state == State.Learning:
+            if (card.step or 0) >= show_chord_threshold and not (
+                is_current and self.current_word_had_error
+            ):
+                return ""
+
+        # Relearning (lapsed cards): chord stays hidden — the user
+        # already learned it. Only revealed on a current-word error.
+        if card is not None and card.state == State.Relearning:
+            if not (is_current and self.current_word_had_error):
+                return ""
+
+        # Mastered = at least ``mastery_threshold`` total reviews and
+        # currently in the Review state (i.e. not actively in a
+        # learning / relearning step).
         mastered = (
             card is not None
             and getattr(card, "state", None) == State.Review
-            and reps >= threshold
+            and reps >= mastery_threshold
         )
 
         if mastered and not (is_current and self.current_word_had_error):

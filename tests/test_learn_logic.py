@@ -1,11 +1,11 @@
-"""Unit tests for the pure helpers in chordgen.train."""
+"""Unit tests for the pure helpers in chordgen.learn."""
 
 from __future__ import annotations
 
 import pytest
 from fsrs import Rating
 
-from chordgen.train import (
+from chordgen.learn import (
     compute_word_wpm,
     decide_rating,
     reinsertion_offset,

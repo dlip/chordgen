@@ -17,7 +17,7 @@ old greedy + 2-swap + eviction phases.
 
 Cost model: cost(option, word) = option.score * weight(word), where weight
 is the parsed `frequency` column floored at min_frequency_weight and
-raised to `frequency_exponent` (default 1.0). Higher weight = paying score
+raised to `frequency_exponent` (default 3.0). Higher weight = paying score
 hurts more, so frequent words attract low-score chords. An exponent > 1
 sharpens that preference and discourages the matcher from trading a
 common word's short chord to a rarer competitor.

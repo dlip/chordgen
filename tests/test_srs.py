@@ -20,7 +20,9 @@ def progress_file(tmp_path, monkeypatch):
 
 @pytest.fixture
 def scheduler():
-    return srs.make_scheduler(relearn_steps=1, target_retention=0.9)
+    return srs.make_scheduler(
+        learning_steps=1, relearn_steps=1, target_retention=0.9
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -79,7 +81,7 @@ def test_record_review_creates_card_for_new_word(progress_file, scheduler):
 
     assert "hello" in progress["words"]
     assert progress["words"]["hello"]["reps"] == 1
-    # With relearn_steps=1, a single Good graduates the card.
+    # With learning_steps=1, a single Good graduates the card.
     assert card.state == State.Review
 
 

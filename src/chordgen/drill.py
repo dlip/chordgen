@@ -3,7 +3,7 @@
 Drill mode is a focused speed test on words that have already
 graduated to the FSRS Review state in ``progress.json``. It is
 read-only: the schedule, lapse counters, and daily quotas in
-``progress.json`` are not touched. Use ``chordgen train`` for
+``progress.json`` are not touched. Use ``chordgen learn`` for
 SRS-backed learning; ``chordgen drill`` is for warming up your
 fingers on the words you already know.
 
@@ -16,9 +16,12 @@ fumbled along the way.
 
 from __future__ import annotations
 
+import json
 import random
 import time
-from typing import Any
+from datetime import datetime, timezone
+from pathlib import Path
+from typing import Any, TypedDict
 
 from fsrs import State
 from rich.text import Text
@@ -27,8 +30,88 @@ from textual.binding import Binding
 from textual.reactive import reactive
 from textual.widgets import Footer, Header, Static
 
+from chordgen.constants import CONFIG_DIR
 from chordgen.srs import get_card, load_progress
 from chordgen.keyboard_view import render_keyboard
+
+
+# ---------------------------------------------------------------------------
+# Personal-best leaderboard (drill-only, per-keyboard-layout)
+# ---------------------------------------------------------------------------
+#
+# Stored next to progress.json but in its own ``scores.json`` so the
+# leaderboard survives PROGRESS_VERSION bumps that wipe the FSRS
+# state. Shape::
+#
+#     {"layouts": {"<layout-key>": [{"wpm": float, "date": "YYYY-MM-DD"}, ...]}}
+#
+# Each layout's list is the rolling top-N personal bests, sorted by
+# WPM descending.
+
+SCORES_FILE: Path = CONFIG_DIR / "scores.json"
+SCORES_TOP_N = 5
+
+
+class DrillScore(TypedDict):
+    wpm: float
+    date: str
+
+
+class DrillScoresFile(TypedDict):
+    layouts: dict[str, list[DrillScore]]
+
+
+def _empty_scores() -> DrillScoresFile:
+    return {"layouts": {}}
+
+
+def load_scores() -> DrillScoresFile:
+    if not SCORES_FILE.exists():
+        return _empty_scores()
+    try:
+        raw = json.loads(SCORES_FILE.read_text())
+    except (json.JSONDecodeError, OSError):
+        return _empty_scores()
+    if not isinstance(raw, dict):
+        return _empty_scores()
+    raw.setdefault("layouts", {})
+    return raw  # type: ignore[return-value]
+
+
+def save_scores(scores: DrillScoresFile) -> None:
+    SCORES_FILE.parent.mkdir(parents=True, exist_ok=True)
+    SCORES_FILE.write_text(json.dumps(scores, indent=2))
+
+
+def top_scores(scores: DrillScoresFile, layout_key: str) -> list[DrillScore]:
+    return list(scores.get("layouts", {}).get(layout_key, []))
+
+
+def record_drill_score(
+    scores: DrillScoresFile,
+    layout_key: str,
+    wpm: float,
+    when: datetime | None = None,
+) -> bool:
+    """Insert ``wpm`` into the top-N list for ``layout_key`` if it
+    qualifies as a new #1 personal best. Returns True iff a new entry
+    was recorded."""
+    if wpm <= 0:
+        return False
+    when = datetime.now(timezone.utc) if when is None else when
+    layouts = scores.setdefault("layouts", {})
+    entries = list(layouts.get(layout_key, []))
+
+    # Only record if this strictly beats the current #1 (or the
+    # leaderboard is empty). Ties are dropped to avoid filling the
+    # board with identical PB runs.
+    if entries and wpm <= entries[0]["wpm"]:
+        return False
+
+    entries.append({"wpm": float(wpm), "date": when.date().isoformat()})
+    entries.sort(key=lambda e: e["wpm"], reverse=True)
+    layouts[layout_key] = entries
+    return True
 
 
 class WordDisplay(Static):
@@ -36,7 +119,7 @@ class WordDisplay(Static):
 
 
 class DrillApp(App):
-    CSS_PATH = "train.css"
+    CSS_PATH = "learn.css"
 
     BINDINGS = [
         Binding("tab", "restart", "Restart", priority=True),
@@ -52,18 +135,24 @@ class DrillApp(App):
         config: Any,
         keyboard_layout: list[list[str]] | None = None,
         keyboard_kind: str = "standard",
+        layout_key: str = "unknown",
         initial_theme: str | None = None,
         on_theme_change: Any = None,
+        custom_words: list[str] | None = None,
     ) -> None:
         super().__init__()
         self.chords_map = {c["word"]: c for c in chords if c["chord"]}
         self.config = config
         self.keyboard_layout = keyboard_layout
         self.keyboard_kind = keyboard_kind
+        self.layout_key = layout_key
         self._initial_theme = initial_theme
         self._on_theme_change = on_theme_change
-        progress = load_progress()
-        self.graduated_pool = self._collect_graduated(progress)
+        self.custom_words = custom_words
+        if custom_words is not None:
+            self.graduated_pool = self._filter_custom_words(custom_words)
+        else:
+            self.graduated_pool = self._collect_graduated(load_progress())
 
         # Per-keystroke / per-word state.
         self.letter_index = 0
@@ -78,6 +167,8 @@ class DrillApp(App):
         self.session_start_time: float | None = None
         self.session_finished = False
         self.session_wpm = 0.0
+        self.session_new_pb = False
+        self.session_top_scores: list[DrillScore] = []
 
         self.words_to_practice = self._initial_word_list()
         self._timer_handle = None
@@ -97,6 +188,12 @@ class DrillApp(App):
             if card is not None and card.state == State.Review:
                 out.append(word)
         return out
+
+    def _filter_custom_words(self, words: list[str]) -> list[str]:
+        """Return only the words from ``words`` that have a chord
+        assigned in chords.csv. Words without a chord are silently
+        dropped."""
+        return [w for w in words if w in self.chords_map]
 
     def _initial_word_list(self) -> list[str]:
         if not self.graduated_pool:
@@ -153,9 +250,14 @@ class DrillApp(App):
         self.session_start_time = None
         self.session_finished = False
         self.session_wpm = 0.0
+        self.session_new_pb = False
+        self.session_top_scores = []
         # Re-load progress in case the user has just trained more
         # words since launching the drill.
-        self.graduated_pool = self._collect_graduated(load_progress())
+        if self.custom_words is not None:
+            self.graduated_pool = self._filter_custom_words(self.custom_words)
+        else:
+            self.graduated_pool = self._collect_graduated(load_progress())
         self.words_to_practice = self._initial_word_list()
         if self._timer_handle is not None:
             self._timer_handle.stop()
@@ -167,9 +269,6 @@ class DrillApp(App):
     # ------------------------------------------------------------------
 
     def on_key(self, event) -> None:
-        if self.flashing:
-            return
-
         if self.session_finished:
             # Tab/Esc/Ctrl+C are handled by bindings; ignore other
             # trailing keystrokes so they don't do anything
@@ -237,6 +336,13 @@ class DrillApp(App):
             self.update_word_display()
 
     def flash_red(self) -> None:
+        # Record the failure the moment the user first mistypes the
+        # word. Doing it here (rather than when the word is later
+        # completed) means a word the user never finishes — e.g.
+        # because the timer expired mid-word — still shows up in the
+        # session summary's failed-words list.
+        if self.words_to_practice and not self.current_word_had_error:
+            self.session_failed_words.append(self.words_to_practice[0])
         self.current_word_had_error = True
         self.flashing = True
         self.update_word_display()
@@ -251,14 +357,13 @@ class DrillApp(App):
     # ------------------------------------------------------------------
 
     def complete_current_word(self) -> None:
-        word = self.words_to_practice[0]
         had_error = self.current_word_had_error
 
         self.session_words_done += 1
-        if had_error:
-            self.session_failed_words.append(word)
-        else:
+        if not had_error:
             self.session_words_correct += 1
+        # Failures were already recorded in flash_red() the moment
+        # the user first mistyped the word.
 
         # Pop and top up.
         self.words_to_practice.pop(0)
@@ -290,6 +395,19 @@ class DrillApp(App):
         if self._timer_handle is not None:
             self._timer_handle.stop()
             self._timer_handle = None
+
+        # Bail out gracefully if there's nothing to record (zero
+        # WPM, e.g. session ended without typing).
+        self.session_new_pb = False
+        scores = load_scores()
+        if self.session_wpm > 0:
+            if record_drill_score(scores, self.layout_key, self.session_wpm):
+                self.session_new_pb = True
+                save_scores(scores)
+        self.session_top_scores: list[DrillScore] = top_scores(
+            scores, self.layout_key
+        )
+
         self.update_word_display()
 
     # ------------------------------------------------------------------
@@ -304,13 +422,22 @@ class DrillApp(App):
             return
 
         if not self.words_to_practice:
-            widget.update(
-                Text.from_markup(
-                    "[b yellow]No graduated words to drill yet.[/]\n\n"
-                    "Run [b]chordgen train[/] until some words have "
-                    "graduated to FSRS Review state, then come back."
+            if self.custom_words is not None:
+                widget.update(
+                    Text.from_markup(
+                        "[b yellow]No drillable words.[/]\n\n"
+                        "None of the words you supplied have a chord "
+                        "assigned in chords.csv."
+                    )
                 )
-            )
+            else:
+                widget.update(
+                    Text.from_markup(
+                        "[b yellow]No graduated words to drill yet.[/]\n\n"
+                        "Run [b]chordgen learn[/] until some words have "
+                        "graduated to FSRS Review state, then come back."
+                    )
+                )
             return
 
         chord_strings = [
@@ -323,11 +450,9 @@ class DrillApp(App):
         ]
 
         line = Text()
-        cursor_col = 0
         for i, word in enumerate(self.words_to_practice):
             if i > 0:
                 line.append(" ")
-            col_start = len(line)
             if i == 0:
                 if self.flashing:
                     line.append(word, style="bold red reverse")
@@ -338,20 +463,10 @@ class DrillApp(App):
                         line.append(typed, style="green")
                     if rest:
                         line.append(rest, style="bold")
-                if self.letter_index < len(word):
-                    cursor_col = col_start + self.letter_index
-                else:
-                    cursor_col = col_start + col_widths[i]
             else:
                 line.append(word, style="dim")
             if len(word) < col_widths[i]:
                 line.append(" " * (col_widths[i] - len(word)))
-
-        underline = (
-            Text(" " * cursor_col + "‾" + " " * max(0, len(line) - cursor_col - 1))
-            if not self.flashing
-            else Text(" " * len(line))
-        )
 
         chord_line = Text()
         for i, chord in enumerate(chord_strings):
@@ -366,7 +481,6 @@ class DrillApp(App):
                 chord_line.append(" " * col_widths[i])
 
         progress_text = Text()
-        progress_text.append("\n\n")
         if self.config.mode == "count":
             progress_text.append(
                 f"{self.session_words_done}/{self.config.count}", style="cyan"
@@ -377,13 +491,27 @@ class DrillApp(App):
         progress_text.append("  ")
         progress_text.append(f"{self._running_wpm():.0f} wpm", style="dim")
 
+        # Pad each word-line on the left so the current word's column
+        # sits at the centre of the rendered block. The pad width is
+        # the total width of the trailing words (col widths + the
+        # single space separators between them).
+        trailing_width = sum(col_widths[1:]) + max(0, len(self.words_to_practice) - 1)
+        pad = " " * trailing_width
+
+        padded_line = Text()
+        padded_line.append(pad)
+        padded_line.append_text(line)
+
+        padded_chord_line = Text()
+        padded_chord_line.append(pad)
+        padded_chord_line.append_text(chord_line)
+
         rendered = Text()
-        rendered.append_text(line)
-        rendered.append("\n")
-        rendered.append_text(underline)
-        rendered.append("\n")
-        rendered.append_text(chord_line)
         rendered.append_text(progress_text)
+        rendered.append("\n\n")
+        rendered.append_text(padded_line)
+        rendered.append("\n")
+        rendered.append_text(padded_chord_line)
 
         # ASCII keyboard view. Drill only reveals chords after a
         # mistake, so highlights mirror that rule.
@@ -418,7 +546,7 @@ class DrillApp(App):
     def _chord_for_word(self, word: str, is_current: bool) -> str:
         # Drill mode hides chords by default — these are graduated
         # words you already know — but reveals the chord for the
-        # current word once you stumble on it, the same way train
+        # current word once you stumble on it, the same way learn
         # mode does for mastered words.
         row = self.chords_map.get(word)
         if row is None:
@@ -431,7 +559,11 @@ class DrillApp(App):
         summary = Text()
         summary.append("Drill complete!\n\n", style="bold green")
         summary.append("WPM: ")
-        summary.append(f"{self.session_wpm:.1f}\n", style="bold")
+        summary.append(f"{self.session_wpm:.1f}", style="bold")
+        if self.session_new_pb:
+            summary.append("  ")
+            summary.append("(new personal best!)", style="bold yellow")
+        summary.append("\n")
         summary.append("Accuracy: ")
         if self.session_words_done > 0:
             acc = 100.0 * self.session_words_correct / self.session_words_done
@@ -455,6 +587,17 @@ class DrillApp(App):
                 chord = (row or {}).get("chord") or ""
                 parts.append(f"{w} ({chord})" if chord else w)
             summary.append(" ".join(parts) + "\n", style="red")
+
+        if self.session_top_scores:
+            top_n = self.session_top_scores[:SCORES_TOP_N]
+            summary.append(
+                f"\nTop {len(top_n)} for {self.layout_key}:\n",
+                style="bold",
+            )
+            for i, entry in enumerate(top_n, start=1):
+                summary.append(f"  {i}. ")
+                summary.append(f"{entry['wpm']:.1f} wpm", style="bold cyan")
+                summary.append(f"  {entry['date']}\n", style="dim")
 
         summary.append(
             "\nPress Tab to drill again (Esc to quit).",

@@ -1,4 +1,4 @@
-# train
+# learn
 
 ![Training](../images/training.png)
 
@@ -16,23 +16,29 @@ reviews. The session ends when the budget is empty and any in-flight
 learning words have graduated.
 
 - Words are picked first from cards that are overdue in the FSRS
-  schedule (sorted by retrievability), then from words your typing
-  speed has flagged as slow, then by descending frequency for words
-  you've never seen. Each bucket is capped by the day's remaining
-  review / new budget.
+  schedule (sorted by retrievability), using calendar-date comparison
+  (Anki-style — anything due today appears). Then from words your
+  typing speed has flagged as slow, then by descending frequency for
+  words you've never seen. Each bucket is capped by the day's
+  remaining review / new budget.
 - New / learning words show their chord directly under the word.
-  Once a word has graduated to FSRS Review state and accumulated
-  `train.mastery_threshold` total reviews, the chord is hidden until
-  you lapse on it again.
+  Brand-new cards show the chord for the first `learn.show_chord_steps`
+  consecutive correct reps, then hide it for the remaining learning
+  steps before graduating. An error resets the step counter to zero,
+  which brings the chord back.
+- Once a word has graduated to FSRS Review state and accumulated
+  `learn.mastery_threshold` total reviews, the chord is hidden. If
+  you later lapse on the word, the chord stays hidden during
+  relearning — it only reappears on a current-word error.
 - Any mistake during a word grades the review as `Again`, sending the
   card back into the learning queue. An `Again` on a card already in
   Review counts as a *lapse*; words that accumulate
-  `train.leech_threshold` lapses are flagged as **leeches** in the
+  `learn.leech_threshold` lapses are flagged as **leeches** in the
   session summary so you can re-pin or revise the chord in
   `chords.csv`.
 - Per-word speed grading: the WPM of each clean word is compared to a
   rolling median of recent samples. Words below
-  `train.slow_wpm_fraction` of the median are graded `Hard` (instead
+  `learn.slow_wpm_fraction` of the median are graded `Hard` (instead
   of `Good`) so FSRS schedules them sooner. The first word of a
   session and any word that flashed red are excluded from speed
   grading.
@@ -46,7 +52,7 @@ learning words have graduated.
   every word commit, so quitting mid-session never loses your daily
   counters or FSRS state. Press `Esc` or `Ctrl+C` at any time to quit.
 - Once the day's quota is exhausted you land on a "No more words due
-  today!" screen — there's no per-session summary, because the train
+  today!" screen — there's no per-session summary, because the learn
   mode is about long-term retention rather than speed tests. For
   speed practice on words you already know, use the separate
   [`chordgen drill`](drill.md) mode.
@@ -59,20 +65,22 @@ learning words have graduated.
 | `Space`          | commit a fully-typed word                                                                                                                             |
 | `Backspace`      | undo last letter                                                                                                                                      |
 | `Ctrl+W`         | clear the current word (I recommend binding alt/ctrl backspace in your terminal to this and making a dedicated key on your keyboard if programmable) |
-| `Esc` / `Ctrl+C` | quit the trainer                                                                                                                                      |
+| `Esc` / `Ctrl+C` | quit                                                                                                                                                    |
 
 ### Configuration
 
-Relevant `config.yaml` knobs (under `train`):
+Relevant `config.yaml` knobs (under `learn`):
 
-| Key                 | Default | Purpose                                                                               |
-| ------------------- | ------- | ------------------------------------------------------------------------------------- |
-| `show_words`        | 10      | Number of words shown on screen at once.                                              |
-| `new_words_per_day` | 20      | Daily cap on brand-new words introduced (Anki-style).                                 |
-| `reviews_per_day`   | 200     | Daily cap on overdue / re-drilled review words surfaced.                              |
-| `leech_threshold`   | 8       | Lapses (Again on a graduated card) before a word is flagged as a leech. 0 to disable. |
-| `mastery_threshold` | 3       | Total FSRS reviews before the chord is hidden for a graduated word.                   |
-| `relearn_steps`     | 3       | Number of FSRS relearning steps after a lapse (in-session re-drills).                 |
-| `target_retention`  | 0.9     | FSRS desired retention rate; affects long-term interval lengths.                      |
-| `slow_wpm_fraction` | 0.7     | Fraction of the rolling-median WPM under which a word is graded `Hard`.               |
-| `slow_min_samples`  | 20      | Minimum WPM samples collected before slow-grading kicks in.                           |
+| Key                 | Default | Purpose                                                                                     |
+| ------------------- | ------- | ------------------------------------------------------------------------------------------- |
+| `show_words`        | 10      | Number of words shown on screen at once.                                                    |
+| `new_words_per_day` | 20      | Daily cap on brand-new words introduced (Anki-style).                                       |
+| `reviews_per_day`   | 200     | Daily cap on overdue / re-drilled review words surfaced.                                    |
+| `leech_threshold`   | 8       | Lapses (Again on a graduated card) before a word is flagged as a leech. 0 to disable.       |
+| `mastery_threshold` | 3       | Total FSRS reviews before the chord is hidden for a graduated word.                         |
+| `learning_steps`    | 5       | Consecutive corrects a new word needs before graduating. Error resets to zero.              |
+| `show_chord_steps`  | 3       | How many of the initial learning steps show the chord. After this the chord is hidden.      |
+| `relearn_steps`     | 2       | Consecutive corrects a lapsed word needs before re-graduating. Error resets to zero.        |
+| `target_retention`  | 0.9     | FSRS desired retention rate; affects long-term interval lengths.                            |
+| `slow_wpm_fraction` | 0.7     | Fraction of the rolling-median WPM under which a word is graded `Hard`.                     |
+| `slow_min_samples`  | 20      | Minimum WPM samples collected before slow-grading kicks in.                                 |

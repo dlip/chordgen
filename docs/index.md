@@ -27,7 +27,7 @@ most benefit first.
 - [Chording approach](concepts/chording.md) — how chord/shift/alt keys work.
 - [chords.csv](concepts/chords-csv.md) — the file you edit by hand.
 - [Commands](commands/setup.md) — full reference for `setup`, `gen`,
-  `output`, `train`, `drill`.
+  `output`, `learn`, `drill`.
 - [Output formats](output-formats/qmk.md) — wire chordgen into QMK / ZMK /
   Kanata / CharaChorder.
 - [Configuration](configuration.md) — `config.yaml` schema.

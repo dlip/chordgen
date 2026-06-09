@@ -5,7 +5,7 @@ pip install chordgen
 chordgen setup     # downloads SUBTLEX-US, writes ~/.config/chordgen/{config.yaml, chords.csv}
 chordgen gen       # picks an optimal chord per word and fills in alts
 chordgen output    # writes firmware files for qmk / zmk / kanata / charachorder + training.txt
-chordgen train     # interactive TUI to drill chords with spaced repetition
+chordgen learn     # interactive TUI to drill chords with spaced repetition
 chordgen drill     # speed-drill TUI for chords you have already learned
 ```
 
