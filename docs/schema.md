@@ -60,13 +60,12 @@
     demonstrative:
       enabled: true
       forms:
-      - number_flip
-      - distance_flip
-      - diagonal
+      - plural
+      - distal
     modal:
       enabled: true
       forms:
-      - flip
+      - past
     noun:
       enabled: true
       forms:
@@ -74,7 +73,7 @@
     number:
       enabled: true
       forms:
-      - flip
+      - ordinal
     overwrite: false
     pronoun:
       enabled: true
@@ -269,9 +268,8 @@
     ```yaml
     enabled: true
     forms:
-    - number_flip
-    - distance_flip
-    - diagonal
+    - plural
+    - distal
     ```
 
   - <a id="%24defs/AltOptions/properties/modal"></a>**`modal`**: Refer to *[#/$defs/ModalAltOptions](#%24defs/ModalAltOptions)*. Default:
@@ -279,7 +277,7 @@
     ```yaml
     enabled: true
     forms:
-    - flip
+    - past
     ```
 
   - <a id="%24defs/AltOptions/properties/number"></a>**`number`**: Refer to *[#/$defs/NumberAltOptions](#%24defs/NumberAltOptions)*. Default:
@@ -287,7 +285,7 @@
     ```yaml
     enabled: true
     forms:
-    - flip
+    - ordinal
     ```
 
 - <a id="%24defs/AssignmentOptions"></a>**`AssignmentOptions`** *(object)*
@@ -303,8 +301,8 @@
   - <a id="%24defs/CharaChorderOutput/properties/file"></a>**`file`** *(string, format: path)*: Default: `"~/.config/chordgen/charachorder_chords.json"`.
 - <a id="%24defs/DemonstrativeAltOptions"></a>**`DemonstrativeAltOptions`** *(object)*
   - <a id="%24defs/DemonstrativeAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
-  - <a id="%24defs/DemonstrativeAltOptions/properties/forms"></a>**`forms`** *(array)*: Demonstrative forms to fill alt1..alt3 with, in order. Demonstratives are ``this``, ``that``, ``these``, and ``those`` arranged on number (singular/plural) and distance (proximal/distal) axes. Each form is an axis-flip operator: ``number_flip`` toggles singular/plural, ``distance_flip`` toggles proximal/distal, ``diagonal`` toggles both. With all three forms, the highest-frequency demonstrative covers the other three as alts and the rest skip the primary-chord pool. Length must be at most 3. Default: `["number_flip", "distance_flip", "diagonal"]`.
-    - <a id="%24defs/DemonstrativeAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "number_flip", "distance_flip", or "diagonal".
+  - <a id="%24defs/DemonstrativeAltOptions/properties/forms"></a>**`forms`** *(array)*: Demonstrative forms to fill alt1..alt3 with, in order. Demonstratives are ``this``, ``that``, ``these``, and ``those`` arranged on number (singular/plural) and distance (proximal/distal) axes. Length must be at most 3. Default: `["plural", "distal"]`.
+    - <a id="%24defs/DemonstrativeAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "singular", "plural", "proximal", or "distal".
 - <a id="%24defs/DirectionalKeyboardOptions"></a>**`DirectionalKeyboardOptions`** *(object)*
   - <a id="%24defs/DirectionalKeyboardOptions/properties/layout"></a>**`layout`** *(string)*: Must be one of: "charachorder", "stained", "svalboard_qwerty", or "custom". Default: `"charachorder"`.
   - <a id="%24defs/DirectionalKeyboardOptions/properties/directional_change_penalty"></a>**`directional_change_penalty`** *(integer)*: A penalty to add when chords have different directions per finger on the same hand. Can be set to -1 to disable this type of chord. Default: `2`.
@@ -397,17 +395,16 @@
     demonstrative:
       enabled: true
       forms:
-      - number_flip
-      - distance_flip
-      - diagonal
+      - plural
+      - distal
     modal:
       enabled: true
       forms:
-      - flip
+      - past
     number:
       enabled: true
       forms:
-      - flip
+      - ordinal
     ```
 
   - <a id="%24defs/GenOptions/properties/assignment"></a>**`assignment`**: Refer to *[#/$defs/AssignmentOptions](#%24defs/AssignmentOptions)*. Default:
@@ -503,16 +500,16 @@
   - <a id="%24defs/LearnOptions/properties/slow_min_samples"></a>**`slow_min_samples`** *(integer)*: Minimum number of recorded per-word WPM samples before slow grading activates. Until this is reached all correct words are graded 'good'. Default: `20`.
 - <a id="%24defs/ModalAltOptions"></a>**`ModalAltOptions`** *(object)*
   - <a id="%24defs/ModalAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
-  - <a id="%24defs/ModalAltOptions/properties/forms"></a>**`forms`** *(array)*: Modal-verb forms to fill alt1..alt3 with, in order. Modals are paired present <-> past: can/could, will/would, shall/should, may/might. The single ``flip`` form returns the partner of whichever side is the row's primary, so the highest-frequency modal covers the other one as an alt. ``must`` has no partner. Length must be at most 3. Default: `["flip"]`.
-    - <a id="%24defs/ModalAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be: `"flip"`.
+  - <a id="%24defs/ModalAltOptions/properties/forms"></a>**`forms`** *(array)*: Modal-verb forms to fill alt1..alt3 with, in order. Modals are paired present <-> past: can/could, will/would, shall/should, may/might. ``must`` has no past form. Length must be at most 3. Default: `["past"]`.
+    - <a id="%24defs/ModalAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "present" or "past".
 - <a id="%24defs/NounAltOptions"></a>**`NounAltOptions`** *(object)*
   - <a id="%24defs/NounAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
   - <a id="%24defs/NounAltOptions/properties/forms"></a>**`forms`** *(array)*: Noun forms to fill alt1..alt3 with, in order. Length must be at most 3. Default: `["plural"]`.
     - <a id="%24defs/NounAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "plural" or "singular".
 - <a id="%24defs/NumberAltOptions"></a>**`NumberAltOptions`** *(object)*
   - <a id="%24defs/NumberAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
-  - <a id="%24defs/NumberAltOptions/properties/forms"></a>**`forms`** *(array)*: Number forms to fill alt1..alt3 with, in order. Numbers are cardinal/ordinal pairs (one/first, two/second, ...) and the single ``flip`` form returns the partner. Length must be at most 3. Default: `["flip"]`.
-    - <a id="%24defs/NumberAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be: `"flip"`.
+  - <a id="%24defs/NumberAltOptions/properties/forms"></a>**`forms`** *(array)*: Number forms to fill alt1..alt3 with, in order. Numbers are cardinal/ordinal pairs (one/first, two/second, ...). Length must be at most 3. Default: `["ordinal"]`.
+    - <a id="%24defs/NumberAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "cardinal" or "ordinal".
 - <a id="%24defs/OutputOptions"></a>**`OutputOptions`** *(object)*
   - <a id="%24defs/OutputOptions/properties/formats"></a>**`formats`** *(array)*: Default: `["qmk", "zmk", "charachorder", "kanata", "training"]`.
     - <a id="%24defs/OutputOptions/properties/formats/items"></a>**Items** *(string)*: Must be one of: "qmk", "zmk", "charachorder", "kanata", or "training".

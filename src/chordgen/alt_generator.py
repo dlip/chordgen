@@ -99,52 +99,38 @@ def _build_pronoun_inflector() -> Inflector:
 
 
 # Demonstratives: this/that/these/those laid out as a 2x2 of number
-# (singular/plural) x distance (proximal/distal). Form names are
-# axis-flip operators rather than static labels so every form returns
-# a different demonstrative regardless of which one is the input —
-# this lets the alt-coverage pass collapse the whole paradigm down
-# to the highest-frequency demonstrative.
-_DEMO_BY_AXES: dict[tuple[bool, bool], str] = {
-    # (is_plural, is_distal) -> word
-    (False, False): "this",
-    (False, True): "that",
-    (True, False): "these",
-    (True, True): "those",
-}
-_DEMO_AXES: dict[str, tuple[bool, bool]] = {v: k for k, v in _DEMO_BY_AXES.items()}
-_DEMONSTRATIVE_FORMS: tuple[str, ...] = (
-    "number_flip",
-    "distance_flip",
-    "diagonal",
+# (singular/plural) x distance (proximal/distal).
+_DEMONSTRATIVE_GROUPS: list[dict[str, str]] = [
+    # singular, plural, proximal, distal
+    {"singular": "this",  "plural": "these", "proximal": "this",  "distal": "that"},
+    {"singular": "that",  "plural": "those", "proximal": "this",  "distal": "that"},
+    {"singular": "this",  "plural": "these", "proximal": "these", "distal": "those"},
+    {"singular": "that",  "plural": "those", "proximal": "these", "distal": "those"},
+]
+_DEMONSTRATIVE_FORM_PRIORITY: tuple[str, ...] = (
+    "singular", "plural", "proximal", "distal",
 )
+_DEMONSTRATIVE_LOOKUP: dict[str, int] = {
+    "this": 0, "that": 1, "these": 2, "those": 3,
+}
 
 
 def _build_demonstrative_inflector() -> Inflector:
     def _resolve(word: str, target_form: str) -> str:
-        axes = _DEMO_AXES.get(word.lower())
-        if axes is None:
+        idx = _DEMONSTRATIVE_LOOKUP.get(word.lower())
+        if idx is None:
             return ""
-        is_pl, is_dist = axes
-        if target_form == "number_flip":
-            return _DEMO_BY_AXES[(not is_pl, is_dist)]
-        if target_form == "distance_flip":
-            return _DEMO_BY_AXES[(is_pl, not is_dist)]
-        if target_form == "diagonal":
-            return _DEMO_BY_AXES[(not is_pl, not is_dist)]
-        return ""
+        out = _DEMONSTRATIVE_GROUPS[idx][target_form]
+        return "" if out.lower() == word.lower() else out
 
     return {
         form: (lambda w, f=form: _resolve(w, f))
-        for form in _DEMONSTRATIVE_FORMS
+        for form in _DEMONSTRATIVE_FORM_PRIORITY
     }
 
 
-# Modal verbs paired present <-> past. ``must`` has no past form.
-# The single ``flip`` form returns the *other* member of the pair,
-# regardless of which side the input sits on, so the highest-
-# frequency modal covers its partner as an alt and the partner
-# skips the primary-chord pool. Returns "" for unpaired modals
-# (``must``) on the past side.
+# Modal verbs paired present <-> past. ``must`` has no past form so
+# its past slot is empty (the alt generator skips empty results).
 _MODAL_PAIRS: list[tuple[str, str]] = [
     ("can", "could"),
     ("will", "would"),
@@ -152,23 +138,29 @@ _MODAL_PAIRS: list[tuple[str, str]] = [
     ("may", "might"),
     ("must", ""),
 ]
-_MODAL_PARTNER: dict[str, str] = {}
+_MODAL_LOOKUP: dict[str, dict[str, str]] = {}
 for _pres, _past in _MODAL_PAIRS:
+    _MODAL_LOOKUP[_pres] = {"present": _pres, "past": _past}
     if _past:
-        _MODAL_PARTNER[_pres] = _past
-        _MODAL_PARTNER[_past] = _pres
-    else:
-        _MODAL_PARTNER[_pres] = ""
+        _MODAL_LOOKUP[_past] = {"present": _pres, "past": _past}
 
 
 def _build_modal_inflector() -> Inflector:
-    return {"flip": lambda w: _MODAL_PARTNER.get(w.lower(), "")}
+    def _resolve(word: str, target_form: str) -> str:
+        row = _MODAL_LOOKUP.get(word.lower())
+        if row is None:
+            return ""
+        out = row[target_form]
+        return "" if out.lower() == word.lower() else out
+
+    return {
+        "present": lambda w: _resolve(w, "present"),
+        "past": lambda w: _resolve(w, "past"),
+    }
 
 
 # Cardinal <-> ordinal number pairs covering 1-20, decades 30-90,
-# and the round magnitudes hundred / thousand / million. Same
-# flip-only model as modals: a single ``flip`` form returns the
-# partner so the highest-frequency form covers its counterpart.
+# and the round magnitudes hundred / thousand / million.
 _NUMBER_PAIRS: list[tuple[str, str]] = [
     ("one", "first"), ("two", "second"), ("three", "third"),
     ("four", "fourth"), ("five", "fifth"), ("six", "sixth"),
@@ -184,14 +176,24 @@ _NUMBER_PAIRS: list[tuple[str, str]] = [
     ("ninety", "ninetieth"), ("hundred", "hundredth"),
     ("thousand", "thousandth"), ("million", "millionth"),
 ]
-_NUMBER_PARTNER: dict[str, str] = {}
+_NUMBER_LOOKUP: dict[str, dict[str, str]] = {}
 for _card, _ord in _NUMBER_PAIRS:
-    _NUMBER_PARTNER[_card] = _ord
-    _NUMBER_PARTNER[_ord] = _card
+    _NUMBER_LOOKUP[_card] = {"cardinal": _card, "ordinal": _ord}
+    _NUMBER_LOOKUP[_ord] = {"cardinal": _card, "ordinal": _ord}
 
 
 def _build_number_inflector() -> Inflector:
-    return {"flip": lambda w: _NUMBER_PARTNER.get(w.lower(), "")}
+    def _resolve(word: str, target_form: str) -> str:
+        row = _NUMBER_LOOKUP.get(word.lower())
+        if row is None:
+            return ""
+        out = row[target_form]
+        return "" if out.lower() == word.lower() else out
+
+    return {
+        "cardinal": lambda w: _resolve(w, "cardinal"),
+        "ordinal": lambda w: _resolve(w, "ordinal"),
+    }
 
 
 # category -> factory. Factories are called lazily so users who don't
