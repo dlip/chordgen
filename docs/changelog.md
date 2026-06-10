@@ -8,6 +8,12 @@
     `can't`/`won't`/`ain't`) is dropped at ingest, so the pipeline
     no longer imports them as bogus verbs with garbage
     conjugations.
+  - Other SUBTLEX subtitle artefacts that aren't real standalone
+    words (`co` as a hyphenation prefix, colloquial residue `na`
+    and `da`) are dropped via the same `_non_word` sentinel.
+  - The interjection `eh`, which SUBTLEX mis-tags as `verb`, is
+    retagged to no category at ingest so it stops generating
+    `ehs`/`ehed`/`ehing` alts.
   - Non-gradable adjectives (`other`, `whole`, `welcome`,
     `chinese`, `important`, `available`, …) now get
     `more X`/`most X` instead of `wholer`/`importanter`. A

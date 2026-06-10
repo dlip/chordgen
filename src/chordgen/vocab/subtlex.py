@@ -80,6 +80,13 @@ _CONTRACTION_WORDS: frozenset[str] = frozenset({"n't"})
 # Distinct from ``_letter`` so the drop reason stays auditable.
 _CONTRACTION_STEMS: frozenset[str] = frozenset({"ca", "wo", "ai"})
 
+# Other short SUBTLEX surface forms that aren't real standalone words.
+# ``co`` is a hyphenation prefix (co-author, co-pilot) that appears
+# alone via subtitle tokenisation; ``na``/``da`` are residue from
+# colloquial spellings (na-na, ya-da-ya-da, etc.). Tagged with a
+# dedicated drop-sentinel so the pipeline filters them at ingest.
+_NON_WORDS: frozenset[str] = frozenset({"co", "na", "da"})
+
 
 # Closed-class word -> chordgen alt category overrides. SUBTLEX's
 # native POS for these is unhelpful for alt generation (e.g. ``this``
@@ -137,6 +144,13 @@ _RETAG: dict[str, str] = {
 }
 
 
+# Interjection-only surface forms that SUBTLEX mis-tags as ``verb``
+# (which then makes ``pattern.en`` produce nonsense like ``ehs``,
+# ``ehed``, ``ehing``). Force them to "" so the alt generator skips
+# them. The word still flows through as a typeable row.
+_INTERJECTIONS: frozenset[str] = frozenset({"eh"})
+
+
 def _retag(word: str, category: str) -> str:
     """Override the SUBTLEX-mapped category for closed-class words
     that route to lookup-table inflectors. Skips sentinel categories
@@ -144,7 +158,10 @@ def _retag(word: str, category: str) -> str:
     rows like ``Will`` (a name) before they masquerade as modals."""
     if category.startswith("_"):
         return category
-    return _RETAG.get(word.lower(), category)
+    lower = word.lower()
+    if lower in _INTERJECTIONS:
+        return ""
+    return _RETAG.get(lower, category)
 
 
 def _rewrite_contraction_tail(word: str, category: str) -> tuple[str, str]:
@@ -154,11 +171,15 @@ def _rewrite_contraction_tail(word: str, category: str) -> tuple[str, str]:
     contraction without rewriting. If it's a contraction *stem*
     (``ca``/``wo``/``ai`` left over from ``can't``/``won't``/
     ``ain't``), tag it with the ``_contraction_stem`` drop-sentinel.
+    Other SUBTLEX subtitle artefacts that aren't real words
+    (``co``/``na``/``da``) get the ``_non_word`` drop-sentinel.
     Otherwise pass through unchanged. Contraction surface forms are
     inherently lowercase so the rewritten form is lower-cased."""
     lower = word.lower()
     if lower in _CONTRACTION_STEMS:
         return word, "_contraction_stem"
+    if lower in _NON_WORDS:
+        return word, "_non_word"
     if lower in _CONTRACTION_TAILS:
         return f"'{lower}", "contraction"
     if lower in _CONTRACTION_WORDS:

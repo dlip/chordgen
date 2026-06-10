@@ -192,3 +192,40 @@ def test_pipeline_drops_contraction_stems(monkeypatch, tmp_path):
     )
     words = {row["word"] for row in written}
     assert words == {"dog"}
+
+
+def test_subtlex_drops_non_words():
+    # ``co`` is a hyphenation prefix; ``na``/``da`` are colloquial
+    # subtitle residue. None of the three should survive ingest.
+    for stem in ("co", "na", "da"):
+        word, category = _rewrite_contraction_tail(stem, "noun")
+        assert category.startswith("_"), stem
+        assert category == "_non_word", stem
+    # Casing doesn't matter — the lookup is case-folded.
+    for stem in ("CO", "Na", "DA"):
+        _, category = _rewrite_contraction_tail(stem, "noun")
+        assert category == "_non_word", stem
+
+
+def test_pipeline_drops_non_words(monkeypatch, tmp_path):
+    written = _run(
+        monkeypatch,
+        tmp_path,
+        [
+            VocabRow(word="co", frequency=6.0, category="_non_word"),
+            VocabRow(word="na", frequency=6.0, category="_non_word"),
+            VocabRow(word="da", frequency=6.0, category="_non_word"),
+            VocabRow(word="dog", frequency=5.0, category="noun"),
+        ],
+    )
+    words = {row["word"] for row in written}
+    assert words == {"dog"}
+
+
+def test_subtlex_clears_interjection_verb_category():
+    # SUBTLEX mis-tags ``eh`` as ``verb`` which then sends it through
+    # the conjugator and produces nonsense like ``ehs``/``ehed``/
+    # ``ehing``. The retag clears the category so no alts are
+    # generated, but the word still flows through.
+    assert _rewrite_contraction_tail("eh", "verb") == ("eh", "")
+    assert _rewrite_contraction_tail("Eh", "verb") == ("Eh", "")
