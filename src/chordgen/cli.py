@@ -246,9 +246,11 @@ def drill(
     words: list[str] = typer.Argument(
         None,
         help=(
-            "Optional words to drill on instead of the graduated "
-            "FSRS pool. Words without a chord in chords.csv are "
-            "silently dropped."
+            "Optional words to drill on instead of the default "
+            "graduated FSRS pool. Drill uses every word in the list "
+            "that has a chord in chords.csv (regardless of FSRS "
+            "state); graduated words are highlighted, the rest are "
+            "shown dim."
         ),
     ),
     words_file: Path = typer.Option(
@@ -266,7 +268,9 @@ def drill(
 
     By default the word pool is restricted to words whose FSRS card
     has graduated to Review state. If WORDS or --words-file is given,
-    drill on those words instead.
+    drill uses every word from that list that has a chord assigned
+    (regardless of FSRS state); graduated words are highlighted in
+    yellow, the rest are shown dim.
     """
     chords = load_file(State.config.gen.file)
     resolved = resolve_keyboard_layout(State.config)

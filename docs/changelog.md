@@ -16,6 +16,12 @@
   case-sensitive — chords output the correct casing, so typing
   lowercase `i` against `"I"` is treated as a mistake. Existing user
   CSVs are unaffected; `setup --force` rewrites them.
+- **Drill on arbitrary words, with learned-word highlighting.** The
+  default pool is still your FSRS-graduated words. When you pass an
+  explicit list (positional `WORDS` or `--words-file`) drill now
+  uses every word from that list with a chord assigned — graduated
+  words are highlighted in yellow, the rest are shown dim, and
+  reveal-on-stumble still works.
 
 ## v2.2.0
 

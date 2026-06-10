@@ -1,15 +1,22 @@
-"""Drill mode TUI: typing-speed practice on graduated words.
+"""Drill mode TUI: typing-speed practice on chordable words.
 
-Drill mode is a focused speed test on words that have already
-graduated to the FSRS Review state in ``progress.json``. It is
-read-only: the schedule, lapse counters, and daily quotas in
-``progress.json`` are not touched. Use ``chordgen learn`` for
-SRS-backed learning; ``chordgen drill`` is for warming up your
-fingers on the words you already know.
+Drill mode is a focused speed test. It is read-only: the schedule,
+lapse counters, and daily quotas in ``progress.json`` are not
+touched. Use ``chordgen learn`` for SRS-backed learning;
+``chordgen drill`` is for warming up your fingers on the words you
+already know.
 
-Words are picked by random shuffle from the graduated pool. Each
-session ends after a fixed number of words (``drill.mode = count``)
-or a fixed amount of time (``drill.mode = time``). When the session
+By default the pool is restricted to words you have graduated to
+FSRS Review state. If you pass an explicit word list (positional
+arguments or ``--words-file``) drill uses every word from that
+list that has a chord assigned, regardless of graduation; in that
+case graduated words are highlighted in yellow and the rest are
+shown dim. The chord stays hidden until you mistype the current
+word, then appears in yellow under it.
+
+Words are picked by random shuffle from the pool. Each session
+ends after a fixed number of words (``drill.mode = count``) or a
+fixed amount of time (``drill.mode = time``). When the session
 finishes a summary screen reports WPM, accuracy, and any words you
 fumbled along the way.
 """
@@ -149,10 +156,12 @@ class DrillApp(App):
         self._initial_theme = initial_theme
         self._on_theme_change = on_theme_change
         self.custom_words = custom_words
+        progress = load_progress()
+        self.learned_words = self._collect_learned_words(progress)
         if custom_words is not None:
-            self.graduated_pool = self._filter_custom_words(custom_words)
+            self.word_pool = self._filter_custom_words(custom_words)
         else:
-            self.graduated_pool = self._collect_graduated(load_progress())
+            self.word_pool = sorted(self.learned_words)
 
         # Per-keystroke / per-word state.
         self.letter_index = 0
@@ -177,16 +186,16 @@ class DrillApp(App):
     # Pool / queue
     # ------------------------------------------------------------------
 
-    def _collect_graduated(self, progress) -> list[str]:
-        """Return the list of words whose FSRS card is in Review state
+    def _collect_learned_words(self, progress) -> set[str]:
+        """Return the set of words whose FSRS card is in Review state
         and that still have a chord assigned in chords.csv."""
-        out: list[str] = []
+        out: set[str] = set()
         for word in progress.get("words", {}):
             if word not in self.chords_map:
                 continue
             card = get_card(progress, word)
             if card is not None and card.state == State.Review:
-                out.append(word)
+                out.add(word)
         return out
 
     def _filter_custom_words(self, words: list[str]) -> list[str]:
@@ -196,20 +205,20 @@ class DrillApp(App):
         return [w for w in words if w in self.chords_map]
 
     def _initial_word_list(self) -> list[str]:
-        if not self.graduated_pool:
+        if not self.word_pool:
             return []
         return self._draw_random(self.config.show_words)
 
     def _draw_random(self, n: int) -> list[str]:
-        if not self.graduated_pool:
+        if not self.word_pool:
             return []
-        n = min(n, len(self.graduated_pool))
-        return random.sample(self.graduated_pool, n)
+        n = min(n, len(self.word_pool))
+        return random.sample(self.word_pool, n)
 
     def _draw_one(self) -> str | None:
-        if not self.graduated_pool:
+        if not self.word_pool:
             return None
-        return random.choice(self.graduated_pool)
+        return random.choice(self.word_pool)
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -254,10 +263,12 @@ class DrillApp(App):
         self.session_top_scores = []
         # Re-load progress in case the user has just trained more
         # words since launching the drill.
+        progress = load_progress()
+        self.learned_words = self._collect_learned_words(progress)
         if self.custom_words is not None:
-            self.graduated_pool = self._filter_custom_words(self.custom_words)
+            self.word_pool = self._filter_custom_words(self.custom_words)
         else:
-            self.graduated_pool = self._collect_graduated(load_progress())
+            self.word_pool = sorted(self.learned_words)
         self.words_to_practice = self._initial_word_list()
         if self._timer_handle is not None:
             self._timer_handle.stop()
@@ -453,6 +464,7 @@ class DrillApp(App):
         for i, word in enumerate(self.words_to_practice):
             if i > 0:
                 line.append(" ")
+            learned = word in self.learned_words
             if i == 0:
                 if self.flashing:
                     line.append(word, style="bold red reverse")
@@ -462,9 +474,10 @@ class DrillApp(App):
                     if typed:
                         line.append(typed, style="green")
                     if rest:
-                        line.append(rest, style="bold")
+                        rest_style = "bold yellow" if learned else "bold"
+                        line.append(rest, style=rest_style)
             else:
-                line.append(word, style="dim")
+                line.append(word, style="yellow" if learned else "dim")
             if len(word) < col_widths[i]:
                 line.append(" " * (col_widths[i] - len(word)))
 

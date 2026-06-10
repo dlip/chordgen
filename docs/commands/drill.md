@@ -41,8 +41,11 @@ training progress.
 
 You can override the graduated FSRS pool by passing words directly
 on the command line, or by pointing at a whitespace-separated file
-of words. Words without a chord in `chords.csv` are silently
-dropped — they simply won't appear during the drill.
+of words. When run this way drill uses every word from the list
+that has a chord in `chords.csv` regardless of FSRS state — words
+you have already graduated to Review state are highlighted in
+yellow, the rest are shown dim. Words without a chord at all are
+silently dropped.
 
 ```sh
 chordgen drill the quick brown fox
@@ -50,8 +53,8 @@ chordgen drill --words-file words.txt
 chordgen drill -f words.txt extra inline words
 ```
 
-When run this way drill ignores `progress.json` entirely, so you
-can practise on any list of words regardless of FSRS state.
+`progress.json` is read so the highlight is honest, but never
+written — drill never changes FSRS state.
 
 ### Configuration
 
