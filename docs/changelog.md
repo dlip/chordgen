@@ -53,16 +53,18 @@
   refresh.
 - **Demonstrative, modal, and number alt categories.** Three new
   closed-class lookup-table inflectors join `pronoun`:
-  - `demonstrative` (`this`/`that`/`these`/`those`) with axes
-    `singular`/`plural`/`proximal`/`distal`. Default forms:
-    `[plural, distal]` so `this` -> `these`, `that`.
+  - `demonstrative` (`this`/`that`/`these`/`those`) with axis-flip
+    forms `number_flip` (sg<->pl), `distance_flip` (prox<->dist),
+    and `diagonal` (both). Default forms produce all three other
+    demonstratives so the highest-frequency one absorbs the rest as
+    alts and they skip the primary-chord pool.
   - `modal` (`can`/`could`, `will`/`would`, `shall`/`should`,
-    `may`/`might`, `must`) paired present <-> past. Default forms:
-    `[past]`. Also fixes the long-standing bug where SUBTLEX tagged
+    `may`/`might`, `must`) with a single `flip` form returning the
+    partner. Also fixes the long-standing bug where SUBTLEX tagged
     these as `verb` and `pattern.en` produced nonsense like
     `canned`/`canning`.
-  - `number` (one..million + ordinals) with `cardinal`/`ordinal`
-    pairs. Default forms: `[ordinal]` so `one` -> `first`.
+  - `number` (one..million + ordinals) with a single `flip` form
+    pairing cardinal <-> ordinal (`one` <-> `first`, ...).
   Affected words are retagged at ingest so the proper inflector
   runs. Re-run `chordgen setup --force` then `chordgen gen` to
   refresh.

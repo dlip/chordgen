@@ -214,19 +214,12 @@ PronounForm = Literal[
     "reflexive",       # myself, yourself, himself, ...
 ]
 DemonstrativeForm = Literal[
-    "singular",   # this, that
-    "plural",     # these, those
-    "proximal",   # this, these
-    "distal",     # that, those
+    "number_flip",    # this<->these, that<->those
+    "distance_flip",  # this<->that,  these<->those
+    "diagonal",       # this<->those, that<->these
 ]
-ModalForm = Literal[
-    "present",    # can, will, shall, may, must
-    "past",       # could, would, should, might
-]
-NumberForm = Literal[
-    "cardinal",   # one, two, three, ...
-    "ordinal",    # first, second, third, ...
-]
+ModalForm = Literal["flip"]      # can<->could, will<->would, ...
+NumberForm = Literal["flip"]     # one<->first, two<->second, ...
 
 
 class _AltCategoryOptions(BaseModel):
@@ -278,37 +271,45 @@ class PronounAltOptions(_AltCategoryOptions):
 
 class DemonstrativeAltOptions(_AltCategoryOptions):
     forms: list[DemonstrativeForm] = Field(
-        default=["plural", "distal"],
+        default=["number_flip", "distance_flip", "diagonal"],
         max_length=3,
         description=(
             "Demonstrative forms to fill alt1..alt3 with, in order. "
             "Demonstratives are ``this``, ``that``, ``these``, and "
             "``those`` arranged on number (singular/plural) and "
-            "distance (proximal/distal) axes."
+            "distance (proximal/distal) axes. Each form is an axis-"
+            "flip operator: ``number_flip`` toggles singular/plural, "
+            "``distance_flip`` toggles proximal/distal, ``diagonal`` "
+            "toggles both. With all three forms, the highest-"
+            "frequency demonstrative covers the other three as alts "
+            "and the rest skip the primary-chord pool."
         ),
     )
 
 
 class ModalAltOptions(_AltCategoryOptions):
     forms: list[ModalForm] = Field(
-        default=["past"],
+        default=["flip"],
         max_length=3,
         description=(
             "Modal-verb forms to fill alt1..alt3 with, in order. "
             "Modals are paired present <-> past: can/could, will/"
-            "would, shall/should, may/might. ``must`` has no past "
-            "form."
+            "would, shall/should, may/might. The single ``flip`` "
+            "form returns the partner of whichever side is the row's "
+            "primary, so the highest-frequency modal covers the "
+            "other one as an alt. ``must`` has no partner."
         ),
     )
 
 
 class NumberAltOptions(_AltCategoryOptions):
     forms: list[NumberForm] = Field(
-        default=["ordinal"],
+        default=["flip"],
         max_length=3,
         description=(
             "Number forms to fill alt1..alt3 with, in order. Numbers "
-            "are cardinal/ordinal pairs (one/first, two/second, ...)."
+            "are cardinal/ordinal pairs (one/first, two/second, ...) "
+            "and the single ``flip`` form returns the partner."
         ),
     )
 
@@ -465,6 +466,46 @@ def save_config(config: "Config", config_file: Path = DEFAULT_CONFIG) -> None:
     config_file.write_text(yaml.safe_dump(config.model_dump()))
 
 
+# Pre-axis-flip form names shipped briefly during 2.3.0-dev. Map each
+# obsolete name to its closest axis-flip equivalent. Forms that have
+# no clean equivalent are dropped (the validator falls back to
+# defaults via missing-fields-rewrite below).
+_DEMO_FORM_MIGRATION: dict[str, str] = {
+    "plural": "number_flip",
+    "singular": "number_flip",
+    "distal": "distance_flip",
+    "proximal": "distance_flip",
+}
+_MODAL_FORM_MIGRATION: dict[str, str] = {"present": "flip", "past": "flip"}
+_NUMBER_FORM_MIGRATION: dict[str, str] = {"cardinal": "flip", "ordinal": "flip"}
+
+
+def _migrate_alt_forms(raw: dict) -> None:
+    alts = raw.get("gen", {}).get("alts")
+    if not isinstance(alts, dict):
+        return
+    for category, mapping in (
+        ("demonstrative", _DEMO_FORM_MIGRATION),
+        ("modal", _MODAL_FORM_MIGRATION),
+        ("number", _NUMBER_FORM_MIGRATION),
+    ):
+        cfg = alts.get(category)
+        if not isinstance(cfg, dict):
+            continue
+        forms = cfg.get("forms")
+        if not isinstance(forms, list):
+            continue
+        migrated: list[str] = []
+        for f in forms:
+            if f in mapping:
+                new = mapping[f]
+                if new not in migrated:
+                    migrated.append(new)
+            elif isinstance(f, str):
+                migrated.append(f)
+        cfg["forms"] = migrated
+
+
 def load_or_create_config(config_file: Path = DEFAULT_CONFIG) -> Config:
     if config_file != DEFAULT_CONFIG and not config_file.exists():
         raise Exception(f"Config file does not exist: {config_file}")
@@ -480,6 +521,11 @@ def load_or_create_config(config_file: Path = DEFAULT_CONFIG) -> Config:
                 f"Note: migrated 'train' config key to 'learn' in "
                 f"{config_file}; re-check any hand-edits."
             )
+        # Migrate obsolete demonstrative/modal/number form names from
+        # the original 2.3.0-dev shipping shape to the axis-flip shape.
+        # The static labels were a coverage bug because each form
+        # could collide with the input word and self-skip.
+        _migrate_alt_forms(raw)
     else:
         print(f"Creating config {config_file}")
         raw = {}

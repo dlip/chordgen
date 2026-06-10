@@ -105,20 +105,22 @@ def _demo_chord(word: str) -> Chord:
 
 def test_demonstrative_default_forms_for_this():
     chord = _demo_gen().add_alt(_demo_chord("this"))
-    # default forms = ["plural", "distal"]
+    # Default forms = ["number_flip", "distance_flip", "diagonal"].
+    # this -> these (number flip), that (distance flip), those (diag).
     assert chord["alt1"] == "these"
     assert chord["alt2"] == "that"
-    assert chord["alt3"] == ""
+    assert chord["alt3"] == "those"
 
 
-def test_demonstrative_full_axes_for_those():
-    chord = _demo_gen(
-        forms=["singular", "plural", "proximal"],
-    ).add_alt(_demo_chord("those"))
-    # those: singular=that, plural=those (skipped), proximal=these
-    assert chord["alt1"] == "that"
-    assert chord["alt2"] == ""
-    assert chord["alt3"] == "these"
+def test_demonstrative_covers_all_others_from_any_input():
+    # Every demonstrative must produce the other three under the
+    # default form ordering, so the alt-coverage pass collapses the
+    # whole paradigm down to the highest-frequency entry.
+    for word in ("this", "that", "these", "those"):
+        chord = _demo_gen().add_alt(_demo_chord(word))
+        produced = {chord["alt1"], chord["alt2"], chord["alt3"]}
+        expected = {"this", "that", "these", "those"} - {word}
+        assert produced == expected, (word, produced)
 
 
 def test_unknown_demonstrative_is_noop():
@@ -144,29 +146,22 @@ def _modal_chord(word: str) -> Chord:
     return _empty_chord(word, category="modal")
 
 
-def test_modal_default_past_for_can():
+def test_modal_flip_for_can():
     chord = _modal_gen().add_alt(_modal_chord("can"))
     assert chord["alt1"] == "could"
     assert chord["alt2"] == ""
     assert chord["alt3"] == ""
 
 
-def test_modal_present_from_past():
-    chord = _modal_gen(forms=["present"]).add_alt(_modal_chord("would"))
+def test_modal_flip_from_past_side():
+    # `would` is the past side; flip returns the present partner so
+    # the lower-frequency form covers the higher-frequency one.
+    chord = _modal_gen().add_alt(_modal_chord("would"))
     assert chord["alt1"] == "will"
 
 
-def test_modal_must_has_no_past():
-    chord = _modal_gen(forms=["past"]).add_alt(_modal_chord("must"))
-    # must has no past partner so the slot stays empty.
-    assert chord["alt1"] == ""
-
-
-def test_modal_skips_self():
-    # past form of `could` is `could` itself (it's the past slot of
-    # the can/could pair); requesting `past` returns "" by the
-    # self-skip rule.
-    chord = _modal_gen(forms=["past"]).add_alt(_modal_chord("could"))
+def test_modal_must_has_no_partner():
+    chord = _modal_gen().add_alt(_modal_chord("must"))
     assert chord["alt1"] == ""
 
 
@@ -184,20 +179,20 @@ def _num_chord(word: str) -> Chord:
     return _empty_chord(word, category="number")
 
 
-def test_number_default_ordinal_for_one():
+def test_number_flip_for_one():
     chord = _num_gen().add_alt(_num_chord("one"))
     assert chord["alt1"] == "first"
 
 
-def test_number_cardinal_from_ordinal():
-    chord = _num_gen(forms=["cardinal"]).add_alt(_num_chord("third"))
+def test_number_flip_from_ordinal_side():
+    chord = _num_gen().add_alt(_num_chord("third"))
     assert chord["alt1"] == "three"
 
 
 def test_number_handles_decades_and_magnitudes():
-    chord = _num_gen(forms=["ordinal"]).add_alt(_num_chord("twenty"))
+    chord = _num_gen().add_alt(_num_chord("twenty"))
     assert chord["alt1"] == "twentieth"
-    chord = _num_gen(forms=["ordinal"]).add_alt(_num_chord("thousand"))
+    chord = _num_gen().add_alt(_num_chord("thousand"))
     assert chord["alt1"] == "thousandth"
 
 
