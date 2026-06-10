@@ -27,6 +27,12 @@ _FIELDNAMES = [
 # filtered upstream by the source-side ``_propn`` sentinel.
 _WORD_RE = re.compile(r"^'?[A-Za-z]+(?:'[A-Za-z]+)?$")
 
+# Lone-letter words that are real English words. Everything else
+# matching ``^[A-Za-z]$`` is junk (subtitle artefacts like the lone
+# ``e`` SUBTLEX-UK tags as ``unclassified``, used as a grade or
+# spelling-letter rather than a lexeme) and is dropped at ingest.
+_SINGLE_LETTER_WORDS: frozenset[str] = frozenset({"a", "i"})
+
 # Sentinel categories emitted by sources to flag rows for filtering.
 # Anything starting with "_" is dropped; real categories never have one.
 _DROP_PREFIX = "_"
@@ -35,6 +41,8 @@ _DROP_PREFIX = "_"
 def _accept(row: VocabRow) -> bool:
     word = row.word
     if not _WORD_RE.match(word):
+        return False
+    if len(word) == 1 and word.lower() not in _SINGLE_LETTER_WORDS:
         return False
     if row.category.startswith(_DROP_PREFIX):
         # Sentinel categories (e.g. _propn for proper nouns) flag

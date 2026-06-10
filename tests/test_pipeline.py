@@ -83,6 +83,12 @@ def test_pipeline_rejects_garbage(monkeypatch, tmp_path):
             VocabRow(word="123", frequency=5.0, category=""),
             VocabRow(word="a", frequency=7.0, category=""),
             VocabRow(word="I", frequency=7.0, category="pronoun"),
+            # Lone letters that aren't real words (``e``, ``b``, ...)
+            # are dropped — SUBTLEX-UK tags them ``unclassified`` and
+            # they're subtitle artefacts (grades, spelling letters)
+            # rather than lexemes.
+            VocabRow(word="e", frequency=4.9, category=""),
+            VocabRow(word="B", frequency=4.0, category=""),
             # Apostrophe-prefixed contraction tails (set upstream by the
             # SUBTLEX rewrite hook) flow through.
             VocabRow(word="'s", frequency=7.5, category="contraction"),

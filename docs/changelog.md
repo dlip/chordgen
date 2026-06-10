@@ -45,6 +45,12 @@
   remap, contraction rows like `'s`/`n't` and apostrophe words like
   `o'clock` will fail to score (the keyboard scorer rejects `'`)
   and won't get chords assigned.
+- **Drop lone-letter subtitle artefacts on import.** SUBTLEX-UK
+  surfaces single letters like `e` (used as grades / spelling
+  letters) tagged ``unclassified``. Only `a` and `I`/`i` are real
+  English single-letter words, so the pipeline now drops every
+  other lone letter at ingest. Re-run `chordgen setup --force` to
+  refresh.
 
 ## v2.2.0
 
