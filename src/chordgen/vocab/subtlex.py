@@ -43,7 +43,7 @@ _POS_MAP: dict[str, str] = {
     "noun": "noun",
     "number": "",
     "preposition": "",
-    "pronoun": "",
+    "pronoun": "pronoun",
     "to": "",
     "unclassified": "",
     "verb": "verb",

@@ -2,9 +2,11 @@
 that key it."""
 
 from datetime import datetime, timezone
+from types import SimpleNamespace
 
 from chordgen.config import Config
 from chordgen.drill import (
+    DrillApp,
     _empty_scores,
     record_drill_score,
     top_scores,
@@ -91,3 +93,56 @@ def test_resolve_layout_key_directional_custom_layout_name():
     cfg.gen.keyboard.directional.layout = "custom"
     cfg.gen.keyboard.directional.custom_layout_name = "my-svalboard"
     assert resolve_layout_key(cfg) == "directional:my-svalboard"
+
+
+def test_drill_on_key_rejects_lowercase_for_uppercase_word():
+    """Typing lowercase ``i`` against a stored ``"I"`` is rejected —
+    chords output the correct casing, so the drill comparison is
+    strictly case-sensitive."""
+
+    flashed = []
+    # Bypass DrillApp.__init__ (which expects a Textual app context)
+    # and bind on_key onto a minimal stub carrying just the state
+    # the method touches.
+    stub = SimpleNamespace(
+        session_finished=False,
+        words_to_practice=["I"],
+        letter_index=0,
+        session_chars_typed=0,
+        session_start_time=None,
+        _start_timer_if_needed=lambda: None,
+        update_word_display=lambda: None,
+        flash_red=lambda: flashed.append(True),
+    )
+    event = SimpleNamespace(
+        key="i",
+        character="i",
+        stop=lambda: None,
+    )
+    DrillApp.on_key(stub, event)
+    assert stub.letter_index == 0
+    assert stub.session_chars_typed == 0
+    assert flashed == [True]
+
+
+def test_drill_on_key_accepts_exact_case_uppercase():
+    """Typing uppercase ``I`` against a stored ``"I"`` advances."""
+
+    stub = SimpleNamespace(
+        session_finished=False,
+        words_to_practice=["I"],
+        letter_index=0,
+        session_chars_typed=0,
+        session_start_time=None,
+        _start_timer_if_needed=lambda: None,
+        update_word_display=lambda: None,
+        flash_red=lambda: None,
+    )
+    event = SimpleNamespace(
+        key="I",
+        character="I",
+        stop=lambda: None,
+    )
+    DrillApp.on_key(stub, event)
+    assert stub.letter_index == 1
+    assert stub.session_chars_typed == 1

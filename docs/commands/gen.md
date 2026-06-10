@@ -9,9 +9,9 @@ The pipeline runs in three phases:
     candidate using the configured keyboard layout (effort per key,
     same-row / same-column / scissor / directional penalties).
 2.  **Generate alts** — based on the word's `category` (verb, noun,
-    adjective, adverb), fill `alt1`–`alt3` with inflected forms (e.g.
-    `look → looks, looked, looking`). Alt slots already filled by hand
-    are kept by default.
+    adjective, adverb, pronoun), fill `alt1`–`alt3` with inflected
+    forms (e.g. `look → looks, looked, looking`; `I → me, my,
+    myself`). Alt slots already filled by hand are kept by default.
 3.  **Assign** — solve a sparse minimum-cost bipartite matching so
     each word gets a unique chord and the total `score × frequency` is
     globally minimised. Frequent words attract short / low-effort

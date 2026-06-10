@@ -48,12 +48,63 @@ def _build_adjective_inflector() -> Inflector:
     }
 
 
+# Closed-class English personal-pronoun lookup. Each row holds the
+# five grammatical forms; the inflector dispatches on form name and
+# the input word selects the row. Forms that coincide with the input
+# word return "" so the alt-generator skips the slot. Stored verbatim
+# so generated alts inherit the natural casing (notably ``I``).
+_PRONOUN_GROUPS: list[dict[str, str]] = [
+    # nominative, objective, possessive_det, possessive_pron, reflexive
+    {"nominative": "I",    "objective": "me",   "possessive_det": "my",    "possessive_pron": "mine",   "reflexive": "myself"},
+    {"nominative": "you",  "objective": "you",  "possessive_det": "your",  "possessive_pron": "yours",  "reflexive": "yourself"},
+    {"nominative": "he",   "objective": "him",  "possessive_det": "his",   "possessive_pron": "his",    "reflexive": "himself"},
+    {"nominative": "she",  "objective": "her",  "possessive_det": "her",   "possessive_pron": "hers",   "reflexive": "herself"},
+    {"nominative": "it",   "objective": "it",   "possessive_det": "its",   "possessive_pron": "its",    "reflexive": "itself"},
+    {"nominative": "we",   "objective": "us",   "possessive_det": "our",   "possessive_pron": "ours",   "reflexive": "ourselves"},
+    {"nominative": "they", "objective": "them", "possessive_det": "their", "possessive_pron": "theirs", "reflexive": "themselves"},
+]
+
+# Priority order used to resolve ambiguous surface forms. ``her`` is
+# both objective and possessive_det of *she* — first occurrence wins
+# so behaviour stays deterministic.
+_PRONOUN_FORM_PRIORITY: tuple[str, ...] = (
+    "nominative",
+    "objective",
+    "possessive_det",
+    "possessive_pron",
+    "reflexive",
+)
+
+# word.lower() -> (group_index, originating_form). Lower-cased keys
+# follow the project-wide rule that lookups always case-fold.
+_PRONOUN_LOOKUP: dict[str, tuple[int, str]] = {}
+for _idx, _grp in enumerate(_PRONOUN_GROUPS):
+    for _form in _PRONOUN_FORM_PRIORITY:
+        _PRONOUN_LOOKUP.setdefault(_grp[_form].lower(), (_idx, _form))
+
+
+def _build_pronoun_inflector() -> Inflector:
+    def _resolve(word: str, target_form: str) -> str:
+        entry = _PRONOUN_LOOKUP.get(word.lower())
+        if entry is None:
+            return ""
+        group_idx, _ = entry
+        out = _PRONOUN_GROUPS[group_idx][target_form]
+        return "" if out.lower() == word.lower() else out
+
+    return {
+        form: (lambda w, f=form: _resolve(w, f))
+        for form in _PRONOUN_FORM_PRIORITY
+    }
+
+
 # category -> factory. Factories are called lazily so users who don't
 # enable a category never pay its import cost.
 _INFLECTOR_FACTORIES: dict[str, Callable[[], Inflector]] = {
     "verb": _build_verb_inflector,
     "noun": _build_noun_inflector,
     "adjective": _build_adjective_inflector,
+    "pronoun": _build_pronoun_inflector,
     # adverb has no reliable inflector — leave unregistered.
 }
 

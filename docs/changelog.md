@@ -1,5 +1,22 @@
 # Changelog
 
+## v2.3.0
+
+- **Pronoun alts category.** SUBTLEX rows tagged `pronoun` now feed
+  a built-in lookup-table inflector covering personal pronouns
+  (I/you/he/she/it/we/they) with five forms each (nominative,
+  objective, possessive determiner, possessive pronoun, reflexive).
+  Default `gen.alts.pronoun.forms` is `[objective, possessive_det,
+  reflexive]`. Re-run `chordgen setup` to refresh categories, then
+  `chordgen gen` to populate alt slots.
+- **Casing preserved on import.** `chords.csv` now stores SUBTLEX
+  surface forms verbatim (so `"I"`, not `"i"`); dedup is
+  case-insensitive (`"The"` and `"the"` collapse to the
+  higher-frequency entry). Drill and learn comparisons are strictly
+  case-sensitive — chords output the correct casing, so typing
+  lowercase `i` against `"I"` is treated as a mistake. Existing user
+  CSVs are unaffected; `setup --force` rewrites them.
+
 ## v2.2.0
 
 A focused release that tightens the training loop, sharpens chord

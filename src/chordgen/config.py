@@ -206,6 +206,13 @@ VerbForm = Literal[
 NounForm = Literal["plural", "singular"]
 AdjectiveForm = Literal["comparative", "superlative"]
 AdverbForm = Literal["comparative", "superlative"]
+PronounForm = Literal[
+    "nominative",      # I, you, he, she, it, we, they
+    "objective",       # me, you, him, her, it, us, them
+    "possessive_det",  # my, your, his, her, its, our, their
+    "possessive_pron", # mine, yours, his, hers, its, ours, theirs
+    "reflexive",       # myself, yourself, himself, ...
+]
 
 
 class _AltCategoryOptions(BaseModel):
@@ -247,6 +254,14 @@ class AdverbAltOptions(_AltCategoryOptions):
     )
 
 
+class PronounAltOptions(_AltCategoryOptions):
+    forms: list[PronounForm] = Field(
+        default=["objective", "possessive_det", "reflexive"],
+        max_length=3,
+        description="Pronoun forms to fill alt1..alt3 with, in order.",
+    )
+
+
 class AltOptions(BaseModel):
     overwrite: bool = Field(
         default=False,
@@ -256,6 +271,7 @@ class AltOptions(BaseModel):
     noun: NounAltOptions = NounAltOptions()
     adjective: AdjectiveAltOptions = AdjectiveAltOptions()
     adverb: AdverbAltOptions = AdverbAltOptions()
+    pronoun: PronounAltOptions = PronounAltOptions()
 
 
 class AssignmentOptions(BaseModel):
