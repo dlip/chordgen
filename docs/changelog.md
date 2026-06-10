@@ -1,6 +1,6 @@
 # Changelog
 
-## v2.1.0
+## v2.2.0
 
 A focused release that tightens the training loop, sharpens chord
 assignment defaults, and introduces book mode and drill
