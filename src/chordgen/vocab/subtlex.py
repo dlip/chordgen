@@ -63,7 +63,7 @@ def _map_pos(label: str | None) -> str:
 # — we just need to restore the apostrophe and tag them so the alt
 # generator skips them.
 _CONTRACTION_TAILS: frozenset[str] = frozenset({
-    "s", "re", "m", "ve", "ll", "d", "t",
+    "s", "re", "m", "ve", "ll", "d",
 })
 
 # Multi-character contraction surface forms that SUBTLEX *does* keep

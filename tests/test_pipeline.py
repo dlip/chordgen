@@ -116,9 +116,7 @@ def test_subtlex_rewrites_contraction_tails():
     assert _rewrite_contraction_tail("ve", "verb") == ("'ve", "contraction")
     assert _rewrite_contraction_tail("m", "verb") == ("'m", "contraction")
     assert _rewrite_contraction_tail("d", "verb") == ("'d", "contraction")
-    # ``t`` is tagged ``name`` upstream which would map to ``_propn``;
-    # the rewrite still reclaims it so it isn't dropped as a proper noun.
-    assert _rewrite_contraction_tail("t", "_propn") == ("'t", "contraction")
+    assert _rewrite_contraction_tail("t", "_propn") == ("t", "_propn")
 
 
 def test_subtlex_retags_kept_intact_contractions():

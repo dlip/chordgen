@@ -25,7 +25,7 @@
 - **Import SUBTLEX-split contraction tails as apostrophe-prefixed
   forms.** SUBTLEX tokenises on whitespace, so `he's`/`we'll`/`I'm`
   etc. surface as bogus high-frequency `s`/`ll`/`m` rows. These are
-  now rewritten to `'s`, `'re`, `'m`, `'ve`, `'ll`, `'d`, `'t` under
+  now rewritten to `'s`, `'re`, `'m`, `'ve`, `'ll`, `'d` under
   a new `contraction` category (no alts generated). The
   kept-intact contraction `n't` (don't/can't/won't/...) is also
   retagged into the same category. The qmk/zmk/kanata/charachorder
