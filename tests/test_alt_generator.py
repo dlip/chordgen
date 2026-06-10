@@ -429,3 +429,23 @@ def test_verb_pseudo_and_contraction_stems_yield_empty():
         assert chord["alt1"] == "", word
         assert chord["alt2"] == "", word
         assert chord["alt3"] == "", word
+
+
+# ---------------------------------------------------------------------
+# Identity self-alts are skipped for open-class inflectors too
+# (e.g. past of "hurt" is "hurt", plural of "series" is "series").
+# ---------------------------------------------------------------------
+
+
+def test_verb_identity_past_skipped():
+    gen = _verb_gen(forms=["3sg", "past", "gerund"])
+    chord = gen.add_alt(_verb_chord("hurt"))
+    assert chord["alt1"] == "hurts"
+    assert chord["alt2"] == ""  # past of hurt is hurt — skipped
+    assert chord["alt3"] == "hurting"
+
+
+def test_noun_identity_plural_skipped():
+    gen = _noun_gen(forms=["plural"])
+    chord = gen.add_alt(_noun_chord("series"))
+    assert chord["alt1"] == ""  # plural of series is series — skipped

@@ -348,9 +348,9 @@ class AssignmentOptions(BaseModel):
         default=3.0,
         description=(
             "Exponent applied to each word's frequency weight before it "
-            "multiplies the chord score. The default 1.0 reproduces the "
-            "original linear cost model. Values > 1 (try 2.0 or 3.0) make "
-            "frequent words dominate the cost so the matcher won't trade a "
+            "multiplies the chord score. 1.0 gives a linear cost model. "
+            "Values > 1 (like the default 3.0) make frequent words "
+            "dominate the cost so the matcher won't trade a "
             "common word's short chord to a rare word that happens to "
             "improve the global sum slightly. Must be > 0."
         ),

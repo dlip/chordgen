@@ -18,6 +18,10 @@ The pipeline runs in three phases:
     chords. Words for which every viable chord is already cheaper for
     another word are reported in the diagnostics.
 
+Words shorter than `gen.min_word_length` are skipped, except rows
+with `category: contraction` (`'s`, `'m`, …) which are always
+eligible — they're short by construction.
+
 By default the matcher runs a single global pass that minimises total
 `score × frequency`. If you find rare words bumping common ones onto
 longer chords, set `gen.assignment.priority_tiers` in `config.yaml`

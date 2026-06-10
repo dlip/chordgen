@@ -505,11 +505,18 @@ class AltGenerator:
             if fn is None:
                 continue
             try:
-                chord[slot] = fn(word) or ""
+                inflected = fn(word) or ""
             except Exception:
                 logging.exception(
                     f"Failed to inflect {word!r} as {category}/{form}"
                 )
+                continue
+            # Identity forms (e.g. plural of "series" is "series",
+            # past of "hurt" is "hurt") waste an alt slot and confuse
+            # the assigner's alt-coverage logic — skip them.
+            if inflected.lower() == word.lower():
+                continue
+            chord[slot] = inflected
 
         logging.debug(
             f"Alts for word {word}: {chord['alt1']}, {chord['alt2']}, {chord['alt3']}"

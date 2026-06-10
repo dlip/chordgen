@@ -79,6 +79,17 @@ def _is_reserved(chord: Chord) -> bool:
     return bool(chord.get("chord")) and not chord.get("frequency")
 
 
+def _passes_min_word_length(chord: Chord, min_word_length: int) -> bool:
+    """Mirror the scorer's min_word_length rule (scorer.py).
+
+    Contractions are exempt — they're short by construction and the
+    user explicitly imported them.
+    """
+    if chord.get("category", "") == "contraction":
+        return True
+    return len(chord["word"]) >= min_word_length
+
+
 def _split_into_tiers(
     pool: list[Chord], cutoffs: list[int]
 ) -> list[tuple[int, int]]:
@@ -238,7 +249,7 @@ def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
     coverable: set[str] = set()
     for chord in chords:
         word = chord["word"].lower()
-        if len(word) < options.min_word_length:
+        if not _passes_min_word_length(chord, options.min_word_length):
             continue
         if not is_base_form(chord["word"], chord.get("category", "")):
             continue
@@ -256,7 +267,7 @@ def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
             report.duplicate.append(word)
             continue
         seen_words.add(word)
-        if len(word) < options.min_word_length:
+        if not _passes_min_word_length(chord, options.min_word_length):
             continue
         if _is_reserved(chord):
             continue

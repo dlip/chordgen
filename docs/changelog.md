@@ -100,6 +100,23 @@
   Affected words are retagged at ingest so the proper inflector
   runs. Re-run `chordgen setup --force` then `chordgen gen` to
   refresh.
+- **Bug fixes.**
+  - Directional change penalty (`directional_change_penalty`) was
+    always 0 regardless of config — `get_directional_changes`
+    returned the wrong variable. It now counts real per-hand
+    direction changes, and `-1` correctly rejects such chords.
+  - Identity self-alts (past of "hurt" → "hurt", plural of
+    "series" → "series") now skip the alt slot instead of wasting
+    it.
+  - Same-finger middle+bottom row pairs (e.g. qwerty `a`+`z`)
+    now receive the `same_column_chord_penalty` — previously only
+    top+middle was penalised and top+bottom rejected.
+  - `frequency_exponent` config docstring now correctly says the
+    default is 3.0 (not 1.0).
+  - Contractions (`'s`, `'m`, …) are now exempt from
+    `min_word_length` in the assigner pool filter, matching the
+    scorer — previously they were scored but then silently
+    dropped from the chord pool.
 
 ## v2.2.0
 
