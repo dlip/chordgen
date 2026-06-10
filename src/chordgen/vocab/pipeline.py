@@ -18,13 +18,14 @@ _FIELDNAMES = [
     "alt3",
 ]
 
-# Drop entries that aren't real lexical words (digits, punctuation,
-# names with apostrophes etc.). SUBTLEX includes a lot of those near
-# the top because subtitles are noisy. Mixed-case proper-noun-ish
-# garbage and apostrophe-stripped contraction artifacts ('s, 't,
-# 'll, 've) are filtered upstream by the source-side ``_propn`` /
-# ``_letter`` sentinels, so accepting upper-case letters here is safe.
-_WORD_RE = re.compile(r"^[A-Za-z]+$")
+# Drop entries that aren't real lexical words (digits, multi-apostrophe
+# garbage etc.). The pattern accepts plain alphabetic words, an optional
+# leading apostrophe (so SUBTLEX-split contraction tails ``'s``, ``'re``
+# etc. flow through), and a single embedded apostrophe (so kept-intact
+# contractions ``n't`` and genuine apostrophe words ``o'clock`` /
+# ``ma'am`` flow through). Mixed-case proper-noun-ish garbage is
+# filtered upstream by the source-side ``_propn`` sentinel.
+_WORD_RE = re.compile(r"^'?[A-Za-z]+(?:'[A-Za-z]+)?$")
 
 # Sentinel categories emitted by sources to flag rows for filtering.
 # Anything starting with "_" is dropped; real categories never have one.
@@ -36,8 +37,8 @@ def _accept(row: VocabRow) -> bool:
     if not _WORD_RE.match(word):
         return False
     if row.category.startswith(_DROP_PREFIX):
-        # Sentinel categories (e.g. _propn for proper nouns,
-        # _letter for stripped contractions) flag drop-on-ingest.
+        # Sentinel categories (e.g. _propn for proper nouns) flag
+        # drop-on-ingest.
         return False
     return True
 

@@ -60,9 +60,12 @@ gen:
   key_replacement:
     q: k        # "quick" → chord uses "k" instead of "q"
     z: s        # "zebra" → chord uses "s" instead of "z"
+    "'": x      # "o'clock" → chord can use "x" wherever the apostrophe sits
 ```
 
-Each key must be a single lowercase letter that is absent from your
-layout; each value must be a single lowercase letter that *is* present.
-Chords containing a replaced letter will be scored against the
-replacement letter's key position and effort on your keyboard.
+Each key must be a single lowercase character — letters or punctuation
+(useful for remapping `'` since few layouts put it on a comfortable
+chord position). Each value must be a single lowercase letter that
+*is* present on your keyboard. Chords containing a replaced character
+will be scored against the replacement letter's key position and
+effort on your keyboard.

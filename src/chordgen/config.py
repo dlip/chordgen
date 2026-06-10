@@ -345,13 +345,16 @@ class GenOptions(BaseModel):
     key_replacement: dict[str, str] = Field(
         default={},
         description=(
-            "Map letters to replacements when generating chord candidates. "
-            "For example, if your keyboard lacks 'q' and 'z', set "
-            "{'q': 'k', 'z': 's'} so chords use 'k' instead of 'q' and "
-            "'s' instead of 'z' -- the typed word is unaffected, only the "
-            "chord string changes. Each key must be a single lowercase "
-            "letter; its replacement must also be a single lowercase letter "
-            "that exists on your keyboard."
+            "Map characters to replacements when generating chord "
+            "candidates. For example, if your keyboard lacks 'q' and "
+            "'z', set {'q': 'k', 'z': 's'} so chords use 'k' instead "
+            "of 'q' and 's' instead of 'z' -- the typed word is "
+            "unaffected, only the chord string changes. Useful for "
+            "remapping non-letter characters too: \"'\": x lets a "
+            "word like \"o'clock\" earn a chord that contains 'x' "
+            "wherever the apostrophe sits. Each key must be a single "
+            "lowercase character; its replacement must be a single "
+            "lowercase letter that exists on your keyboard."
         ),
     )
 
@@ -365,10 +368,14 @@ class GenOptions(BaseModel):
     @classmethod
     def validate_key_replacement(cls, v: dict[str, str]) -> dict[str, str]:
         for key, replacement in v.items():
-            if len(key) != 1 or not key.isalpha() or not key.islower():
+            # Source side accepts any single non-whitespace character
+            # so users can remap punctuation like "'" to a real key.
+            # Uppercase letters are still rejected because chord
+            # candidates are generated from the lowercased word.
+            if len(key) != 1 or key.isspace() or key != key.lower():
                 raise ValueError(
                     f"key_replacement key {key!r} must be a single "
-                    f"lowercase letter"
+                    f"lowercase non-whitespace character"
                 )
             if (
                 len(replacement) != 1

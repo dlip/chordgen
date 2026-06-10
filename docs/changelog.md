@@ -22,6 +22,29 @@
   uses every word from that list with a chord assigned — graduated
   words are highlighted in yellow, the rest are shown dim, and
   reveal-on-stumble still works.
+- **Import SUBTLEX-split contraction tails as apostrophe-prefixed
+  forms.** SUBTLEX tokenises on whitespace, so `he's`/`we'll`/`I'm`
+  etc. surface as bogus high-frequency `s`/`ll`/`m` rows. These are
+  now rewritten to `'s`, `'re`, `'m`, `'ve`, `'ll`, `'d`, `'t` under
+  a new `contraction` category (no alts generated). The
+  kept-intact contraction `n't` (don't/can't/won't/...) is also
+  retagged into the same category. The qmk/zmk/kanata/charachorder
+  emitters prepend a backspace before all `contraction` rows so the
+  apostrophe attaches cleanly to the previously-typed word. Genuine
+  apostrophe words like `o'clock` flow through untouched. Learn mode
+  excludes the `contraction` category since those forms aren't typed
+  standalone. Re-run `chordgen setup --force` to pick up the new
+  rows.
+- **`gen.key_replacement` accepts punctuation keys.** Source-side
+  keys are no longer restricted to alphabetic letters, so you can
+  remap characters like `'` (e.g. ``"'": x``) to a real keyboard
+  letter for chord scoring. The typed word is unaffected — only the
+  chord string changes. Replacement values still must be single
+  lowercase letters present on your keyboard. Recommended for users
+  who don't keep `'` on a comfortable chord position: without a
+  remap, contraction rows like `'s`/`n't` and apostrophe words like
+  `o'clock` will fail to score (the keyboard scorer rejects `'`)
+  and won't get chords assigned.
 
 ## v2.2.0
 

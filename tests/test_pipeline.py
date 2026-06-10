@@ -1,7 +1,8 @@
 """Tests for the vocab pipeline's casing + dedup behaviour.
 
 The pipeline contract: storage = native casing, dedup = case-insensitive,
-single-letter whitelist = {"a", "I"}, anything else of length 1 is dropped.
+plain alphabetic words pass through, and an optional leading apostrophe
+is allowed for SUBTLEX-split contraction tails (``'s``, ``'re``, ...).
 """
 
 from __future__ import annotations
@@ -12,6 +13,7 @@ from typing import Iterator
 
 from chordgen.vocab import SOURCES, VocabRow, VocabSource
 from chordgen.vocab.pipeline import build_chords_csv
+from chordgen.vocab.subtlex import _rewrite_contraction_tail
 
 
 def _make_fake_source(rows: list[VocabRow]) -> type[VocabSource]:
@@ -78,16 +80,56 @@ def test_pipeline_rejects_garbage(monkeypatch, tmp_path):
         monkeypatch,
         tmp_path,
         [
-            VocabRow(word="don't", frequency=5.0, category=""),
             VocabRow(word="123", frequency=5.0, category=""),
             VocabRow(word="a", frequency=7.0, category=""),
             VocabRow(word="I", frequency=7.0, category="pronoun"),
-            # Apostrophe-stripped contractions are tagged ``_letter``
-            # by the source and dropped via the sentinel-category rule.
-            VocabRow(word="s", frequency=5.0, category="_letter"),
-            # Proper nouns are tagged ``_propn`` and dropped likewise.
+            # Apostrophe-prefixed contraction tails (set upstream by the
+            # SUBTLEX rewrite hook) flow through.
+            VocabRow(word="'s", frequency=7.5, category="contraction"),
+            # Kept-intact contractions like ``n't`` flow through.
+            VocabRow(word="n't", frequency=6.9, category="contraction"),
+            # Genuine apostrophe words flow through too — emitters
+            # treat them literally based on category, not on ``'``.
+            VocabRow(word="o'clock", frequency=4.6, category="adverb"),
+            # Multi-apostrophe garbage is still rejected.
+            VocabRow(word="''abc''", frequency=4.0, category=""),
+            # Proper nouns are tagged ``_propn`` and dropped.
             VocabRow(word="John", frequency=5.0, category="_propn"),
         ],
     )
     words = {row["word"] for row in written}
-    assert words == {"a", "I"}
+    assert words == {"a", "I", "'s", "n't", "o'clock"}
+
+
+def test_subtlex_rewrites_contraction_tails():
+    # SUBTLEX-split contraction tails are rewritten to apostrophe-led
+    # surface forms with the ``contraction`` category.
+    assert _rewrite_contraction_tail("s", "verb") == ("'s", "contraction")
+    assert _rewrite_contraction_tail("re", "verb") == ("'re", "contraction")
+    assert _rewrite_contraction_tail("ll", "verb") == ("'ll", "contraction")
+    assert _rewrite_contraction_tail("ve", "verb") == ("'ve", "contraction")
+    assert _rewrite_contraction_tail("m", "verb") == ("'m", "contraction")
+    assert _rewrite_contraction_tail("d", "verb") == ("'d", "contraction")
+    # ``t`` is tagged ``name`` upstream which would map to ``_propn``;
+    # the rewrite still reclaims it so it isn't dropped as a proper noun.
+    assert _rewrite_contraction_tail("t", "_propn") == ("'t", "contraction")
+
+
+def test_subtlex_retags_kept_intact_contractions():
+    # ``n't`` (don't, can't, won't, ...) is kept intact by SUBTLEX
+    # under POS=adverb. Retag it as ``contraction`` so the alt
+    # generator skips it and emitters apply the backspace prefix.
+    assert _rewrite_contraction_tail("n't", "adverb") == ("n't", "contraction")
+    # Casing is normalised to lower.
+    assert _rewrite_contraction_tail("N'T", "adverb") == ("n't", "contraction")
+
+
+def test_subtlex_passes_through_non_tails():
+    # Plain words are untouched. ``S`` (a real word in some corpora)
+    # case-folds to a tail key and still gets rewritten — that's an
+    # acceptable false positive given the rarity of bare ``S``.
+    assert _rewrite_contraction_tail("hello", "verb") == ("hello", "verb")
+    assert _rewrite_contraction_tail("they", "pronoun") == ("they", "pronoun")
+    # ``o'clock`` and similar embedded-apostrophe words pass through
+    # unchanged — they're filtered out at the pipeline level instead.
+    assert _rewrite_contraction_tail("o'clock", "adverb") == ("o'clock", "adverb")

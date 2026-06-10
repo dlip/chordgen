@@ -15,10 +15,26 @@ class Scorer:
         if chord["chord"] and not chord.get("frequency"):
             return chord
 
-        if len(chord["word"]) < self._options.min_word_length:
+        # Bypass the min_word_length floor for contractions — they're
+        # short by construction and the user explicitly imported them.
+        is_contraction = chord["category"] == "contraction"
+        if (
+            not is_contraction
+            and len(chord["word"]) < self._options.min_word_length
+        ):
             return chord
 
-        combinations = find_combinations(chord["word"].lower())
+        # Keep the apostrophe in chord candidates: every chord must
+        # contain the first character of the word (the prefix-lock
+        # invariant in ``find_combinations``), so for ``'s`` we cannot
+        # silently strip the leading ``'`` — that would let chord
+        # ``s`` win, violating the invariant. Users with no comfortable
+        # apostrophe key should set ``gen.key_replacement: "'": x``
+        # (or similar) to remap it onto a real key. Without a mapping
+        # the keyboard scorer rejects ``'`` and no chord is assigned,
+        # which is the right failure mode (loud, not silent).
+        word_for_scoring = chord["word"].lower()
+        combinations = find_combinations(word_for_scoring)
         replacements = self._options.key_replacement
         if replacements:
             combinations = [

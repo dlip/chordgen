@@ -12,6 +12,11 @@ class TrainingOutput(BaseModel):
         line_words = ""
         line_chords = ""
 
+        # Apostrophe-led contraction tails (``'s``, ``'re``, ...) are
+        # rendered verbatim into the training file. The trainee sees
+        # the literal characters they would type; the awkward spacing
+        # (``... it 's ...``) reflects what the firmware emits before
+        # the backspace consumes the preceding space.
         print(f"Writing {self.file}")
         with open(self.file, "w") as training_file:
             for chord in chords:

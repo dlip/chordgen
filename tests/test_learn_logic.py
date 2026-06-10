@@ -6,6 +6,7 @@ import pytest
 from fsrs import Rating
 
 from chordgen.learn import (
+    build_chords_map,
     compute_word_wpm,
     decide_rating,
     reinsertion_offset,
@@ -72,3 +73,24 @@ def test_compute_word_wpm_zero_or_negative_elapsed_returns_none():
 
 def test_compute_word_wpm_zero_word_len_returns_none():
     assert compute_word_wpm(1.0, 0) is None
+
+
+# ---------------------------------------------------------------------------
+# build_chords_map
+# ---------------------------------------------------------------------------
+
+
+def test_build_chords_map_excludes_contractions():
+    """Contractions (``'s``, ``n't``, ...) are output appendages — they
+    aren't typed standalone, so learn mode must not surface them.
+    Words with non-contraction apostrophes (``o'clock``) and unassigned
+    chords are also handled."""
+
+    chords = [
+        {"word": "the", "chord": "th", "category": "function"},
+        {"word": "'s", "chord": "s", "category": "contraction"},
+        {"word": "n't", "chord": "nt", "category": "contraction"},
+        {"word": "o'clock", "chord": "oc", "category": "noun"},
+        {"word": "unchorded", "chord": "", "category": "noun"},
+    ]
+    assert set(build_chords_map(chords).keys()) == {"the", "o'clock"}

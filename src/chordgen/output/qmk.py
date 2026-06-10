@@ -64,8 +64,17 @@ class QmkOutput(BaseModel):
                     alt = alt_keys[i - 1]
                 name = f"c_{chord['chord']}{i}".replace("'", "_").replace("-", "_")
 
-                output += f'SUBS({name}, "{word} ", {", ".join(keys + self.chord_keys + alt)})\n'
-                if self.shifted_chord_keys:
+                # Contractions (``'s``, ``'re``, ``n't``, ...) are typed
+                # *after* a chorded word that already appended a space.
+                # QMK's SEND_STRING interprets ``\b`` (ASCII 0x08) as a
+                # backspace tap, so emitting the literal escape inside
+                # the SUBS string deletes that trailing space first.
+                # Detected by category rather than ``'`` in word so
+                # genuine apostrophe words (``o'clock``) stay literal.
+                is_contraction = chord["category"] == "contraction"
+                bspc = "\\b" if is_contraction else ""
+                output += f'SUBS({name}, "{bspc}{word} ", {", ".join(keys + self.chord_keys + alt)})\n'
+                if self.shifted_chord_keys and not is_contraction:
                     output += f'SUBS({name}s, "{word.capitalize()} ", {", ".join(keys + self.shifted_chord_keys + alt)})\n'
 
         print(f"Writing {self.file}")

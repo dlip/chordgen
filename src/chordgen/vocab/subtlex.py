@@ -56,6 +56,39 @@ def _map_pos(label: str | None) -> str:
     return _POS_MAP.get(label.strip().lower(), "")
 
 
+# Surface forms produced when SUBTLEX splits English contractions on
+# whitespace (`he's`, `we'll`, `I'm`, `you've`, `they're`, `she'd`, ...).
+# Each tail's frequency is the aggregated count across every contraction
+# ending in that tail, which makes them genuinely high-frequency tokens
+# — we just need to restore the apostrophe and tag them so the alt
+# generator skips them.
+_CONTRACTION_TAILS: frozenset[str] = frozenset({
+    "s", "re", "m", "ve", "ll", "d", "t",
+})
+
+# Multi-character contraction surface forms that SUBTLEX *does* keep
+# intact (with the apostrophe). Currently just ``n't`` (don't, can't,
+# won't, ...). They flow through tagged ``contraction`` so the alt
+# generator skips them and the output emitters apply the same
+# backspace-then-apostrophe trick the leading-apostrophe forms use.
+_CONTRACTION_WORDS: frozenset[str] = frozenset({"n't"})
+
+
+def _rewrite_contraction_tail(word: str, category: str) -> tuple[str, str]:
+    """If ``word`` is a SUBTLEX-split contraction tail, prepend an
+    apostrophe and tag it with the ``contraction`` category. If it's
+    a SUBTLEX-kept contraction word like ``n't``, retag it as a
+    contraction without rewriting. Otherwise pass through unchanged.
+    Contraction surface forms are inherently lowercase so the
+    rewritten form is lower-cased."""
+    lower = word.lower()
+    if lower in _CONTRACTION_TAILS:
+        return f"'{lower}", "contraction"
+    if lower in _CONTRACTION_WORDS:
+        return lower, "contraction"
+    return word, category
+
+
 def _download(url: str, dest: Path) -> None:
     if dest.exists():
         logging.info(f"Using cached {dest}")
@@ -121,7 +154,8 @@ class SubtlexUS(VocabSource):
                 frequency = float(freq_raw)
             except (TypeError, ValueError):
                 continue
-            yield VocabRow(word=word, frequency=frequency, category=_map_pos(r[9]))
+            word, category = _rewrite_contraction_tail(word, _map_pos(r[9]))
+            yield VocabRow(word=word, frequency=frequency, category=category)
         wb.close()
 
 
@@ -155,4 +189,7 @@ class SubtlexUK(VocabSource):
                     frequency = None
                 if frequency is None:
                     continue
-                yield VocabRow(word=word, frequency=frequency, category=_map_pos(row.get("DomPoS")))
+                word, category = _rewrite_contraction_tail(
+                    word, _map_pos(row.get("DomPoS"))
+                )
+                yield VocabRow(word=word, frequency=frequency, category=category)
