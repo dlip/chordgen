@@ -2,6 +2,34 @@
 
 ## v2.3.0
 
+- **Cleaner alt generation.** Closed off five families of bogus
+  alts that surfaced in `chords.csv`:
+  - SUBTLEX contraction-stem residue (`ca`/`wo`/`ai` from
+    `can't`/`won't`/`ain't`) is dropped at ingest, so the pipeline
+    no longer imports them as bogus verbs with garbage
+    conjugations.
+  - Non-gradable adjectives (`other`, `whole`, `welcome`,
+    `chinese`, `important`, `available`, …) now get
+    `more X`/`most X` instead of `wholer`/`importanter`. A
+    length-based fallback also catches long adjectives where
+    `pattern.en` produced a naive `Xer`/`Xest` suffix.
+  - Plurals are suppressed for `-thing`/`-one`/`-body`/`-where`
+    compounds, mass-noun pseudo-words (`gonna`, `wanna`, `gotta`,
+    `huh`, `hm`, …), and rows that are already plural — `mps` no
+    longer pluralises to `mpss`, `ears` no longer becomes `earss`.
+  - Irregular verbs use a small override table so `pay` →
+    `paid` (not `payed`), `feed` → `fed` (not `feed`), `escape`
+    → `escaped` (not `scaped`), and `bear` → `bore`/`born`.
+    Pseudo-verbs like `wanna`/`gotta`/`gonna`/`born` and the
+    contraction stems silence all four conjugation forms.
+  - `is_base_form` for nouns now also rejects rows where
+    `pluralize(w)` is exactly `w + "s"`, catching the double-`s`
+    artefacts above.
+  Existing rows in your `chords.csv` keep their stale alts unless
+  you re-run `chordgen gen` with `gen.alts.overwrite: true` or
+  blank out the affected alt columns. Existing `ca`/`wo`/`ai`
+  rows need to be deleted by hand — the SUBTLEX fix only stops
+  future `chordgen setup` runs from re-importing them.
 - **Pronoun alts category.** SUBTLEX rows tagged `pronoun` now feed
   a built-in lookup-table inflector covering personal pronouns
   (I/you/he/she/it/we/they) with five forms each (nominative,

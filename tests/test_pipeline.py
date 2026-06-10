@@ -157,3 +157,38 @@ def test_subtlex_retag_skips_propn_sentinel():
     # the ``_propn`` sentinel or the proper-noun filter would leak
     # name rows into the vocab as modals.
     assert _rewrite_contraction_tail("will", "_propn") == ("will", "_propn")
+
+
+def test_subtlex_drops_contraction_stems():
+    # SUBTLEX leaves apostrophe-stripped contraction stems behind when
+    # it splits ``can't`` -> ``ca`` + ``n't``, ``won't`` -> ``wo`` +
+    # ``n't``, ``ain't`` -> ``ai`` + ``n't``. The stems on their own
+    # aren't real words; they get a dedicated drop-sentinel so the
+    # pipeline filters them at ingest. Casing is preserved on the
+    # ``word`` side because the sentinel is what triggers the drop.
+    for stem in ("ca", "wo", "ai"):
+        word, category = _rewrite_contraction_tail(stem, "verb")
+        assert category.startswith("_"), stem
+        assert category == "_contraction_stem", stem
+    # Uppercase variants still hit the case-folded lookup.
+    for stem in ("CA", "Wo", "Ai"):
+        _, category = _rewrite_contraction_tail(stem, "verb")
+        assert category == "_contraction_stem", stem
+
+
+def test_pipeline_drops_contraction_stems(monkeypatch, tmp_path):
+    # End-to-end: contraction-stem rows are flagged with the
+    # ``_contraction_stem`` sentinel by the SUBTLEX adapter and the
+    # pipeline's ``_DROP_PREFIX`` filter prunes them before write.
+    written = _run(
+        monkeypatch,
+        tmp_path,
+        [
+            VocabRow(word="ca", frequency=6.0, category="_contraction_stem"),
+            VocabRow(word="wo", frequency=6.0, category="_contraction_stem"),
+            VocabRow(word="ai", frequency=6.0, category="_contraction_stem"),
+            VocabRow(word="dog", frequency=5.0, category="noun"),
+        ],
+    )
+    words = {row["word"] for row in written}
+    assert words == {"dog"}

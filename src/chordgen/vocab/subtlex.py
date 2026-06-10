@@ -73,6 +73,13 @@ _CONTRACTION_TAILS: frozenset[str] = frozenset({
 # backspace-then-apostrophe trick the leading-apostrophe forms use.
 _CONTRACTION_WORDS: frozenset[str] = frozenset({"n't"})
 
+# Apostrophe-stripped contraction *stems* that SUBTLEX leaves behind
+# when it splits ``can't``/``won't``/``ain't`` into a stem + ``n't``
+# tail. The stems on their own aren't real words, so we tag them with
+# a dedicated drop-sentinel that the pipeline filters out at ingest.
+# Distinct from ``_letter`` so the drop reason stays auditable.
+_CONTRACTION_STEMS: frozenset[str] = frozenset({"ca", "wo", "ai"})
+
 
 # Closed-class word -> chordgen alt category overrides. SUBTLEX's
 # native POS for these is unhelpful for alt generation (e.g. ``this``
@@ -144,10 +151,14 @@ def _rewrite_contraction_tail(word: str, category: str) -> tuple[str, str]:
     """If ``word`` is a SUBTLEX-split contraction tail, prepend an
     apostrophe and tag it with the ``contraction`` category. If it's
     a SUBTLEX-kept contraction word like ``n't``, retag it as a
-    contraction without rewriting. Otherwise pass through unchanged.
-    Contraction surface forms are inherently lowercase so the
-    rewritten form is lower-cased."""
+    contraction without rewriting. If it's a contraction *stem*
+    (``ca``/``wo``/``ai`` left over from ``can't``/``won't``/
+    ``ain't``), tag it with the ``_contraction_stem`` drop-sentinel.
+    Otherwise pass through unchanged. Contraction surface forms are
+    inherently lowercase so the rewritten form is lower-cased."""
     lower = word.lower()
+    if lower in _CONTRACTION_STEMS:
+        return word, "_contraction_stem"
     if lower in _CONTRACTION_TAILS:
         return f"'{lower}", "contraction"
     if lower in _CONTRACTION_WORDS:

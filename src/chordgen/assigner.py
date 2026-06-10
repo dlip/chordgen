@@ -37,6 +37,7 @@ import numpy as np
 from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import min_weight_full_bipartite_matching
 
+from chordgen.alt_generator import is_base_form
 from chordgen.chord import Chord, Option
 from chordgen.config import GenOptions
 
@@ -223,13 +224,29 @@ def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
         reserved_keys.add(key)
 
     # ---- Build pool of words eligible for assignment ---------------------
-    # Words already reachable as an earlier row's alt (e.g. "made" as the
-    # past form of "make") shouldn't get a primary chord — they'd shadow
-    # nothing useful and waste contention. Walk rows in CSV (frequency)
-    # order: a row is kept if it's not already covered by an earlier-kept
-    # row's alts. This naturally breaks cycles (e.g. could→can, can→could)
-    # by keeping the higher-frequency one.
+    # Words reachable as another row's alt (e.g. "made" as the past form
+    # of "make") shouldn't get a primary chord — they'd shadow nothing
+    # useful and waste contention. Coverage is contributed only by
+    # *base/root* rows (verbs in lemma form, nominative pronouns,
+    # ``this``, cardinal numbers, present-tense modals, ...). This
+    # guarantees that the canonical base of a paradigm survives even
+    # when the inflected sibling has higher SUBTLEX frequency: e.g.
+    # ``your`` doesn't cover ``you``, and ``that`` doesn't cover
+    # ``this``. Open-class categories (verb / noun / adjective / adverb)
+    # treat every row as a base, preserving the historical behaviour
+    # there.
     coverable: set[str] = set()
+    for chord in chords:
+        word = chord["word"].lower()
+        if len(word) < options.min_word_length:
+            continue
+        if not is_base_form(chord["word"], chord.get("category", "")):
+            continue
+        for slot in ("alt1", "alt2", "alt3"):
+            alt = (chord.get(slot) or "").strip().lower()
+            if alt and alt != word:
+                coverable.add(alt)
+
     seen_words: set[str] = set()
     pool: list[Chord] = []
     skipped_alt_covered: list[str] = []
@@ -242,10 +259,6 @@ def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
         if len(word) < options.min_word_length:
             continue
         if _is_reserved(chord):
-            for slot in ("alt1", "alt2", "alt3"):
-                alt = (chord.get(slot) or "").strip().lower()
-                if alt and alt != word:
-                    coverable.add(alt)
             continue
         if word in coverable:
             chord["alt1"] = ""
@@ -253,10 +266,6 @@ def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
             chord["alt3"] = ""
             skipped_alt_covered.append(word)
             continue
-        for slot in ("alt1", "alt2", "alt3"):
-            alt = (chord.get(slot) or "").strip().lower()
-            if alt and alt != word:
-                coverable.add(alt)
         pool.append(chord)
 
     if not pool:
