@@ -213,6 +213,20 @@ PronounForm = Literal[
     "possessive_pron", # mine, yours, his, hers, its, ours, theirs
     "reflexive",       # myself, yourself, himself, ...
 ]
+DemonstrativeForm = Literal[
+    "singular",   # this, that
+    "plural",     # these, those
+    "proximal",   # this, these
+    "distal",     # that, those
+]
+ModalForm = Literal[
+    "present",    # can, will, shall, may, must
+    "past",       # could, would, should, might
+]
+NumberForm = Literal[
+    "cardinal",   # one, two, three, ...
+    "ordinal",    # first, second, third, ...
+]
 
 
 class _AltCategoryOptions(BaseModel):
@@ -262,6 +276,43 @@ class PronounAltOptions(_AltCategoryOptions):
     )
 
 
+class DemonstrativeAltOptions(_AltCategoryOptions):
+    forms: list[DemonstrativeForm] = Field(
+        default=["plural", "distal"],
+        max_length=3,
+        description=(
+            "Demonstrative forms to fill alt1..alt3 with, in order. "
+            "Demonstratives are ``this``, ``that``, ``these``, and "
+            "``those`` arranged on number (singular/plural) and "
+            "distance (proximal/distal) axes."
+        ),
+    )
+
+
+class ModalAltOptions(_AltCategoryOptions):
+    forms: list[ModalForm] = Field(
+        default=["past"],
+        max_length=3,
+        description=(
+            "Modal-verb forms to fill alt1..alt3 with, in order. "
+            "Modals are paired present <-> past: can/could, will/"
+            "would, shall/should, may/might. ``must`` has no past "
+            "form."
+        ),
+    )
+
+
+class NumberAltOptions(_AltCategoryOptions):
+    forms: list[NumberForm] = Field(
+        default=["ordinal"],
+        max_length=3,
+        description=(
+            "Number forms to fill alt1..alt3 with, in order. Numbers "
+            "are cardinal/ordinal pairs (one/first, two/second, ...)."
+        ),
+    )
+
+
 class AltOptions(BaseModel):
     overwrite: bool = Field(
         default=False,
@@ -272,6 +323,9 @@ class AltOptions(BaseModel):
     adjective: AdjectiveAltOptions = AdjectiveAltOptions()
     adverb: AdverbAltOptions = AdverbAltOptions()
     pronoun: PronounAltOptions = PronounAltOptions()
+    demonstrative: DemonstrativeAltOptions = DemonstrativeAltOptions()
+    modal: ModalAltOptions = ModalAltOptions()
+    number: NumberAltOptions = NumberAltOptions()
 
 
 class AssignmentOptions(BaseModel):

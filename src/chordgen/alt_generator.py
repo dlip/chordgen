@@ -98,6 +98,104 @@ def _build_pronoun_inflector() -> Inflector:
     }
 
 
+# Demonstratives: this/that/these/those laid out as a 2x2 of number
+# (singular/plural) x distance (proximal/distal).
+_DEMONSTRATIVE_GROUPS: list[dict[str, str]] = [
+    # singular, plural, proximal, distal
+    {"singular": "this",  "plural": "these", "proximal": "this",  "distal": "that"},
+    {"singular": "that",  "plural": "those", "proximal": "this",  "distal": "that"},
+    {"singular": "this",  "plural": "these", "proximal": "these", "distal": "those"},
+    {"singular": "that",  "plural": "those", "proximal": "these", "distal": "those"},
+]
+_DEMONSTRATIVE_FORM_PRIORITY: tuple[str, ...] = (
+    "singular", "plural", "proximal", "distal",
+)
+_DEMONSTRATIVE_LOOKUP: dict[str, int] = {
+    "this": 0, "that": 1, "these": 2, "those": 3,
+}
+
+
+def _build_demonstrative_inflector() -> Inflector:
+    def _resolve(word: str, target_form: str) -> str:
+        idx = _DEMONSTRATIVE_LOOKUP.get(word.lower())
+        if idx is None:
+            return ""
+        out = _DEMONSTRATIVE_GROUPS[idx][target_form]
+        return "" if out.lower() == word.lower() else out
+
+    return {
+        form: (lambda w, f=form: _resolve(w, f))
+        for form in _DEMONSTRATIVE_FORM_PRIORITY
+    }
+
+
+# Modal verbs paired present <-> past. ``must`` has no past form so
+# its past slot is empty (the alt generator skips empty results).
+_MODAL_PAIRS: list[tuple[str, str]] = [
+    ("can", "could"),
+    ("will", "would"),
+    ("shall", "should"),
+    ("may", "might"),
+    ("must", ""),
+]
+_MODAL_LOOKUP: dict[str, dict[str, str]] = {}
+for _pres, _past in _MODAL_PAIRS:
+    _MODAL_LOOKUP[_pres] = {"present": _pres, "past": _past}
+    if _past:
+        _MODAL_LOOKUP[_past] = {"present": _pres, "past": _past}
+
+
+def _build_modal_inflector() -> Inflector:
+    def _resolve(word: str, target_form: str) -> str:
+        row = _MODAL_LOOKUP.get(word.lower())
+        if row is None:
+            return ""
+        out = row[target_form]
+        return "" if out.lower() == word.lower() else out
+
+    return {
+        "present": lambda w: _resolve(w, "present"),
+        "past": lambda w: _resolve(w, "past"),
+    }
+
+
+# Cardinal <-> ordinal number pairs covering 1-20, decades 30-90,
+# and the round magnitudes hundred / thousand / million.
+_NUMBER_PAIRS: list[tuple[str, str]] = [
+    ("one", "first"), ("two", "second"), ("three", "third"),
+    ("four", "fourth"), ("five", "fifth"), ("six", "sixth"),
+    ("seven", "seventh"), ("eight", "eighth"), ("nine", "ninth"),
+    ("ten", "tenth"), ("eleven", "eleventh"), ("twelve", "twelfth"),
+    ("thirteen", "thirteenth"), ("fourteen", "fourteenth"),
+    ("fifteen", "fifteenth"), ("sixteen", "sixteenth"),
+    ("seventeen", "seventeenth"), ("eighteen", "eighteenth"),
+    ("nineteen", "nineteenth"), ("twenty", "twentieth"),
+    ("thirty", "thirtieth"), ("forty", "fortieth"),
+    ("fifty", "fiftieth"), ("sixty", "sixtieth"),
+    ("seventy", "seventieth"), ("eighty", "eightieth"),
+    ("ninety", "ninetieth"), ("hundred", "hundredth"),
+    ("thousand", "thousandth"), ("million", "millionth"),
+]
+_NUMBER_LOOKUP: dict[str, dict[str, str]] = {}
+for _card, _ord in _NUMBER_PAIRS:
+    _NUMBER_LOOKUP[_card] = {"cardinal": _card, "ordinal": _ord}
+    _NUMBER_LOOKUP[_ord] = {"cardinal": _card, "ordinal": _ord}
+
+
+def _build_number_inflector() -> Inflector:
+    def _resolve(word: str, target_form: str) -> str:
+        row = _NUMBER_LOOKUP.get(word.lower())
+        if row is None:
+            return ""
+        out = row[target_form]
+        return "" if out.lower() == word.lower() else out
+
+    return {
+        "cardinal": lambda w: _resolve(w, "cardinal"),
+        "ordinal": lambda w: _resolve(w, "ordinal"),
+    }
+
+
 # category -> factory. Factories are called lazily so users who don't
 # enable a category never pay its import cost.
 _INFLECTOR_FACTORIES: dict[str, Callable[[], Inflector]] = {
@@ -105,6 +203,9 @@ _INFLECTOR_FACTORIES: dict[str, Callable[[], Inflector]] = {
     "noun": _build_noun_inflector,
     "adjective": _build_adjective_inflector,
     "pronoun": _build_pronoun_inflector,
+    "demonstrative": _build_demonstrative_inflector,
+    "modal": _build_modal_inflector,
+    "number": _build_number_inflector,
     # adverb has no reliable inflector — leave unregistered.
 }
 

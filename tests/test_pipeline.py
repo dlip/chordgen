@@ -137,3 +137,23 @@ def test_subtlex_passes_through_non_tails():
     # ``o'clock`` and similar embedded-apostrophe words pass through
     # unchanged — they're filtered out at the pipeline level instead.
     assert _rewrite_contraction_tail("o'clock", "adverb") == ("o'clock", "adverb")
+
+
+def test_subtlex_retags_closed_class_words():
+    # Demonstratives retag from determiner ("") to demonstrative.
+    assert _rewrite_contraction_tail("this", "") == ("this", "demonstrative")
+    assert _rewrite_contraction_tail("those", "") == ("those", "demonstrative")
+    # Modals retag from verb to modal so pattern.en doesn't conjugate
+    # them into nonsense like canned/canning.
+    assert _rewrite_contraction_tail("can", "verb") == ("can", "modal")
+    assert _rewrite_contraction_tail("would", "verb") == ("would", "modal")
+    # Numbers retag from number ("") to number.
+    assert _rewrite_contraction_tail("one", "") == ("one", "number")
+    assert _rewrite_contraction_tail("first", "adjective") == ("first", "number")
+
+
+def test_subtlex_retag_skips_propn_sentinel():
+    # ``Will`` is also a name in SUBTLEX. The retag must not override
+    # the ``_propn`` sentinel or the proper-noun filter would leak
+    # name rows into the vocab as modals.
+    assert _rewrite_contraction_tail("will", "_propn") == ("will", "_propn")

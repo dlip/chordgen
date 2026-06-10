@@ -57,10 +57,23 @@
     adverb:
       enabled: true
       forms: []
+    demonstrative:
+      enabled: true
+      forms:
+      - plural
+      - distal
+    modal:
+      enabled: true
+      forms:
+      - past
     noun:
       enabled: true
       forms:
       - plural
+    number:
+      enabled: true
+      forms:
+      - ordinal
     overwrite: false
     pronoun:
       enabled: true
@@ -250,6 +263,31 @@
     - reflexive
     ```
 
+  - <a id="%24defs/AltOptions/properties/demonstrative"></a>**`demonstrative`**: Refer to *[#/$defs/DemonstrativeAltOptions](#%24defs/DemonstrativeAltOptions)*. Default:
+
+    ```yaml
+    enabled: true
+    forms:
+    - plural
+    - distal
+    ```
+
+  - <a id="%24defs/AltOptions/properties/modal"></a>**`modal`**: Refer to *[#/$defs/ModalAltOptions](#%24defs/ModalAltOptions)*. Default:
+
+    ```yaml
+    enabled: true
+    forms:
+    - past
+    ```
+
+  - <a id="%24defs/AltOptions/properties/number"></a>**`number`**: Refer to *[#/$defs/NumberAltOptions](#%24defs/NumberAltOptions)*. Default:
+
+    ```yaml
+    enabled: true
+    forms:
+    - ordinal
+    ```
+
 - <a id="%24defs/AssignmentOptions"></a>**`AssignmentOptions`** *(object)*
   - <a id="%24defs/AssignmentOptions/properties/min_frequency_weight"></a>**`min_frequency_weight`** *(number)*: Floor for the weight applied to words missing a frequency value. Treats them as low-priority but still eligible. Default: `1.0`.
   - <a id="%24defs/AssignmentOptions/properties/unmatched_penalty"></a>**`unmatched_penalty`** *(number)*: Cost charged per word that ends up without a chord. Acts as a soft constraint in the optimal matcher: if recovering a word would cost more than this, leaving it unmatched is allowed. Default: `10000.0`.
@@ -261,6 +299,10 @@
   - <a id="%24defs/BookOptions/properties/max_width"></a>**`max_width`** *(integer)*: Maximum width (in characters) of the rendered text block in book mode. Long paragraphs are wrapped to this width. Default: `80`.
 - <a id="%24defs/CharaChorderOutput"></a>**`CharaChorderOutput`** *(object)*
   - <a id="%24defs/CharaChorderOutput/properties/file"></a>**`file`** *(string, format: path)*: Default: `"~/.config/chordgen/charachorder_chords.json"`.
+- <a id="%24defs/DemonstrativeAltOptions"></a>**`DemonstrativeAltOptions`** *(object)*
+  - <a id="%24defs/DemonstrativeAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
+  - <a id="%24defs/DemonstrativeAltOptions/properties/forms"></a>**`forms`** *(array)*: Demonstrative forms to fill alt1..alt3 with, in order. Demonstratives are ``this``, ``that``, ``these``, and ``those`` arranged on number (singular/plural) and distance (proximal/distal) axes. Length must be at most 3. Default: `["plural", "distal"]`.
+    - <a id="%24defs/DemonstrativeAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "singular", "plural", "proximal", or "distal".
 - <a id="%24defs/DirectionalKeyboardOptions"></a>**`DirectionalKeyboardOptions`** *(object)*
   - <a id="%24defs/DirectionalKeyboardOptions/properties/layout"></a>**`layout`** *(string)*: Must be one of: "charachorder", "stained", "svalboard_qwerty", or "custom". Default: `"charachorder"`.
   - <a id="%24defs/DirectionalKeyboardOptions/properties/directional_change_penalty"></a>**`directional_change_penalty`** *(integer)*: A penalty to add when chords have different directions per finger on the same hand. Can be set to -1 to disable this type of chord. Default: `2`.
@@ -350,6 +392,19 @@
       - objective
       - possessive_det
       - reflexive
+    demonstrative:
+      enabled: true
+      forms:
+      - plural
+      - distal
+    modal:
+      enabled: true
+      forms:
+      - past
+    number:
+      enabled: true
+      forms:
+      - ordinal
     ```
 
   - <a id="%24defs/GenOptions/properties/assignment"></a>**`assignment`**: Refer to *[#/$defs/AssignmentOptions](#%24defs/AssignmentOptions)*. Default:
@@ -443,10 +498,18 @@
   - <a id="%24defs/LearnOptions/properties/target_retention"></a>**`target_retention`** *(number)*: FSRS desired retention probability. The next review for each word is scheduled when its predicted recall falls to this value. Default: `0.9`.
   - <a id="%24defs/LearnOptions/properties/slow_wpm_fraction"></a>**`slow_wpm_fraction`** *(number)*: A correct word counts as 'slow' (FSRS hard) when its per-word WPM is below this fraction of the user's rolling median per-word WPM. Set to 0 to disable slow grading. Default: `0.7`.
   - <a id="%24defs/LearnOptions/properties/slow_min_samples"></a>**`slow_min_samples`** *(integer)*: Minimum number of recorded per-word WPM samples before slow grading activates. Until this is reached all correct words are graded 'good'. Default: `20`.
+- <a id="%24defs/ModalAltOptions"></a>**`ModalAltOptions`** *(object)*
+  - <a id="%24defs/ModalAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
+  - <a id="%24defs/ModalAltOptions/properties/forms"></a>**`forms`** *(array)*: Modal-verb forms to fill alt1..alt3 with, in order. Modals are paired present <-> past: can/could, will/would, shall/should, may/might. ``must`` has no past form. Length must be at most 3. Default: `["past"]`.
+    - <a id="%24defs/ModalAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "present" or "past".
 - <a id="%24defs/NounAltOptions"></a>**`NounAltOptions`** *(object)*
   - <a id="%24defs/NounAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
   - <a id="%24defs/NounAltOptions/properties/forms"></a>**`forms`** *(array)*: Noun forms to fill alt1..alt3 with, in order. Length must be at most 3. Default: `["plural"]`.
     - <a id="%24defs/NounAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "plural" or "singular".
+- <a id="%24defs/NumberAltOptions"></a>**`NumberAltOptions`** *(object)*
+  - <a id="%24defs/NumberAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
+  - <a id="%24defs/NumberAltOptions/properties/forms"></a>**`forms`** *(array)*: Number forms to fill alt1..alt3 with, in order. Numbers are cardinal/ordinal pairs (one/first, two/second, ...). Length must be at most 3. Default: `["ordinal"]`.
+    - <a id="%24defs/NumberAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "cardinal" or "ordinal".
 - <a id="%24defs/OutputOptions"></a>**`OutputOptions`** *(object)*
   - <a id="%24defs/OutputOptions/properties/formats"></a>**`formats`** *(array)*: Default: `["qmk", "zmk", "charachorder", "kanata", "training"]`.
     - <a id="%24defs/OutputOptions/properties/formats/items"></a>**Items** *(string)*: Must be one of: "qmk", "zmk", "charachorder", "kanata", or "training".

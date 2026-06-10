@@ -74,6 +74,72 @@ _CONTRACTION_TAILS: frozenset[str] = frozenset({
 _CONTRACTION_WORDS: frozenset[str] = frozenset({"n't"})
 
 
+# Closed-class word -> chordgen alt category overrides. SUBTLEX's
+# native POS for these is unhelpful for alt generation (e.g. ``this``
+# is tagged ``determiner`` -> "" so it gets no alts; ``can`` is tagged
+# ``verb`` so ``pattern.en.conjugate`` produces nonsense like
+# ``canned``/``canning``). Retag them at ingest so the alt generator
+# routes them to dedicated lookup-table inflectors.
+_RETAG: dict[str, str] = {
+    # Demonstratives: this / that / these / those.
+    "this": "demonstrative",
+    "that": "demonstrative",
+    "these": "demonstrative",
+    "those": "demonstrative",
+    # Modal verbs: present <-> past pairs.
+    "can": "modal",
+    "could": "modal",
+    "will": "modal",
+    "would": "modal",
+    "shall": "modal",
+    "should": "modal",
+    "may": "modal",
+    "might": "modal",
+    "must": "modal",
+    # Cardinal / ordinal numbers.
+    "one": "number", "first": "number",
+    "two": "number", "second": "number",
+    "three": "number", "third": "number",
+    "four": "number", "fourth": "number",
+    "five": "number", "fifth": "number",
+    "six": "number", "sixth": "number",
+    "seven": "number", "seventh": "number",
+    "eight": "number", "eighth": "number",
+    "nine": "number", "ninth": "number",
+    "ten": "number", "tenth": "number",
+    "eleven": "number", "eleventh": "number",
+    "twelve": "number", "twelfth": "number",
+    "thirteen": "number", "thirteenth": "number",
+    "fourteen": "number", "fourteenth": "number",
+    "fifteen": "number", "fifteenth": "number",
+    "sixteen": "number", "sixteenth": "number",
+    "seventeen": "number", "seventeenth": "number",
+    "eighteen": "number", "eighteenth": "number",
+    "nineteen": "number", "nineteenth": "number",
+    "twenty": "number", "twentieth": "number",
+    "thirty": "number", "thirtieth": "number",
+    "forty": "number", "fortieth": "number",
+    "fifty": "number", "fiftieth": "number",
+    "sixty": "number", "sixtieth": "number",
+    "seventy": "number", "seventieth": "number",
+    "eighty": "number", "eightieth": "number",
+    "ninety": "number", "ninetieth": "number",
+    "hundred": "number", "hundredth": "number",
+    "thousand": "number", "thousandth": "number",
+    "million": "number", "millionth": "number",
+}
+
+
+def _retag(word: str, category: str) -> str:
+    """Override the SUBTLEX-mapped category for closed-class words
+    that route to lookup-table inflectors. Skips sentinel categories
+    (``_propn``, ``_letter``) so the proper-noun filter still drops
+    rows like ``Will`` (a name) before they masquerade as modals."""
+    if category.startswith("_"):
+        return category
+    return _RETAG.get(word.lower(), category)
+
+
 def _rewrite_contraction_tail(word: str, category: str) -> tuple[str, str]:
     """If ``word`` is a SUBTLEX-split contraction tail, prepend an
     apostrophe and tag it with the ``contraction`` category. If it's
@@ -86,7 +152,7 @@ def _rewrite_contraction_tail(word: str, category: str) -> tuple[str, str]:
         return f"'{lower}", "contraction"
     if lower in _CONTRACTION_WORDS:
         return lower, "contraction"
-    return word, category
+    return word, _retag(word, category)
 
 
 def _download(url: str, dest: Path) -> None:

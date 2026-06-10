@@ -51,6 +51,21 @@
   English single-letter words, so the pipeline now drops every
   other lone letter at ingest. Re-run `chordgen setup --force` to
   refresh.
+- **Demonstrative, modal, and number alt categories.** Three new
+  closed-class lookup-table inflectors join `pronoun`:
+  - `demonstrative` (`this`/`that`/`these`/`those`) with axes
+    `singular`/`plural`/`proximal`/`distal`. Default forms:
+    `[plural, distal]` so `this` -> `these`, `that`.
+  - `modal` (`can`/`could`, `will`/`would`, `shall`/`should`,
+    `may`/`might`, `must`) paired present <-> past. Default forms:
+    `[past]`. Also fixes the long-standing bug where SUBTLEX tagged
+    these as `verb` and `pattern.en` produced nonsense like
+    `canned`/`canning`.
+  - `number` (one..million + ordinals) with `cardinal`/`ordinal`
+    pairs. Default forms: `[ordinal]` so `one` -> `first`.
+  Affected words are retagged at ingest so the proper inflector
+  runs. Re-run `chordgen setup --force` then `chordgen gen` to
+  refresh.
 
 ## v2.2.0
 
