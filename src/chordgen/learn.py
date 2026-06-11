@@ -84,6 +84,21 @@ def compute_word_wpm(elapsed_seconds: float, word_len: int) -> float | None:
     return (chars / 5.0) / (elapsed_seconds / 60.0)
 
 
+def build_chords_map(chords: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
+    """Return ``{word: chord_row}`` for every typeable word.
+
+    Contractions (``'s``, ``n't``, ...) are output appendages, not
+    standalone words — typing them on their own would backspace into
+    nothing. They're excluded so learn mode never surfaces them.
+    Words with no chord assigned are also dropped.
+    """
+    return {
+        c["word"]: c
+        for c in chords
+        if c["chord"] and c.get("category") != "contraction"
+    }
+
+
 # ---------------------------------------------------------------------------
 # Textual app
 # ---------------------------------------------------------------------------
@@ -113,7 +128,7 @@ class LearnApp(App):
         on_theme_change: Any = None,
     ) -> None:
         super().__init__()
-        self.chords_map = {c["word"]: c for c in chords if c["chord"]}
+        self.chords_map = build_chords_map(chords)
         self.config = config
         self.keyboard_layout = keyboard_layout
         self.keyboard_kind = keyboard_kind

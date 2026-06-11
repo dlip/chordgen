@@ -139,6 +139,27 @@ class DrillOptions(BaseModel):
             "Ignored when ``mode = count``."
         ),
     )
+    include_alts: bool = Field(
+        default=True,
+        description=(
+            "When true, alt-slot inflections (alt1/alt2/alt3 columns "
+            "of chords.csv) ride along into the drill pool whenever "
+            "their base word is graduated. The chord shown after a "
+            "stumble is suffixed with the slot digit (e.g. ``au1``) "
+            "and the alt-slot indicator below the keyboard "
+            "highlights the matching modifier. Set to false to drill "
+            "only the base word from each chord row."
+        ),
+    )
+    always_show_chords: bool = Field(
+        default=False,
+        description=(
+            "When true, chords are revealed below every word in the "
+            "drill row, not just on a stumble. Useful while you're "
+            "still building muscle memory; turn off (default) once "
+            "you want drill mode to test recall."
+        ),
+    )
 
 
 class BookOptions(BaseModel):
@@ -155,6 +176,15 @@ class BookOptions(BaseModel):
             "Maximum width (in characters) of the rendered text "
             "block in book mode. Long paragraphs are wrapped to this "
             "width."
+        ),
+    )
+    always_show_chords: bool = Field(
+        default=False,
+        description=(
+            "When true, the chord for the current word is rendered "
+            "beneath it the moment the cursor lands on it, instead "
+            "of only after a stumble. Mirrors the drill option of "
+            "the same name."
         ),
     )
 
@@ -206,6 +236,27 @@ VerbForm = Literal[
 NounForm = Literal["plural", "singular"]
 AdjectiveForm = Literal["comparative", "superlative"]
 AdverbForm = Literal["comparative", "superlative"]
+PronounForm = Literal[
+    "nominative",      # I, you, he, she, it, we, they
+    "objective",       # me, you, him, her, it, us, them
+    "possessive_det",  # my, your, his, her, its, our, their
+    "possessive_pron", # mine, yours, his, hers, its, ours, theirs
+    "reflexive",       # myself, yourself, himself, ...
+]
+DemonstrativeForm = Literal[
+    "singular",   # this, that
+    "plural",     # these, those
+    "proximal",   # this, these
+    "distal",     # that, those
+]
+ModalForm = Literal[
+    "present",    # can, will, shall, may, must
+    "past",       # could, would, should, might
+]
+NumberForm = Literal[
+    "cardinal",   # one, two, three, ...
+    "ordinal",    # first, second, third, ...
+]
 
 
 class _AltCategoryOptions(BaseModel):
@@ -247,6 +298,51 @@ class AdverbAltOptions(_AltCategoryOptions):
     )
 
 
+class PronounAltOptions(_AltCategoryOptions):
+    forms: list[PronounForm] = Field(
+        default=["objective", "possessive_det", "reflexive"],
+        max_length=3,
+        description="Pronoun forms to fill alt1..alt3 with, in order.",
+    )
+
+
+class DemonstrativeAltOptions(_AltCategoryOptions):
+    forms: list[DemonstrativeForm] = Field(
+        default=["plural", "distal"],
+        max_length=3,
+        description=(
+            "Demonstrative forms to fill alt1..alt3 with, in order. "
+            "Demonstratives are ``this``, ``that``, ``these``, and "
+            "``those`` arranged on number (singular/plural) and "
+            "distance (proximal/distal) axes."
+        ),
+    )
+
+
+class ModalAltOptions(_AltCategoryOptions):
+    forms: list[ModalForm] = Field(
+        default=["past"],
+        max_length=3,
+        description=(
+            "Modal-verb forms to fill alt1..alt3 with, in order. "
+            "Modals are paired present <-> past: can/could, will/"
+            "would, shall/should, may/might. ``must`` has no past "
+            "form."
+        ),
+    )
+
+
+class NumberAltOptions(_AltCategoryOptions):
+    forms: list[NumberForm] = Field(
+        default=["ordinal"],
+        max_length=3,
+        description=(
+            "Number forms to fill alt1..alt3 with, in order. Numbers "
+            "are cardinal/ordinal pairs (one/first, two/second, ...)."
+        ),
+    )
+
+
 class AltOptions(BaseModel):
     overwrite: bool = Field(
         default=False,
@@ -256,6 +352,10 @@ class AltOptions(BaseModel):
     noun: NounAltOptions = NounAltOptions()
     adjective: AdjectiveAltOptions = AdjectiveAltOptions()
     adverb: AdverbAltOptions = AdverbAltOptions()
+    pronoun: PronounAltOptions = PronounAltOptions()
+    demonstrative: DemonstrativeAltOptions = DemonstrativeAltOptions()
+    modal: ModalAltOptions = ModalAltOptions()
+    number: NumberAltOptions = NumberAltOptions()
 
 
 class AssignmentOptions(BaseModel):
@@ -278,9 +378,9 @@ class AssignmentOptions(BaseModel):
         default=3.0,
         description=(
             "Exponent applied to each word's frequency weight before it "
-            "multiplies the chord score. The default 1.0 reproduces the "
-            "original linear cost model. Values > 1 (try 2.0 or 3.0) make "
-            "frequent words dominate the cost so the matcher won't trade a "
+            "multiplies the chord score. 1.0 gives a linear cost model. "
+            "Values > 1 (like the default 3.0) make frequent words "
+            "dominate the cost so the matcher won't trade a "
             "common word's short chord to a rare word that happens to "
             "improve the global sum slightly. Must be > 0."
         ),
@@ -329,13 +429,16 @@ class GenOptions(BaseModel):
     key_replacement: dict[str, str] = Field(
         default={},
         description=(
-            "Map letters to replacements when generating chord candidates. "
-            "For example, if your keyboard lacks 'q' and 'z', set "
-            "{'q': 'k', 'z': 's'} so chords use 'k' instead of 'q' and "
-            "'s' instead of 'z' -- the typed word is unaffected, only the "
-            "chord string changes. Each key must be a single lowercase "
-            "letter; its replacement must also be a single lowercase letter "
-            "that exists on your keyboard."
+            "Map characters to replacements when generating chord "
+            "candidates. For example, if your keyboard lacks 'q' and "
+            "'z', set {'q': 'k', 'z': 's'} so chords use 'k' instead "
+            "of 'q' and 's' instead of 'z' -- the typed word is "
+            "unaffected, only the chord string changes. Useful for "
+            "remapping non-letter characters too: \"'\": x lets a "
+            "word like \"o'clock\" earn a chord that contains 'x' "
+            "wherever the apostrophe sits. Each key must be a single "
+            "lowercase character; its replacement must be a single "
+            "lowercase letter that exists on your keyboard."
         ),
     )
 
@@ -349,10 +452,14 @@ class GenOptions(BaseModel):
     @classmethod
     def validate_key_replacement(cls, v: dict[str, str]) -> dict[str, str]:
         for key, replacement in v.items():
-            if len(key) != 1 or not key.isalpha() or not key.islower():
+            # Source side accepts any single non-whitespace character
+            # so users can remap punctuation like "'" to a real key.
+            # Uppercase letters are still rejected because chord
+            # candidates are generated from the lowercased word.
+            if len(key) != 1 or key.isspace() or key != key.lower():
                 raise ValueError(
                     f"key_replacement key {key!r} must be a single "
-                    f"lowercase letter"
+                    f"lowercase non-whitespace character"
                 )
             if (
                 len(replacement) != 1

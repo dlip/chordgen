@@ -284,3 +284,50 @@ def test_running_wpm_normalises_by_elapsed_when_below_window():
 def test_running_wpm_zero_when_no_events():
     w = WpmWindow(window_seconds=30.0)
     assert w.wpm(now=10.0) == 0.0
+
+
+# ---------------------------------------------------------------------------
+# Alt-slot integration
+# ---------------------------------------------------------------------------
+
+
+def test_collect_learned_words_includes_alts_of_graduated_base(monkeypatch):
+    from fsrs import State
+
+    from chordgen.book import BookApp
+    from chordgen.chord import build_alt_index
+
+    chords = [
+        {
+            "word": "car",
+            "chord": "ca",
+            "alt1": "cars",
+            "alt2": "carred",
+            "alt3": "",
+        },
+    ]
+
+    # Stub progress + get_card so we don't touch the user's
+    # progress.json.
+    fake_progress = {
+        "words": {"car": {"card": {"state": int(State.Review)}}}
+    }
+
+    class _FakeCard:
+        state = State.Review
+
+    monkeypatch.setattr(
+        "chordgen.book.load_progress", lambda: fake_progress
+    )
+    monkeypatch.setattr(
+        "chordgen.book.get_card",
+        lambda progress, word: _FakeCard() if word == "car" else None,
+    )
+
+    app = BookApp.__new__(BookApp)
+    app.chords_map = {c["word"]: c for c in chords if c["chord"]}
+    app.alt_index = build_alt_index(chords)
+
+    learned = app._collect_learned_words()
+
+    assert learned == {"car", "cars", "carred"}

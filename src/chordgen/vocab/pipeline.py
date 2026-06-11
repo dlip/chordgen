@@ -18,14 +18,20 @@ _FIELDNAMES = [
     "alt3",
 ]
 
-# Drop entries that aren't real lexical words (digits, punctuation,
-# names with apostrophes etc.). SUBTLEX includes a lot of those near
-# the top because subtitles are noisy.
-_WORD_RE = re.compile(r"^[a-z]+$")
+# Drop entries that aren't real lexical words (digits, multi-apostrophe
+# garbage etc.). The pattern accepts plain alphabetic words, an optional
+# leading apostrophe (so SUBTLEX-split contraction tails ``'s``, ``'re``
+# etc. flow through), and a single embedded apostrophe (so kept-intact
+# contractions ``n't`` and genuine apostrophe words ``o'clock`` /
+# ``ma'am`` flow through). Mixed-case proper-noun-ish garbage is
+# filtered upstream by the source-side ``_propn`` sentinel.
+_WORD_RE = re.compile(r"^'?[A-Za-z]+(?:'[A-Za-z]+)?$")
 
-# The only valid single-letter English words. Anything else of length 1
-# is a subtitle artifact (apostrophe-stripped contraction: 's, 't, ...).
-_VALID_SINGLE_LETTERS = {"a", "i"}
+# Lone-letter words that are real English words. Everything else
+# matching ``^[A-Za-z]$`` is junk (subtitle artefacts like the lone
+# ``e`` SUBTLEX-UK tags as ``unclassified``, used as a grade or
+# spelling-letter rather than a lexeme) and is dropped at ingest.
+_SINGLE_LETTER_WORDS: frozenset[str] = frozenset({"a", "i"})
 
 # Sentinel categories emitted by sources to flag rows for filtering.
 # Anything starting with "_" is dropped; real categories never have one.
@@ -33,14 +39,14 @@ _DROP_PREFIX = "_"
 
 
 def _accept(row: VocabRow) -> bool:
-    word = row.word.lower()
+    word = row.word
     if not _WORD_RE.match(word):
         return False
-    if len(word) == 1 and word not in _VALID_SINGLE_LETTERS:
+    if len(word) == 1 and word.lower() not in _SINGLE_LETTER_WORDS:
         return False
     if row.category.startswith(_DROP_PREFIX):
-        # Sentinel categories (e.g. _propn for proper nouns,
-        # _letter for stripped contractions) flag drop-on-ingest.
+        # Sentinel categories (e.g. _propn for proper nouns) flag
+        # drop-on-ingest.
         return False
     return True
 
@@ -67,17 +73,22 @@ def build_chords_csv(
     seen: set[str] = set()
     rows: list[VocabRow] = []
     for row in source.parse(raw_path):
-        word = row.word.lower()
-        if word in seen:
+        # Preserve native casing on disk; dedup case-insensitively so
+        # `"The"` and `"the"` collapse into a single entry (the
+        # higher-frequency one wins because SUBTLEX yields rows in
+        # descending-frequency order).
+        word = row.word
+        key = word.lower()
+        if key in seen:
             continue
         if row.frequency < min_frequency:
             continue
         if not _accept(row):
             continue
-        seen.add(word)
+        seen.add(key)
         rows.append(VocabRow(word=word, frequency=row.frequency, category=row.category))
 
-    rows.sort(key=lambda r: (-r.frequency, r.word))
+    rows.sort(key=lambda r: (-r.frequency, r.word.lower()))
     rows = rows[:size]
 
     output_file.parent.mkdir(parents=True, exist_ok=True)

@@ -1,6 +1,6 @@
 # learn
 
-![Training](../images/training.png)
+![Learn](../images/learn.png)
 
 Interactive typing-practice TUI that drills your chords using
 spaced repetition. Long-term scheduling is backed by

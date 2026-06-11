@@ -1,5 +1,189 @@
 # Changelog
 
+## v2.3.0
+
+A focused release that brings alt-chord training to drill and book
+modes, adds an interactive `chordgen add` command for one-off word
+additions, and ships a long list of alt-generation cleanups so the
+default `chords.csv` is noticeably less noisy.
+
+### Highlights
+
+- **Alt chords show up everywhere.** Drill and book modes now
+  surface `alt1`/`alt2`/`alt3` inflections (e.g. `sets`, `setting`,
+  `settings` for `set`) — they inherit their base row's FSRS
+  mastery, get the slot-suffixed chord display (`au` → `au1`), and
+  light up the `alt1 alt2 alt3` indicator below the keyboard.
+  Disable via `drill.include_alts: false`.
+- **`chordgen add WORDS...`** — interactive one-off additions to
+  `chords.csv` with a live red/green chord prompt, inline
+  rejection reasons, auto-detected category, and reserved-row
+  pinning so future `chordgen gen` runs leave the chosen chord
+  alone.
+- **`always_show_chords` for drill and book.** Reveal chords
+  beneath every word from the start, not just on a stumble. Off
+  by default in both modes.
+- **Cleaner alt generation by default.** Six families of bogus
+  alts (contraction-stem residue, subtitle artefacts, mis-tagged
+  interjections, non-gradable adjectives, double-pluralised
+  rows, irregular-verb conjugations) no longer leak into
+  `chords.csv` from `chordgen setup` / `chordgen gen`.
+- **README + docs revamp.** README is now targeted at first-time
+  visitors with a one-paragraph value pitch, highlights, and
+  quickstart. Development instructions moved to a new
+  [Development](development.md) page. Docs site published to
+  GitHub Pages.
+
+### Detailed changes
+
+- **New `chordgen add` command** for interactively adding words
+  to `chords.csv` one at a time. Skips words that already exist,
+  auto-detects category (with override), shows collision-free
+  chord options ranked by score (or accepts a custom chord
+  validated through the same scorer the assigner uses),
+  generates alts, and writes the row with the chord pinned so
+  future `chordgen gen` runs leave it alone. The CSV is
+  rewritten atomically after every accepted word. The chord
+  prompt is live: as you type, the buffer turns red until it
+  becomes a valid choice (then green), with the rejection reason
+  shown inline next to the buffer.
+- **Renamed `docs/images/training.png` to `learn.png`** to match
+  the renamed `learn` command. README and learn-mode docs updated
+  to point at the new asset path.
+- **Alt chords surface in drill and book modes.** Alt-slot
+  inflections (`alt1`/`alt2`/`alt3` columns of `chords.csv`)
+  inherit their base row's FSRS mastery, so graduating `set` also
+  drills `sets`/`setting`/`settings` and highlights them in book
+  prose. The chord shown beneath a stumbled word is suffixed with
+  the slot digit (`au` becomes `au1` for `alt1`) and an
+  `alt1 alt2 alt3` indicator below the keyboard always shows the
+  firmware modifier names — the active slot is highlighted in
+  yellow when the current word is an alt form. Disable via
+  `drill.include_alts: false`.
+- **`drill.always_show_chords`** (default `false`). When enabled,
+  drill mode reveals chords below every word in the row from the
+  start, not just on a stumble. Useful while you're still
+  building muscle memory.
+- **`book.always_show_chords`** (default `false`). When enabled,
+  book mode renders a chord row beneath every text line, with
+  each learned word's chord aligned under its first letter.
+  Mirrors the drill-mode option.
+- **Cleaner alt generation.** Closed off five families of bogus
+  alts that surfaced in `chords.csv`:
+  - SUBTLEX contraction-stem residue (`ca`/`wo`/`ai` from
+    `can't`/`won't`/`ain't`) is dropped at ingest, so the pipeline
+    no longer imports them as bogus verbs with garbage
+    conjugations.
+  - Other SUBTLEX subtitle artefacts that aren't real standalone
+    words (`co` as a hyphenation prefix, colloquial residue `na`
+    and `da`) are dropped via the same `_non_word` sentinel.
+  - The interjection `eh`, which SUBTLEX mis-tags as `verb`, is
+    retagged to no category at ingest so it stops generating
+    `ehs`/`ehed`/`ehing` alts.
+  - Non-gradable adjectives (`other`, `whole`, `welcome`,
+    `chinese`, `important`, `available`, …) now get
+    `more X`/`most X` instead of `wholer`/`importanter`. A
+    length-based fallback also catches long adjectives where
+    `pattern.en` produced a naive `Xer`/`Xest` suffix.
+  - Plurals are suppressed for `-thing`/`-one`/`-body`/`-where`
+    compounds, mass-noun pseudo-words (`gonna`, `wanna`, `gotta`,
+    `huh`, `hm`, …), and rows that are already plural — `mps` no
+    longer pluralises to `mpss`, `ears` no longer becomes `earss`.
+  - Irregular verbs use a small override table so `pay` →
+    `paid` (not `payed`), `feed` → `fed` (not `feed`), `escape`
+    → `escaped` (not `scaped`), and `bear` → `bore`/`born`.
+    Pseudo-verbs like `wanna`/`gotta`/`gonna`/`born` and the
+    contraction stems silence all four conjugation forms.
+  - `is_base_form` for nouns now also rejects rows where
+    `pluralize(w)` is exactly `w + "s"`, catching the double-`s`
+    artefacts above.
+  Existing rows in your `chords.csv` keep their stale alts unless
+  you re-run `chordgen gen` with `gen.alts.overwrite: true` or
+  blank out the affected alt columns. Existing `ca`/`wo`/`ai`
+  rows need to be deleted by hand — the SUBTLEX fix only stops
+  future `chordgen setup` runs from re-importing them.
+- **Pronoun alts category.** SUBTLEX rows tagged `pronoun` now feed
+  a built-in lookup-table inflector covering personal pronouns
+  (I/you/he/she/it/we/they) with five forms each (nominative,
+  objective, possessive determiner, possessive pronoun, reflexive).
+  Default `gen.alts.pronoun.forms` is `[objective, possessive_det,
+  reflexive]`. Re-run `chordgen setup` to refresh categories, then
+  `chordgen gen` to populate alt slots.
+- **Casing preserved on import.** `chords.csv` now stores SUBTLEX
+  surface forms verbatim (so `"I"`, not `"i"`); dedup is
+  case-insensitive (`"The"` and `"the"` collapse to the
+  higher-frequency entry). Drill and learn comparisons are strictly
+  case-sensitive — chords output the correct casing, so typing
+  lowercase `i` against `"I"` is treated as a mistake. Existing user
+  CSVs are unaffected; `setup --force` rewrites them.
+- **Drill on arbitrary words, with learned-word highlighting.** The
+  default pool is still your FSRS-graduated words. When you pass an
+  explicit list (positional `WORDS` or `--words-file`) drill now
+  uses every word from that list with a chord assigned — graduated
+  words are highlighted in yellow, the rest are shown dim, and
+  reveal-on-stumble still works.
+- **Import SUBTLEX-split contraction tails as apostrophe-prefixed
+  forms.** SUBTLEX tokenises on whitespace, so `he's`/`we'll`/`I'm`
+  etc. surface as bogus high-frequency `s`/`ll`/`m` rows. These are
+  now rewritten to `'s`, `'re`, `'m`, `'ve`, `'ll`, `'d` under
+  a new `contraction` category (no alts generated). The
+  kept-intact contraction `n't` (don't/can't/won't/...) is also
+  retagged into the same category. The qmk/zmk/kanata/charachorder
+  emitters prepend a backspace before all `contraction` rows so the
+  apostrophe attaches cleanly to the previously-typed word. Genuine
+  apostrophe words like `o'clock` flow through untouched. Learn mode
+  excludes the `contraction` category since those forms aren't typed
+  standalone. Re-run `chordgen setup --force` to pick up the new
+  rows.
+- **`gen.key_replacement` accepts punctuation keys.** Source-side
+  keys are no longer restricted to alphabetic letters, so you can
+  remap characters like `'` (e.g. ``"'": x``) to a real keyboard
+  letter for chord scoring. The typed word is unaffected — only the
+  chord string changes. Replacement values still must be single
+  lowercase letters present on your keyboard. Recommended for users
+  who don't keep `'` on a comfortable chord position: without a
+  remap, contraction rows like `'s`/`n't` and apostrophe words like
+  `o'clock` will fail to score (the keyboard scorer rejects `'`)
+  and won't get chords assigned.
+- **Drop lone-letter subtitle artefacts on import.** SUBTLEX-UK
+  surfaces single letters like `e` (used as grades / spelling
+  letters) tagged ``unclassified``. Only `a` and `I`/`i` are real
+  English single-letter words, so the pipeline now drops every
+  other lone letter at ingest. Re-run `chordgen setup --force` to
+  refresh.
+- **Demonstrative, modal, and number alt categories.** Three new
+  closed-class lookup-table inflectors join `pronoun`:
+  - `demonstrative` (`this`/`that`/`these`/`those`) with axes
+    `singular`/`plural`/`proximal`/`distal`. Default forms:
+    `[plural, distal]` so `this` -> `these`, `that`.
+  - `modal` (`can`/`could`, `will`/`would`, `shall`/`should`,
+    `may`/`might`, `must`) paired present <-> past. Default forms:
+    `[past]`. Also fixes the long-standing bug where SUBTLEX tagged
+    these as `verb` and `pattern.en` produced nonsense like
+    `canned`/`canning`.
+  - `number` (one..million + ordinals) with `cardinal`/`ordinal`
+    pairs. Default forms: `[ordinal]` so `one` -> `first`.
+  Affected words are retagged at ingest so the proper inflector
+  runs. Re-run `chordgen setup --force` then `chordgen gen` to
+  refresh.
+- **Bug fixes.**
+  - Directional change penalty (`directional_change_penalty`) was
+    always 0 regardless of config — `get_directional_changes`
+    returned the wrong variable. It now counts real per-hand
+    direction changes, and `-1` correctly rejects such chords.
+  - Identity self-alts (past of "hurt" → "hurt", plural of
+    "series" → "series") now skip the alt slot instead of wasting
+    it.
+  - Same-finger middle+bottom row pairs (e.g. qwerty `a`+`z`)
+    now receive the `same_column_chord_penalty` — previously only
+    top+middle was penalised and top+bottom rejected.
+  - `frequency_exponent` config docstring now correctly says the
+    default is 3.0 (not 1.0).
+  - Contractions (`'s`, `'m`, …) are now exempt from
+    `min_word_length` in the assigner pool filter, matching the
+    scorer — previously they were scored but then silently
+    dropped from the chord pool.
+
 ## v2.2.0
 
 A focused release that tightens the training loop, sharpens chord

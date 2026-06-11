@@ -39,6 +39,7 @@ from textual.binding import Binding
 from textual.widgets import Footer, Header, Static
 
 from chordgen.constants import CONFIG_DIR
+from chordgen.chord import build_alt_index
 from chordgen.keyboard_view import render_keyboard
 from chordgen.srs import get_card, load_progress
 
@@ -528,10 +529,6 @@ class BookText(Static):
     pass
 
 
-class BookChord(Static):
-    pass
-
-
 class BookKeyboard(Static):
     pass
 
@@ -547,11 +544,6 @@ class BookApp(App):
         content-align: center middle;
         text-align: center;
         padding: 1 2;
-    }
-    #book-chord {
-        height: 1;
-        content-align: center middle;
-        text-align: center;
     }
     #book-keyboard {
         dock: bottom;
@@ -586,6 +578,7 @@ class BookApp(App):
     ) -> None:
         super().__init__()
         self.chords_map = {c["word"]: c for c in chords if c["chord"]}
+        self.alt_index = build_alt_index(chords)
         self.config = config
         self.path = path
         self.book = load_book(path)
@@ -632,6 +625,11 @@ class BookApp(App):
             card = get_card(progress, word)
             if card is not None and card.state == State.Review:
                 learned.add(word)
+        # Alt forms inherit their base row's mastery so they get
+        # highlighted in the prose alongside the base word.
+        for alt, (base, _slot, _chord) in self.alt_index.items():
+            if base in learned:
+                learned.add(alt)
         return learned
 
     def _clamp_to_word(self, idx: int) -> int:
@@ -649,7 +647,6 @@ class BookApp(App):
         yield Header()
         yield BookStatus(id="book-status")
         yield BookText(id="book-text")
-        yield BookChord(id="book-chord")
         yield BookKeyboard(id="book-keyboard")
         yield Footer()
 
@@ -850,7 +847,6 @@ class BookApp(App):
     def refresh_view(self) -> None:
         self._render_status()
         self._render_text()
-        self._render_chord()
         self._render_keyboard()
 
     def _render_status(self) -> None:
@@ -889,11 +885,20 @@ class BookApp(App):
         # Re-anchor when near the end of the book.
         start_line = max(0, end_line - show)
 
+        # Compute the chord to render beneath the current word, as
+        # ``<chord><slot>`` (e.g. ``au1``) — same shape as drill mode.
+        chord_text, chord_offset = self._chord_under_cursor(
+            tokens, cursor_line
+        )
+        always = getattr(self.config, "always_show_chords", False)
+
         max_width = max(1, int(self.config.max_width))
         out = Text()
+        first = True
         for li in range(start_line, end_line):
-            if li > start_line:
+            if not first:
                 out.append("\n")
+            first = False
             line = self.lines[li]
             line_text = Text()
             line_width = 0
@@ -911,7 +916,115 @@ class BookApp(App):
             if line_width < max_width:
                 line_text.append(" " * (max_width - line_width))
             out.append(line_text)
+            # Chord row directly beneath this text line. With
+            # ``always_show_chords`` we paint a chord under every
+            # learned word in the line; otherwise we only show one
+            # under the cursor on a stumble (matching drill mode).
+            if always:
+                chord_row = self._chord_row_for_line(tokens, line, max_width)
+                if chord_row is not None:
+                    out.append("\n")
+                    out.append(chord_row)
+            elif li == cursor_line and chord_text:
+                out.append("\n")
+                chord_row = Text()
+                chord_row.append(" " * chord_offset)
+                chord_row.append(chord_text, style="bold yellow")
+                row_width = chord_offset + len(chord_text)
+                if row_width < max_width:
+                    chord_row.append(" " * (max_width - row_width))
+                out.append(chord_row)
         widget.update(out)
+
+    def _chord_row_for_line(
+        self,
+        tokens: list[BookToken],
+        line: list[int],
+        max_width: int,
+    ) -> Text | None:
+        """Render a single chord row aligned under ``line``: every
+        learned word's chord is placed at the column of its first
+        letter, separated from neighbours by spaces. Returns ``None``
+        when the line has no chordable words (so the caller can skip
+        emitting an empty row)."""
+        if not line:
+            return None
+        row = Text()
+        col = 0
+        any_chord = False
+        for j, tok_idx in enumerate(line):
+            if j > 0:
+                row.append(" ")
+                col += 1
+            tok = tokens[tok_idx]
+            tok_len = len(tok.text)
+            chord = self._chord_for_token(tok)
+            if chord:
+                any_chord = True
+                row.append(chord, style="bold yellow")
+                pad = tok_len - len(chord)
+                if pad > 0:
+                    row.append(" " * pad)
+                elif pad < 0:
+                    # Chord is wider than the word — fall back to
+                    # rendering the chord at full width and let the
+                    # next column drift right. ``max_width`` padding
+                    # below still keeps the block uniform.
+                    pass
+                col += max(tok_len, len(chord))
+            else:
+                row.append(" " * tok_len)
+                col += tok_len
+        if not any_chord:
+            return None
+        if col < max_width:
+            row.append(" " * (max_width - col))
+        return row
+
+    def _chord_for_token(self, tok: BookToken) -> str:
+        """Return the slot-suffixed chord for ``tok`` if it's a
+        learned word with a chord; otherwise an empty string."""
+        if not tok.is_word or not tok.word_key:
+            return ""
+        if tok.word_key not in self.learned_words:
+            return ""
+        row = self.chords_map.get(tok.word_key)
+        if row is not None:
+            return row.get("chord") or ""
+        alt = self.alt_index.get(tok.word_key)
+        if alt is not None:
+            _base, slot, chord = alt
+            if not chord:
+                return ""
+            return f"{chord}{slot}"
+        return ""
+
+    def _chord_under_cursor(
+        self, tokens: list[BookToken], cursor_line: int
+    ) -> tuple[str, int]:
+        """Return ``(chord_string, column_offset)`` for the chord to
+        render directly beneath the current word. The chord uses the
+        slot-suffixed form (e.g. ``au1`` for alt1). Returns
+        ``("", 0)`` when no chord should be shown.
+        """
+        always = getattr(self.config, "always_show_chords", False)
+        if not always and not self.current_word_had_error:
+            return ("", 0)
+        chord, slot = self._current_word_chord()
+        if not chord:
+            return ("", 0)
+        rendered = f"{chord}{slot}" if slot else chord
+        # Find the cursor's column within its line.
+        if cursor_line < 0 or cursor_line >= len(self.lines):
+            return (rendered, 0)
+        offset = 0
+        for j, tok_idx in enumerate(self.lines[cursor_line]):
+            if j > 0:
+                offset += 1  # separator space
+            if tok_idx == self.cursor:
+                return (rendered, offset)
+            offset += len(tokens[tok_idx].text)
+        return (rendered, 0)
 
     def _append_token(self, out: Text, tok: BookToken, idx: int) -> None:
         text = tok.text
@@ -944,32 +1057,29 @@ class BookApp(App):
         else:
             out.append(text)
 
-    def _current_word_chord(self) -> str:
+    def _current_word_chord(self) -> tuple[str, int]:
+        """Return ``(chord, slot)`` for the word under the cursor.
+
+        ``slot`` is 0 for a base word (or when no chord is available)
+        and 1/2/3 for an alt-slot form. The chord string itself is
+        the base chord — the slot is surfaced separately via the
+        suffixed chord display and the alt indicator on the keyboard.
+        """
         if not self.book.tokens:
-            return ""
+            return ("", 0)
         tok = self.book.tokens[self.cursor]
         if not tok.is_word or not tok.word_key:
-            return ""
+            return ("", 0)
         if tok.word_key not in self.learned_words:
-            return ""
+            return ("", 0)
         row = self.chords_map.get(tok.word_key)
-        if row is None:
-            return ""
-        return row.get("chord") or ""
-
-    def _render_chord(self) -> None:
-        widget = self.query_one("#book-chord", BookChord)
-        if not self.current_word_had_error:
-            widget.update(Text(""))
-            return
-        chord = self._current_word_chord()
-        if not chord:
-            widget.update(Text(""))
-            return
-        line = Text()
-        line.append("chord: ", style="dim")
-        line.append("+".join(chord), style="bold yellow")
-        widget.update(line)
+        if row is not None:
+            return (row.get("chord") or "", 0)
+        alt = self.alt_index.get(tok.word_key)
+        if alt is not None:
+            _base, slot, chord = alt
+            return (chord or "", slot)
+        return ("", 0)
 
     def _render_keyboard(self) -> None:
         widget = self.query_one("#book-keyboard", BookKeyboard)
@@ -977,8 +1087,16 @@ class BookApp(App):
             widget.update(Text(""))
             return
         highlights: set[str] = set()
-        if self.current_word_had_error:
-            chord = self._current_word_chord()
+        alt_slot: int = 0
+        always = getattr(self.config, "always_show_chords", False)
+        if self.current_word_had_error or always:
+            chord, slot = self._current_word_chord()
             highlights = set(chord)
-        kb = render_keyboard(self.keyboard_layout, highlights, kind=self.keyboard_kind)
+            alt_slot = slot
+        kb = render_keyboard(
+            self.keyboard_layout,
+            highlights,
+            kind=self.keyboard_kind,
+            alt_slot=alt_slot,
+        )
         widget.update(kb)

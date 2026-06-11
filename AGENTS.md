@@ -30,13 +30,13 @@ Minimal guidance for agents working in this repo.
 - New functionality should include unit tests
 - When the user says 'shipit' you should:
   - run `uv run chordgen schema`
-  - Update user docs in /docs
-  - Update CHANGELOG.md
+  - Update docs/changelog.md
       - Find the heading matching the version string in pyproject.toml.
       - If no such heading exists in CHANGELOG.md, add it at the top.
       - Append new entries as bullet points under that heading. Do NOT
         create a heading for a different version or remove existing
         entries.
+  - Update user docs in /docs
   - Ensure unit tests pass
   - Create a git commit with a brief summary
   - Push the changes

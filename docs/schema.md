@@ -57,11 +57,30 @@
     adverb:
       enabled: true
       forms: []
+    demonstrative:
+      enabled: true
+      forms:
+      - plural
+      - distal
+    modal:
+      enabled: true
+      forms:
+      - past
     noun:
       enabled: true
       forms:
       - plural
+    number:
+      enabled: true
+      forms:
+      - ordinal
     overwrite: false
+    pronoun:
+      enabled: true
+      forms:
+      - objective
+      - possessive_det
+      - reflexive
     verb:
       enabled: true
       forms:
@@ -178,6 +197,8 @@
   mode: time
   count: 25
   time_seconds: 30
+  include_alts: true
+  always_show_chords: false
   ```
 
 - <a id="properties/book"></a>**`book`**: Refer to *[#/$defs/BookOptions](#%24defs/BookOptions)*. Default:
@@ -185,6 +206,7 @@
   ```yaml
   wpm_window_seconds: 30
   max_width: 80
+  always_show_chords: false
   ```
 
 - <a id="properties/theme"></a>**`theme`** *(string)*: Textual theme used by the learn and drill TUIs. Updated automatically when you change the theme via the in-app command palette (Ctrl+P). Default: `"textual-dark"`.
@@ -234,19 +256,59 @@
     forms: []
     ```
 
+  - <a id="%24defs/AltOptions/properties/pronoun"></a>**`pronoun`**: Refer to *[#/$defs/PronounAltOptions](#%24defs/PronounAltOptions)*. Default:
+
+    ```yaml
+    enabled: true
+    forms:
+    - objective
+    - possessive_det
+    - reflexive
+    ```
+
+  - <a id="%24defs/AltOptions/properties/demonstrative"></a>**`demonstrative`**: Refer to *[#/$defs/DemonstrativeAltOptions](#%24defs/DemonstrativeAltOptions)*. Default:
+
+    ```yaml
+    enabled: true
+    forms:
+    - plural
+    - distal
+    ```
+
+  - <a id="%24defs/AltOptions/properties/modal"></a>**`modal`**: Refer to *[#/$defs/ModalAltOptions](#%24defs/ModalAltOptions)*. Default:
+
+    ```yaml
+    enabled: true
+    forms:
+    - past
+    ```
+
+  - <a id="%24defs/AltOptions/properties/number"></a>**`number`**: Refer to *[#/$defs/NumberAltOptions](#%24defs/NumberAltOptions)*. Default:
+
+    ```yaml
+    enabled: true
+    forms:
+    - ordinal
+    ```
+
 - <a id="%24defs/AssignmentOptions"></a>**`AssignmentOptions`** *(object)*
   - <a id="%24defs/AssignmentOptions/properties/min_frequency_weight"></a>**`min_frequency_weight`** *(number)*: Floor for the weight applied to words missing a frequency value. Treats them as low-priority but still eligible. Default: `1.0`.
   - <a id="%24defs/AssignmentOptions/properties/unmatched_penalty"></a>**`unmatched_penalty`** *(number)*: Cost charged per word that ends up without a chord. Acts as a soft constraint in the optimal matcher: if recovering a word would cost more than this, leaving it unmatched is allowed. Default: `10000.0`.
-  - <a id="%24defs/AssignmentOptions/properties/frequency_exponent"></a>**`frequency_exponent`** *(number)*: Exponent applied to each word's frequency weight before it multiplies the chord score. The default 1.0 reproduces the original linear cost model. Values > 1 (try 2.0 or 3.0) make frequent words dominate the cost so the matcher won't trade a common word's short chord to a rare word that happens to improve the global sum slightly. Must be > 0. Default: `3.0`.
+  - <a id="%24defs/AssignmentOptions/properties/frequency_exponent"></a>**`frequency_exponent`** *(number)*: Exponent applied to each word's frequency weight before it multiplies the chord score. 1.0 gives a linear cost model. Values > 1 (like the default 3.0) make frequent words dominate the cost so the matcher won't trade a common word's short chord to a rare word that happens to improve the global sum slightly. Must be > 0. Default: `3.0`.
   - <a id="%24defs/AssignmentOptions/properties/priority_tiers"></a>**`priority_tiers`** *(array)*: Cumulative frequency-rank cutoffs for tiered assignment. The pool (already in descending-frequency order) is split at each cutoff, then each tier is solved by the optimal matcher in order, with previous tiers' chord keys reserved out. Default [] runs a single global pass. Example [500, 1000] runs three passes: top 500 -> next 500 -> rest. Cutoffs must be strictly increasing; values >= len(pool) are clamped. Default: `[]`.
     - <a id="%24defs/AssignmentOptions/properties/priority_tiers/items"></a>**Items** *(integer)*
 - <a id="%24defs/BookOptions"></a>**`BookOptions`** *(object)*
   - <a id="%24defs/BookOptions/properties/wpm_window_seconds"></a>**`wpm_window_seconds`** *(integer)*: Sliding window (in seconds) over which the running WPM is computed in book mode. Default: `30`.
   - <a id="%24defs/BookOptions/properties/max_width"></a>**`max_width`** *(integer)*: Maximum width (in characters) of the rendered text block in book mode. Long paragraphs are wrapped to this width. Default: `80`.
+  - <a id="%24defs/BookOptions/properties/always_show_chords"></a>**`always_show_chords`** *(boolean)*: When true, the chord for the current word is rendered beneath it the moment the cursor lands on it, instead of only after a stumble. Mirrors the drill option of the same name. Default: `false`.
 - <a id="%24defs/CharaChorderOutput"></a>**`CharaChorderOutput`** *(object)*
   - <a id="%24defs/CharaChorderOutput/properties/file"></a>**`file`** *(string, format: path)*: Default: `"~/.config/chordgen/charachorder_chords.json"`.
+- <a id="%24defs/DemonstrativeAltOptions"></a>**`DemonstrativeAltOptions`** *(object)*
+  - <a id="%24defs/DemonstrativeAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
+  - <a id="%24defs/DemonstrativeAltOptions/properties/forms"></a>**`forms`** *(array)*: Demonstrative forms to fill alt1..alt3 with, in order. Demonstratives are ``this``, ``that``, ``these``, and ``those`` arranged on number (singular/plural) and distance (proximal/distal) axes. Length must be at most 3. Default: `["plural", "distal"]`.
+    - <a id="%24defs/DemonstrativeAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "singular", "plural", "proximal", or "distal".
 - <a id="%24defs/DirectionalKeyboardOptions"></a>**`DirectionalKeyboardOptions`** *(object)*
-  - <a id="%24defs/DirectionalKeyboardOptions/properties/layout"></a>**`layout`** *(string)*: Must be one of: "charachorder", "stained", "svalboard_qwerty" or "custom". Default: `"charachorder"`.
+  - <a id="%24defs/DirectionalKeyboardOptions/properties/layout"></a>**`layout`** *(string)*: Must be one of: "charachorder", "stained", "svalboard_qwerty", or "custom". Default: `"charachorder"`.
   - <a id="%24defs/DirectionalKeyboardOptions/properties/directional_change_penalty"></a>**`directional_change_penalty`** *(integer)*: A penalty to add when chords have different directions per finger on the same hand. Can be set to -1 to disable this type of chord. Default: `2`.
   - <a id="%24defs/DirectionalKeyboardOptions/properties/custom_layout"></a>**`custom_layout`** *(array)*: Default: `["_X__X__X__X__X__X__X__X_", "X_XX_XX_XX_XX_XX_XX_XX_X", "_X__X__X__X__X__X__X__X_", "_X__X_", "X_XX_X", "_X__X_", "_X__X_", "X_XX_X", "_X__X_"]`.
     - <a id="%24defs/DirectionalKeyboardOptions/properties/custom_layout/items"></a>**Items** *(string)*
@@ -258,6 +320,8 @@
   - <a id="%24defs/DrillOptions/properties/mode"></a>**`mode`** *(string)*: How a drill session ends: 'count' stops after a fixed number of words, 'time' stops when the timer runs out. Must be one of: "count" or "time". Default: `"time"`.
   - <a id="%24defs/DrillOptions/properties/count"></a>**`count`** *(integer)*: Number of words drilled when ``mode = count``. Ignored when ``mode = time``. Default: `25`.
   - <a id="%24defs/DrillOptions/properties/time_seconds"></a>**`time_seconds`** *(integer)*: Duration of the drill in seconds when ``mode = time``. Ignored when ``mode = count``. Default: `30`.
+  - <a id="%24defs/DrillOptions/properties/include_alts"></a>**`include_alts`** *(boolean)*: When true, alt-slot inflections (alt1/alt2/alt3 columns of chords.csv) ride along into the drill pool whenever their base word is graduated. The chord shown after a stumble is suffixed with the slot digit (e.g. ``au1``) and the alt-slot indicator below the keyboard highlights the matching modifier. Set to false to drill only the base word from each chord row. Default: `true`.
+  - <a id="%24defs/DrillOptions/properties/always_show_chords"></a>**`always_show_chords`** *(boolean)*: When true, chords are revealed below every word in the drill row, not just on a stumble. Useful while you're still building muscle memory; turn off (default) once you want drill mode to test recall. Default: `false`.
 - <a id="%24defs/GenOptions"></a>**`GenOptions`** *(object)*
   - <a id="%24defs/GenOptions/properties/file"></a>**`file`** *(string, format: path)*: Default: `"~/.config/chordgen/chords.csv"`.
   - <a id="%24defs/GenOptions/properties/keyboard"></a>**`keyboard`**: Refer to *[#/$defs/KeyboardOptions](#%24defs/KeyboardOptions)*. Default:
@@ -328,6 +392,25 @@
     adverb:
       enabled: true
       forms: []
+    pronoun:
+      enabled: true
+      forms:
+      - objective
+      - possessive_det
+      - reflexive
+    demonstrative:
+      enabled: true
+      forms:
+      - plural
+      - distal
+    modal:
+      enabled: true
+      forms:
+      - past
+    number:
+      enabled: true
+      forms:
+      - ordinal
     ```
 
   - <a id="%24defs/GenOptions/properties/assignment"></a>**`assignment`**: Refer to *[#/$defs/AssignmentOptions](#%24defs/AssignmentOptions)*. Default:
@@ -341,7 +424,7 @@
 
   - <a id="%24defs/GenOptions/properties/min_word_length"></a>**`min_word_length`** *(integer)*: Default: `3`.
   - <a id="%24defs/GenOptions/properties/min_chord_length"></a>**`min_chord_length`** *(integer)*: The minimum length a chord, setting this to 2 and disabling the chord key is a way to avoid needing a chord key. This works well on CharaChorder, but you will need to lower the chord timeout to avoid missfires on other keyboards. Default: `0`.
-  - <a id="%24defs/GenOptions/properties/key_replacement"></a>**`key_replacement`** *(object)*: Map letters to replacements when generating chord candidates. For example, if your keyboard lacks 'q' and 'z', set {'q': 'k', 'z': 's'} so chords use 'k' instead of 'q' and 's' instead of 'z' -- the typed word is unaffected, only the chord string changes. Each key must be a single lowercase letter; its replacement must also be a single lowercase letter that exists on your keyboard. Can contain additional properties. Default: `{}`.
+  - <a id="%24defs/GenOptions/properties/key_replacement"></a>**`key_replacement`** *(object)*: Map characters to replacements when generating chord candidates. For example, if your keyboard lacks 'q' and 'z', set {'q': 'k', 'z': 's'} so chords use 'k' instead of 'q' and 's' instead of 'z' -- the typed word is unaffected, only the chord string changes. Useful for remapping non-letter characters too: "'": x lets a word like "o'clock" earn a chord that contains 'x' wherever the apostrophe sits. Each key must be a single lowercase character; its replacement must be a single lowercase letter that exists on your keyboard. Can contain additional properties. Default: `{}`.
     - <a id="%24defs/GenOptions/properties/key_replacement/additionalProperties"></a>**Additional properties** *(string)*
 - <a id="%24defs/KanataOutput"></a>**`KanataOutput`** *(object)*
   - <a id="%24defs/KanataOutput/properties/file"></a>**`file`** *(string, format: path)*: Default: `"~/.config/chordgen/kanata_chords.kbd"`.
@@ -421,13 +504,21 @@
   - <a id="%24defs/LearnOptions/properties/target_retention"></a>**`target_retention`** *(number)*: FSRS desired retention probability. The next review for each word is scheduled when its predicted recall falls to this value. Default: `0.9`.
   - <a id="%24defs/LearnOptions/properties/slow_wpm_fraction"></a>**`slow_wpm_fraction`** *(number)*: A correct word counts as 'slow' (FSRS hard) when its per-word WPM is below this fraction of the user's rolling median per-word WPM. Set to 0 to disable slow grading. Default: `0.7`.
   - <a id="%24defs/LearnOptions/properties/slow_min_samples"></a>**`slow_min_samples`** *(integer)*: Minimum number of recorded per-word WPM samples before slow grading activates. Until this is reached all correct words are graded 'good'. Default: `20`.
+- <a id="%24defs/ModalAltOptions"></a>**`ModalAltOptions`** *(object)*
+  - <a id="%24defs/ModalAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
+  - <a id="%24defs/ModalAltOptions/properties/forms"></a>**`forms`** *(array)*: Modal-verb forms to fill alt1..alt3 with, in order. Modals are paired present <-> past: can/could, will/would, shall/should, may/might. ``must`` has no past form. Length must be at most 3. Default: `["past"]`.
+    - <a id="%24defs/ModalAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "present" or "past".
 - <a id="%24defs/NounAltOptions"></a>**`NounAltOptions`** *(object)*
   - <a id="%24defs/NounAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
   - <a id="%24defs/NounAltOptions/properties/forms"></a>**`forms`** *(array)*: Noun forms to fill alt1..alt3 with, in order. Length must be at most 3. Default: `["plural"]`.
     - <a id="%24defs/NounAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "plural" or "singular".
+- <a id="%24defs/NumberAltOptions"></a>**`NumberAltOptions`** *(object)*
+  - <a id="%24defs/NumberAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
+  - <a id="%24defs/NumberAltOptions/properties/forms"></a>**`forms`** *(array)*: Number forms to fill alt1..alt3 with, in order. Numbers are cardinal/ordinal pairs (one/first, two/second, ...). Length must be at most 3. Default: `["ordinal"]`.
+    - <a id="%24defs/NumberAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "cardinal" or "ordinal".
 - <a id="%24defs/OutputOptions"></a>**`OutputOptions`** *(object)*
   - <a id="%24defs/OutputOptions/properties/formats"></a>**`formats`** *(array)*: Default: `["qmk", "zmk", "charachorder", "kanata", "training"]`.
-    - <a id="%24defs/OutputOptions/properties/formats/items"></a>**Items** *(string)*: Must be one of: "qmk", "zmk", "charachorder", "kanata" or "training".
+    - <a id="%24defs/OutputOptions/properties/formats/items"></a>**Items** *(string)*: Must be one of: "qmk", "zmk", "charachorder", "kanata", or "training".
   - <a id="%24defs/OutputOptions/properties/qmk"></a>**`qmk`**: Refer to *[#/$defs/QmkOutput](#%24defs/QmkOutput)*. Default:
 
     ```yaml
@@ -514,6 +605,10 @@
     file: ~/.config/chordgen/training.txt
     ```
 
+- <a id="%24defs/PronounAltOptions"></a>**`PronounAltOptions`** *(object)*
+  - <a id="%24defs/PronounAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
+  - <a id="%24defs/PronounAltOptions/properties/forms"></a>**`forms`** *(array)*: Pronoun forms to fill alt1..alt3 with, in order. Length must be at most 3. Default: `["objective", "possessive_det", "reflexive"]`.
+    - <a id="%24defs/PronounAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "nominative", "objective", "possessive_det", "possessive_pron", or "reflexive".
 - <a id="%24defs/QmkOutput"></a>**`QmkOutput`** *(object)*
   - <a id="%24defs/QmkOutput/properties/file"></a>**`file`** *(string, format: path)*: Default: `"~/.config/chordgen/qmk_chords.def"`.
   - <a id="%24defs/QmkOutput/properties/chord_keys"></a>**`chord_keys`** *(array)*: Default: `["KC_CHORD"]`.
@@ -541,7 +636,7 @@
 
     - <a id="%24defs/QmkOutput/properties/key_codes/additionalProperties"></a>**Additional properties** *(string)*
 - <a id="%24defs/StandardKeyboardOptions"></a>**`StandardKeyboardOptions`** *(object)*
-  - <a id="%24defs/StandardKeyboardOptions/properties/layout"></a>**`layout`** *(string)*: Must be one of: "qwerty", "colemak", "colemak_dh", "canary", "engram_2021", "engram_en", "enthium_v14" or "custom". Default: `"qwerty"`.
+  - <a id="%24defs/StandardKeyboardOptions/properties/layout"></a>**`layout`** *(string)*: Must be one of: "qwerty", "colemak", "colemak_dh", "canary", "engram_2021", "engram_en", "enthium_v14", or "custom". Default: `"qwerty"`.
   - <a id="%24defs/StandardKeyboardOptions/properties/scissor_penalty"></a>**`scissor_penalty`** *(integer)*: A penalty to add when pressing keys on the top and bottom rows together. Can be set to -1 to disable this type of chord. Default: `3`.
   - <a id="%24defs/StandardKeyboardOptions/properties/same_column_chord_penalty"></a>**`same_column_chord_penalty`** *(integer)*: A penalty to add when pressing 2 keys and the same time with the same finger in the same column. Can be set to -1 to disable this type of chord. Default: `2`.
   - <a id="%24defs/StandardKeyboardOptions/properties/same_row_chord_penalty"></a>**`same_row_chord_penalty`** *(integer)*: A penalty to add when pressing 2 keys and the same time with the same finger in the same row. Can be set to -1 to disable this type of chord. Default: `2`.
@@ -555,7 +650,7 @@
 - <a id="%24defs/VerbAltOptions"></a>**`VerbAltOptions`** *(object)*
   - <a id="%24defs/VerbAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
   - <a id="%24defs/VerbAltOptions/properties/forms"></a>**`forms`** *(array)*: Verb forms to fill alt1..alt3 with, in order. Length must be at most 3. Default: `["3sg", "past", "gerund"]`.
-    - <a id="%24defs/VerbAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "3sg", "past", "gerund" or "ppart".
+    - <a id="%24defs/VerbAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "3sg", "past", "gerund", or "ppart".
 - <a id="%24defs/ZmkOutput"></a>**`ZmkOutput`** *(object)*
   - <a id="%24defs/ZmkOutput/properties/chords_file"></a>**`chords_file`** *(string, format: path)*: Default: `"~/.config/chordgen/zmk_chords.dtsi"`.
   - <a id="%24defs/ZmkOutput/properties/macros_file"></a>**`macros_file`** *(string, format: path)*: Default: `"~/.config/chordgen/zmk_macros.dtsi"`.

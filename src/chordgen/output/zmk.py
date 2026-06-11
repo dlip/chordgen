@@ -134,7 +134,14 @@ class ZmkOutput(BaseModel):
                 if i > 0:
                     alt = alt_keys[i - 1]
                 name = f"c_{c}{'_' * i}".replace("'", "_")
-                macro = translate_macro(word + " ")
+                # Contractions (``'s``, ``'re``, ``n't``, ...) are typed
+                # *after* a chorded word that already appended a space,
+                # so we delete that space first via the ``←`` sentinel.
+                # Detected by category rather than ``'`` in word so
+                # genuine apostrophe words (``o'clock``) stay literal.
+                is_contraction = chord["category"] == "contraction"
+                bspc = "←" if is_contraction else ""
+                macro = translate_macro(bspc + word + " ")
 
                 positions = translate_keys(list(c) + self.chord_keys + alt)
                 macros_output += f"MACRO({name}, {' '.join(macro)})\n"
@@ -142,7 +149,7 @@ class ZmkOutput(BaseModel):
                     f"CHORD({name}, &macro_{name}, {' '.join(positions)})\n"
                 )
 
-                if self.shifted_chord_keys:
+                if self.shifted_chord_keys and not is_contraction:
                     positions = translate_keys(list(c) + self.shifted_chord_keys + alt)
                     macro = translate_macro(word + " ", True)
                     macros_output += f"MACRO(s_{name}, {' '.join(macro)})\n"

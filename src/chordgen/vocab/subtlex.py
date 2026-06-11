@@ -43,7 +43,7 @@ _POS_MAP: dict[str, str] = {
     "noun": "noun",
     "number": "",
     "preposition": "",
-    "pronoun": "",
+    "pronoun": "pronoun",
     "to": "",
     "unclassified": "",
     "verb": "verb",
@@ -54,6 +54,146 @@ def _map_pos(label: str | None) -> str:
     if not label:
         return ""
     return _POS_MAP.get(label.strip().lower(), "")
+
+
+# Surface forms produced when SUBTLEX splits English contractions on
+# whitespace (`he's`, `we'll`, `I'm`, `you've`, `they're`, `she'd`, ...).
+# Each tail's frequency is the aggregated count across every contraction
+# ending in that tail, which makes them genuinely high-frequency tokens
+# — we just need to restore the apostrophe and tag them so the alt
+# generator skips them.
+_CONTRACTION_TAILS: frozenset[str] = frozenset({
+    "s", "re", "m", "ve", "ll", "d",
+})
+
+# Multi-character contraction surface forms that SUBTLEX *does* keep
+# intact (with the apostrophe). Currently just ``n't`` (don't, can't,
+# won't, ...). They flow through tagged ``contraction`` so the alt
+# generator skips them and the output emitters apply the same
+# backspace-then-apostrophe trick the leading-apostrophe forms use.
+_CONTRACTION_WORDS: frozenset[str] = frozenset({"n't"})
+
+# Apostrophe-stripped contraction *stems* that SUBTLEX leaves behind
+# when it splits ``can't``/``won't``/``ain't`` into a stem + ``n't``
+# tail. The stems on their own aren't real words, so we tag them with
+# a dedicated drop-sentinel that the pipeline filters out at ingest.
+# Distinct from ``_letter`` so the drop reason stays auditable.
+_CONTRACTION_STEMS: frozenset[str] = frozenset({"ca", "wo", "ai"})
+
+# Other short SUBTLEX surface forms that aren't real standalone words.
+# ``co`` is a hyphenation prefix (co-author, co-pilot) that appears
+# alone via subtitle tokenisation; ``na``/``da`` are residue from
+# colloquial spellings (na-na, ya-da-ya-da, etc.). Tagged with a
+# dedicated drop-sentinel so the pipeline filters them at ingest.
+_NON_WORDS: frozenset[str] = frozenset({"co", "na", "da"})
+
+
+# Closed-class word -> chordgen alt category overrides. SUBTLEX's
+# native POS for these is unhelpful for alt generation (e.g. ``this``
+# is tagged ``determiner`` -> "" so it gets no alts; ``can`` is tagged
+# ``verb`` so ``pattern.en.conjugate`` produces nonsense like
+# ``canned``/``canning``). Retag them at ingest so the alt generator
+# routes them to dedicated lookup-table inflectors.
+_RETAG: dict[str, str] = {
+    # Demonstratives: this / that / these / those.
+    "this": "demonstrative",
+    "that": "demonstrative",
+    "these": "demonstrative",
+    "those": "demonstrative",
+    # Modal verbs: present <-> past pairs.
+    "can": "modal",
+    "could": "modal",
+    "will": "modal",
+    "would": "modal",
+    "shall": "modal",
+    "should": "modal",
+    "may": "modal",
+    "might": "modal",
+    "must": "modal",
+    # Cardinal / ordinal numbers.
+    "one": "number", "first": "number",
+    "two": "number", "second": "number",
+    "three": "number", "third": "number",
+    "four": "number", "fourth": "number",
+    "five": "number", "fifth": "number",
+    "six": "number", "sixth": "number",
+    "seven": "number", "seventh": "number",
+    "eight": "number", "eighth": "number",
+    "nine": "number", "ninth": "number",
+    "ten": "number", "tenth": "number",
+    "eleven": "number", "eleventh": "number",
+    "twelve": "number", "twelfth": "number",
+    "thirteen": "number", "thirteenth": "number",
+    "fourteen": "number", "fourteenth": "number",
+    "fifteen": "number", "fifteenth": "number",
+    "sixteen": "number", "sixteenth": "number",
+    "seventeen": "number", "seventeenth": "number",
+    "eighteen": "number", "eighteenth": "number",
+    "nineteen": "number", "nineteenth": "number",
+    "twenty": "number", "twentieth": "number",
+    "thirty": "number", "thirtieth": "number",
+    "forty": "number", "fortieth": "number",
+    "fifty": "number", "fiftieth": "number",
+    "sixty": "number", "sixtieth": "number",
+    "seventy": "number", "seventieth": "number",
+    "eighty": "number", "eightieth": "number",
+    "ninety": "number", "ninetieth": "number",
+    "hundred": "number", "hundredth": "number",
+    "thousand": "number", "thousandth": "number",
+    "million": "number", "millionth": "number",
+}
+
+
+# Interjection-only surface forms that SUBTLEX mis-tags as ``verb``
+# (which then makes ``pattern.en`` produce nonsense like ``ehs``,
+# ``ehed``, ``ehing``). Force them to "" so the alt generator skips
+# them. The word still flows through as a typeable row.
+_INTERJECTIONS: frozenset[str] = frozenset({"eh"})
+
+
+def closed_class_category(word: str) -> str | None:
+    """Return the chordgen category override for a closed-class
+    word (modal/demonstrative/number/pronoun/contraction), or
+    ``None`` if the word isn't in the closed-class lookup. Used by
+    ``chordgen add`` to auto-detect category before falling through
+    to ``pattern.en``'s parser for open-class words."""
+    return _RETAG.get(word.lower())
+
+
+def _retag(word: str, category: str) -> str:
+    """Override the SUBTLEX-mapped category for closed-class words
+    that route to lookup-table inflectors. Skips sentinel categories
+    (``_propn``, ``_letter``) so the proper-noun filter still drops
+    rows like ``Will`` (a name) before they masquerade as modals."""
+    if category.startswith("_"):
+        return category
+    lower = word.lower()
+    if lower in _INTERJECTIONS:
+        return ""
+    return _RETAG.get(lower, category)
+
+
+def _rewrite_contraction_tail(word: str, category: str) -> tuple[str, str]:
+    """If ``word`` is a SUBTLEX-split contraction tail, prepend an
+    apostrophe and tag it with the ``contraction`` category. If it's
+    a SUBTLEX-kept contraction word like ``n't``, retag it as a
+    contraction without rewriting. If it's a contraction *stem*
+    (``ca``/``wo``/``ai`` left over from ``can't``/``won't``/
+    ``ain't``), tag it with the ``_contraction_stem`` drop-sentinel.
+    Other SUBTLEX subtitle artefacts that aren't real words
+    (``co``/``na``/``da``) get the ``_non_word`` drop-sentinel.
+    Otherwise pass through unchanged. Contraction surface forms are
+    inherently lowercase so the rewritten form is lower-cased."""
+    lower = word.lower()
+    if lower in _CONTRACTION_STEMS:
+        return word, "_contraction_stem"
+    if lower in _NON_WORDS:
+        return word, "_non_word"
+    if lower in _CONTRACTION_TAILS:
+        return f"'{lower}", "contraction"
+    if lower in _CONTRACTION_WORDS:
+        return lower, "contraction"
+    return word, _retag(word, category)
 
 
 def _download(url: str, dest: Path) -> None:
@@ -121,7 +261,8 @@ class SubtlexUS(VocabSource):
                 frequency = float(freq_raw)
             except (TypeError, ValueError):
                 continue
-            yield VocabRow(word=word, frequency=frequency, category=_map_pos(r[9]))
+            word, category = _rewrite_contraction_tail(word, _map_pos(r[9]))
+            yield VocabRow(word=word, frequency=frequency, category=category)
         wb.close()
 
 
@@ -155,4 +296,7 @@ class SubtlexUK(VocabSource):
                     frequency = None
                 if frequency is None:
                     continue
-                yield VocabRow(word=word, frequency=frequency, category=_map_pos(row.get("DomPoS")))
+                word, category = _rewrite_contraction_tail(
+                    word, _map_pos(row.get("DomPoS"))
+                )
+                yield VocabRow(word=word, frequency=frequency, category=category)

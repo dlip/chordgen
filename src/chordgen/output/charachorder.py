@@ -18,7 +18,16 @@ class CharaChorderOutput(BaseModel):
             if not chord["chord"]:
                 continue
             chord_keys = self.translate_keys(chord["chord"])
-            word_keys = self.translate_keys(chord["word"])
+            word = chord["word"]
+            word_keys = self.translate_keys(word)
+            # Contractions (``'s``, ``'re``, ``n't``, ...) are typed
+            # *after* a chorded word that already appended a space.
+            # ASCII 8 (backspace) deletes that trailing space first
+            # so the apostrophe attaches cleanly. Detected by category
+            # rather than ``'`` in word so genuine apostrophe words
+            # (``o'clock``) stay literal.
+            if chord["category"] == "contraction":
+                word_keys = [8] + word_keys
             output_chords.append([chord_keys, word_keys])
 
         output = {"charaVersion": 1, "type": "chords", "chords": output_chords}

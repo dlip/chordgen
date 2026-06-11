@@ -19,6 +19,18 @@ against the chords you already know.
   also restarts mid-drill if you want to bail out), or `Esc` /
   `Ctrl+C` to quit.
 
+### Alt chords
+
+When the chord row for a graduated word has `alt1` / `alt2` / `alt3`
+inflections, those alt forms ride along into the drill pool — so
+graduating `set` also drills `sets`, `setting`, and `settings`. On
+a stumble, the chord shown under the word is suffixed with the slot
+digit (e.g. base shows `au`, alt1 shows `au1`, alt2 shows `au2`).
+Below the keyboard an `alt1 alt2 alt3` indicator highlights the
+slot you need to combine with the chord on your firmware. Set
+`drill.include_alts: false` to drill only the base words from each
+chord row.
+
 ### Personal-best leaderboard
 
 Each completed drill records your WPM into a per-keyboard-layout
@@ -41,8 +53,11 @@ training progress.
 
 You can override the graduated FSRS pool by passing words directly
 on the command line, or by pointing at a whitespace-separated file
-of words. Words without a chord in `chords.csv` are silently
-dropped — they simply won't appear during the drill.
+of words. When run this way drill uses every word from the list
+that has a chord in `chords.csv` regardless of FSRS state — words
+you have already graduated to Review state are highlighted in
+yellow, the rest are shown dim. Words without a chord at all are
+silently dropped.
 
 ```sh
 chordgen drill the quick brown fox
@@ -50,16 +65,18 @@ chordgen drill --words-file words.txt
 chordgen drill -f words.txt extra inline words
 ```
 
-When run this way drill ignores `progress.json` entirely, so you
-can practise on any list of words regardless of FSRS state.
+`progress.json` is read so the highlight is honest, but never
+written — drill never changes FSRS state.
 
 ### Configuration
 
 Relevant `config.yaml` knobs (under `drill`):
 
-| Key            | Default | Purpose                                                                      |
-| -------------- | ------- | ---------------------------------------------------------------------------- |
-| `show_words`   | 10      | Number of words shown on screen at once.                                     |
-| `mode`         | `time`  | `count` ends after a fixed number of words; `time` ends after a fixed timer. |
-| `count`        | 25      | Words to drill when `mode = count`.                                          |
-| `time_seconds` | 30      | Drill length in seconds when `mode = time`.                                  |
+| Key                  | Default | Purpose                                                                      |
+| -------------------- | ------- | ---------------------------------------------------------------------------- |
+| `show_words`         | 10      | Number of words shown on screen at once.                                     |
+| `mode`               | `time`  | `count` ends after a fixed number of words; `time` ends after a fixed timer. |
+| `count`              | 25      | Words to drill when `mode = count`.                                          |
+| `time_seconds`       | 30      | Drill length in seconds when `mode = time`.                                  |
+| `include_alts`       | `true`  | Include alt-slot inflections from `chords.csv` in the drill pool.            |
+| `always_show_chords` | `false` | Reveal chords below every word in the row, not just on a stumble.            |

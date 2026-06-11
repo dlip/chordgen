@@ -26,6 +26,26 @@ def load_file(file: Path) -> list[Chord]:
         return chords
 
 
+def build_alt_index(chords: list[Chord]) -> dict[str, tuple[str, int, str]]:
+    """Map every non-empty alt form to ``(base_word, slot, chord)``.
+
+    Used by drill and book modes to surface alt-slot words alongside
+    their base. Collisions keep the first occurrence to mirror the
+    duplicate-chord policy in :func:`validate_chords`.
+    """
+    out: dict[str, tuple[str, int, str]] = {}
+    for c in chords:
+        chord = c.get("chord") or ""
+        if not chord:
+            continue
+        for slot in (1, 2, 3):
+            alt = (c.get(f"alt{slot}") or "").strip()
+            if not alt or alt == c["word"]:
+                continue
+            out.setdefault(alt, (c["word"], slot, chord))
+    return out
+
+
 def validate_chords(chords: list[Chord]):
     used = {}
 

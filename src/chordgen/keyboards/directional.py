@@ -161,7 +161,6 @@ class DirectionalKeyboard:
                 self._hand_map[self._layout[r][c]] = hand[r][c]
 
     def get_directional_changes(self, chord):
-        result = 0
         directions = {0: set(), 1: set()}
         for c in chord:
             directions[self._hand_map[c]].add(self._direction_map[c])
@@ -171,7 +170,7 @@ class DirectionalKeyboard:
             if len(hand) > 1:
                 changes += len(hand) - 1
 
-        return result
+        return changes
 
     def score(self, chord: str) -> int:
         for i in range(0, len(chord)):
@@ -196,8 +195,11 @@ class DirectionalKeyboard:
 
         result = 0
 
-        if self._options.directional_change_penalty != -1:
-            changes = self.get_directional_changes(chord)
+        changes = self.get_directional_changes(chord)
+        if changes:
+            if self._options.directional_change_penalty == -1:
+                logging.debug("rejected: directional change on same hand")
+                return -1
             result += changes * self._options.directional_change_penalty
 
         for i in range(0, len(chord)):

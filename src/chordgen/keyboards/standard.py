@@ -289,6 +289,12 @@ class StandardKeyboard:
 
                 count += 1
 
+            if chord_map[1][i] and chord_map[2][i]:
+                if self._options.same_column_chord_penalty == -1:
+                    return -1
+
+                count += 1
+
             # Top and bottom row on same finger is excluded
             if chord_map[0][i] and chord_map[2][i]:
                 return -1
@@ -339,7 +345,7 @@ class StandardKeyboard:
 
         same_row_chord = self.get_same_row_chord(chord_map)
         if same_row_chord == -1:
-            logging.debug("rejected: same column chord")
+            logging.debug("rejected: same row chord")
             return -1
 
         result += same_row_chord * self._options.same_row_chord_penalty
