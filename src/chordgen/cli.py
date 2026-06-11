@@ -16,6 +16,7 @@ from chordgen.constants import CONFIG_DIR
 from chordgen.gen import gen as run_gen
 from chordgen.vocab import SOURCES
 from chordgen.vocab.pipeline import build_chords_csv
+from chordgen.add import add_words
 from chordgen.learn import LearnApp
 from chordgen.drill import DrillApp
 from chordgen.book import BookApp
@@ -336,6 +337,53 @@ def book(
         on_theme_change=_persist_theme,
     )
     app.run()
+
+
+@app.command()
+def add(
+    words: list[str] = typer.Argument(
+        None,
+        help=(
+            "Words to add to chords.csv. For each word the command "
+            "interactively shows collision-free chord options, "
+            "auto-detects the category, and appends the row with "
+            "the chosen chord pinned (frequency left empty so future "
+            "`chordgen gen` runs leave it alone). Alts are "
+            "generated automatically from the category."
+        ),
+    ),
+    words_file: Path = typer.Option(
+        None,
+        "--words-file",
+        "-f",
+        help=(
+            "Path to a file containing words to add (whitespace-"
+            "separated). Combined with any positional WORDS arguments."
+        ),
+    ),
+):
+    """Interactively add words to chords.csv.
+
+    For each input word: skips it if it already exists (as a
+    ``word`` row or any non-empty alt slot), shows the top
+    collision-free chord options, auto-detects the category (with
+    an override menu), validates a custom-typed chord through the
+    same scorer the assigner uses, generates alts, and appends the
+    row with the chord pinned (``frequency`` empty) so future
+    ``chordgen gen`` runs leave it alone. The CSV is rewritten
+    atomically after every accepted word.
+    """
+    collected: list[str] = list(words) if words else []
+    if words_file is not None:
+        if not words_file.exists():
+            print(f"Error: words file {words_file} does not exist")
+            raise typer.Abort()
+        collected.extend(words_file.read_text().split())
+    if not collected:
+        print("Error: provide at least one word (positional or via --words-file)")
+        raise typer.Abort()
+
+    add_words(collected, State.config.gen)
 
 
 if __name__ == "__main__":

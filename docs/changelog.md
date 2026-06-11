@@ -2,6 +2,17 @@
 
 ## v2.3.0
 
+- **New `chordgen add` command** for interactively adding words
+  to `chords.csv` one at a time. Skips words that already exist,
+  auto-detects category (with override), shows collision-free
+  chord options ranked by score (or accepts a custom chord
+  validated through the same scorer the assigner uses),
+  generates alts, and writes the row with the chord pinned so
+  future `chordgen gen` runs leave it alone. The CSV is
+  rewritten atomically after every accepted word. The chord
+  prompt is live: as you type, the buffer turns red until it
+  becomes a valid choice (then green), with the rejection reason
+  shown inline next to the buffer.
 - **Renamed `docs/images/training.png` to `learn.png`** to match
   the renamed `learn` command. README and learn-mode docs updated
   to point at the new asset path.

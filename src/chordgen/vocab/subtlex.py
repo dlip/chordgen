@@ -151,6 +151,15 @@ _RETAG: dict[str, str] = {
 _INTERJECTIONS: frozenset[str] = frozenset({"eh"})
 
 
+def closed_class_category(word: str) -> str | None:
+    """Return the chordgen category override for a closed-class
+    word (modal/demonstrative/number/pronoun/contraction), or
+    ``None`` if the word isn't in the closed-class lookup. Used by
+    ``chordgen add`` to auto-detect category before falling through
+    to ``pattern.en``'s parser for open-class words."""
+    return _RETAG.get(word.lower())
+
+
 def _retag(word: str, category: str) -> str:
     """Override the SUBTLEX-mapped category for closed-class words
     that route to lookup-table inflectors. Skips sentinel categories
