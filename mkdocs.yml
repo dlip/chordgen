@@ -70,4 +70,5 @@ nav:
   - Configuration:
       - configuration.md
       - Schema: schema.md
+  - Development: development.md
   - Changelog: changelog.md
