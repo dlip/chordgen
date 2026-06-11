@@ -65,3 +65,38 @@ def test_render_keyboard_directional_highlights_chord_keys():
     ]
     assert "r" in highlighted
     assert "n" in highlighted
+
+
+def test_render_keyboard_alt_slot_indicator_highlights_active_slot():
+    out = render_keyboard(QWERTY, set(), alt_slot=2)
+    plain = out.plain
+    assert "alt1" in plain
+    assert "alt2" in plain
+    assert "alt3" in plain
+    highlighted_chunks = [
+        plain[s.start : s.end] for s in out.spans if s.style == KEY_HIGHLIGHT_STYLE
+    ]
+    assert "alt2" in highlighted_chunks
+    assert "alt1" not in highlighted_chunks
+    assert "alt3" not in highlighted_chunks
+
+
+def test_render_keyboard_alt_slot_none_omits_indicator():
+    out = render_keyboard(QWERTY, set())
+    assert "alt1" not in out.plain
+    assert "alt2" not in out.plain
+    assert "alt3" not in out.plain
+
+
+def test_render_keyboard_alt_slot_zero_shows_row_without_highlight():
+    out = render_keyboard(QWERTY, set(), alt_slot=0)
+    plain = out.plain
+    assert "alt1" in plain
+    assert "alt2" in plain
+    assert "alt3" in plain
+    highlighted_chunks = [
+        plain[s.start : s.end] for s in out.spans if s.style == KEY_HIGHLIGHT_STYLE
+    ]
+    assert "alt1" not in highlighted_chunks
+    assert "alt2" not in highlighted_chunks
+    assert "alt3" not in highlighted_chunks

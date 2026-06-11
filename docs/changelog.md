@@ -2,6 +2,24 @@
 
 ## v2.3.0
 
+- **Alt chords surface in drill and book modes.** Alt-slot
+  inflections (`alt1`/`alt2`/`alt3` columns of `chords.csv`)
+  inherit their base row's FSRS mastery, so graduating `set` also
+  drills `sets`/`setting`/`settings` and highlights them in book
+  prose. The chord shown beneath a stumbled word is suffixed with
+  the slot digit (`au` becomes `au1` for `alt1`) and an
+  `alt1 alt2 alt3` indicator below the keyboard always shows the
+  firmware modifier names — the active slot is highlighted in
+  yellow when the current word is an alt form. Disable via
+  `drill.include_alts: false`.
+- **`drill.always_show_chords`** (default `false`). When enabled,
+  drill mode reveals chords below every word in the row from the
+  start, not just on a stumble. Useful while you're still
+  building muscle memory.
+- **`book.always_show_chords`** (default `false`). When enabled,
+  book mode renders a chord row beneath every text line, with
+  each learned word's chord aligned under its first letter.
+  Mirrors the drill-mode option.
 - **Cleaner alt generation.** Closed off five families of bogus
   alts that surfaced in `chords.csv`:
   - SUBTLEX contraction-stem residue (`ca`/`wo`/`ai` from

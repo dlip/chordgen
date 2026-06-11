@@ -24,10 +24,24 @@ Supported formats:
   highlighted in **yellow** — including the word you're currently
   typing — so you can see where to apply your learned chords;
   everything else is rendered plain.
-- Below the text: a one-line chord display, only shown when you've
-  mistyped a learned word. Same reveal-on-stumble UX as drill mode.
+- Below the text: chords for the current word are revealed only
+  when you've mistyped a learned word, rendered as `<chord><slot>`
+  (e.g. `au` for the base, `au1` for `alt1`) directly beneath the
+  word in the text block — same reveal-on-stumble UX as drill mode.
 - Bottom: your keyboard layout. When you mistype a learned word
-  the chord keys are highlighted on the keyboard.
+  the chord keys are highlighted on the keyboard, and an
+  `alt1 alt2 alt3` indicator below the keyboard highlights the
+  active alt slot (if any).
+
+## Alt chords
+
+Alt-slot inflections from `chords.csv` (`alt1` / `alt2` / `alt3`)
+inherit their base row's mastery, so an `alt1` form like `cars` is
+highlighted in the prose alongside its graduated base `car`. When
+you mistype an alt form, the chord shown beneath the word is
+suffixed with the slot digit (e.g. `ca1` for an `alt1`) and the
+alt indicator below the keyboard highlights the firmware modifier
+you need to combine with the base chord.
 
 ## Resume
 
@@ -70,8 +84,9 @@ Book mode reads a small block of `config.yaml`:
 
 ```yaml
 book:
-  wpm_window_seconds: 30   # Sliding window for the running WPM
-  max_width: 80            # Max width (chars) of the rendered text block
+  wpm_window_seconds: 30      # Sliding window for the running WPM
+  max_width: 80               # Max width (chars) of the rendered text block
+  always_show_chords: false   # Render chords beneath every learned word, not just on a stumble
 ```
 
 The number of lines shown grows automatically to fill the available

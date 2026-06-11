@@ -139,6 +139,27 @@ class DrillOptions(BaseModel):
             "Ignored when ``mode = count``."
         ),
     )
+    include_alts: bool = Field(
+        default=True,
+        description=(
+            "When true, alt-slot inflections (alt1/alt2/alt3 columns "
+            "of chords.csv) ride along into the drill pool whenever "
+            "their base word is graduated. The chord shown after a "
+            "stumble is suffixed with the slot digit (e.g. ``au1``) "
+            "and the alt-slot indicator below the keyboard "
+            "highlights the matching modifier. Set to false to drill "
+            "only the base word from each chord row."
+        ),
+    )
+    always_show_chords: bool = Field(
+        default=False,
+        description=(
+            "When true, chords are revealed below every word in the "
+            "drill row, not just on a stumble. Useful while you're "
+            "still building muscle memory; turn off (default) once "
+            "you want drill mode to test recall."
+        ),
+    )
 
 
 class BookOptions(BaseModel):
@@ -155,6 +176,15 @@ class BookOptions(BaseModel):
             "Maximum width (in characters) of the rendered text "
             "block in book mode. Long paragraphs are wrapped to this "
             "width."
+        ),
+    )
+    always_show_chords: bool = Field(
+        default=False,
+        description=(
+            "When true, the chord for the current word is rendered "
+            "beneath it the moment the cursor lands on it, instead "
+            "of only after a stumble. Mirrors the drill option of "
+            "the same name."
         ),
     )
 

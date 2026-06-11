@@ -189,6 +189,7 @@ def render_keyboard(
     layout: list[list[str]] | None,
     highlights: set[str],
     kind: str = "standard",
+    alt_slot: int | None = None,
 ) -> Text:
     """Render ``layout`` as styled rich text.
 
@@ -196,10 +197,29 @@ def render_keyboard(
     thumb row) or ``"directional"`` (3 letter rows of finger clusters
     + two thumb clusters). Returns an empty ``Text`` when ``layout``
     is missing.
+
+    When ``alt_slot`` is 0, 1, 2, or 3, an extra ``alt1 alt2 alt3``
+    indicator line is appended directly below the keyboard. Slots
+    1/2/3 highlight the matching label; ``0`` renders the row with
+    no slot highlighted (so callers can keep the indicator visible
+    even when the current word is a base form). ``None`` suppresses
+    the indicator entirely.
     """
     if not layout:
         return Text()
     highlights = {c for c in highlights if c}
     if kind == "directional":
-        return _render_directional(layout, highlights)
-    return _render_standard(layout, highlights)
+        out = _render_directional(layout, highlights)
+    else:
+        out = _render_standard(layout, highlights)
+
+    if alt_slot in (0, 1, 2, 3):
+        if out.plain:
+            out.append("\n")
+        for i, label in enumerate(("alt1", "alt2", "alt3"), start=1):
+            if i > 1:
+                out.append("  ")
+            style = KEY_HIGHLIGHT_STYLE if i == alt_slot else KEY_DIM_STYLE
+            out.append(label, style=style)
+
+    return out

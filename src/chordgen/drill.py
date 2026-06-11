@@ -38,6 +38,7 @@ from textual.reactive import reactive
 from textual.widgets import Footer, Header, Static
 
 from chordgen.constants import CONFIG_DIR
+from chordgen.chord import build_alt_index
 from chordgen.srs import get_card, load_progress
 from chordgen.keyboard_view import render_keyboard
 
@@ -150,6 +151,15 @@ class DrillApp(App):
         super().__init__()
         self.chords_map = {c["word"]: c for c in chords if c["chord"]}
         self.config = config
+        # Alt-slot forms are opt-in via ``config.drill.include_alts``
+        # (default true). When disabled, behave as if no alts exist
+        # — the drill pool only contains base words and chords are
+        # never slot-suffixed.
+        self.alt_index = (
+            build_alt_index(chords)
+            if getattr(config, "include_alts", True)
+            else {}
+        )
         self.keyboard_layout = keyboard_layout
         self.keyboard_kind = keyboard_kind
         self.layout_key = layout_key
@@ -188,7 +198,9 @@ class DrillApp(App):
 
     def _collect_learned_words(self, progress) -> set[str]:
         """Return the set of words whose FSRS card is in Review state
-        and that still have a chord assigned in chords.csv."""
+        and that still have a chord assigned in chords.csv. Alt-slot
+        forms inherit their base row's mastery, so a graduated base
+        also surfaces all of its non-empty alts."""
         out: set[str] = set()
         for word in progress.get("words", {}):
             if word not in self.chords_map:
@@ -196,13 +208,17 @@ class DrillApp(App):
             card = get_card(progress, word)
             if card is not None and card.state == State.Review:
                 out.add(word)
+        # Pull in alts of every graduated base.
+        for alt, (base, _slot, _chord) in self.alt_index.items():
+            if base in out:
+                out.add(alt)
         return out
 
     def _filter_custom_words(self, words: list[str]) -> list[str]:
         """Return only the words from ``words`` that have a chord
-        assigned in chords.csv. Words without a chord are silently
-        dropped."""
-        return [w for w in words if w in self.chords_map]
+        assigned in chords.csv (either directly or as an alt-slot
+        form). Words without a chord are silently dropped."""
+        return [w for w in words if w in self.chords_map or w in self.alt_index]
 
     def _initial_word_list(self) -> list[str]:
         if not self.word_pool:
@@ -527,14 +543,30 @@ class DrillApp(App):
         rendered.append_text(padded_chord_line)
 
         # ASCII keyboard view. Drill only reveals chords after a
-        # mistake, so highlights mirror that rule.
+        # mistake, so highlights mirror that rule. The alt-slot
+        # indicator is always rendered so users can see the firmware
+        # modifier names regardless of the current word.
         if self.keyboard_layout is not None:
             highlights: set[str] = set()
+            current_slot: int = 0
             current_chord = chord_strings[0] if chord_strings else ""
-            if current_chord:
-                highlights = set(current_chord)
+            if current_chord and self.words_to_practice:
+                # Alt forms render as ``<chord><slot>`` (e.g. ``au1``).
+                # Strip the trailing slot digit before highlighting
+                # the keyboard keys, and surface the slot via the
+                # alt indicator below.
+                current_word = self.words_to_practice[0]
+                alt = self.alt_index.get(current_word)
+                if current_word not in self.chords_map and alt is not None:
+                    _base, current_slot, chord_keys = alt
+                else:
+                    chord_keys = current_chord
+                highlights = set(chord_keys)
             kb = render_keyboard(
-                self.keyboard_layout, highlights, kind=self.keyboard_kind
+                self.keyboard_layout,
+                highlights,
+                kind=self.keyboard_kind,
+                alt_slot=current_slot,
             )
             if kb.plain:
                 rendered.append("\n\n")
@@ -560,13 +592,22 @@ class DrillApp(App):
         # Drill mode hides chords by default — these are graduated
         # words you already know — but reveals the chord for the
         # current word once you stumble on it, the same way learn
-        # mode does for mastered words.
+        # mode does for mastered words. When ``always_show_chords``
+        # is set, the chord is shown for every word in the row
+        # regardless of stumbles.
+        always = getattr(self.config, "always_show_chords", False)
+        if not always and not (is_current and self.current_word_had_error):
+            return ""
         row = self.chords_map.get(word)
-        if row is None:
-            return ""
-        if not (is_current and self.current_word_had_error):
-            return ""
-        return row.get("chord") or ""
+        if row is not None:
+            return row.get("chord") or ""
+        alt = self.alt_index.get(word)
+        if alt is not None:
+            _base, slot, chord = alt
+            if not chord:
+                return ""
+            return f"{chord}{slot}"
+        return ""
 
     def _render_summary(self, widget: Static) -> None:
         summary = Text()
@@ -597,7 +638,15 @@ class DrillApp(App):
                     continue
                 seen.add(w)
                 row = self.chords_map.get(w)
-                chord = (row or {}).get("chord") or ""
+                if row is not None:
+                    chord = row.get("chord") or ""
+                else:
+                    alt = self.alt_index.get(w)
+                    if alt is not None:
+                        _base, slot, base_chord = alt
+                        chord = f"{base_chord}{slot}" if base_chord else ""
+                    else:
+                        chord = ""
                 parts.append(f"{w} ({chord})" if chord else w)
             summary.append(" ".join(parts) + "\n", style="red")
 
