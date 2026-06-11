@@ -1,5 +1,7 @@
 # book
 
+![Book](../images/book.png)
+
 Type your way through an arbitrary book. Book mode is open-ended —
 there's no time limit and no FSRS state changes — and is designed
 for applying the chords you've already learned to real long-form
