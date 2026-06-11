@@ -2,6 +2,9 @@
 
 ## v2.3.0
 
+- **Renamed `docs/images/training.png` to `learn.png`** to match
+  the renamed `learn` command. README and learn-mode docs updated
+  to point at the new asset path.
 - **Alt chords surface in drill and book modes.** Alt-slot
   inflections (`alt1`/`alt2`/`alt3` columns of `chords.csv`)
   inherit their base row's FSRS mastery, so graduating `set` also

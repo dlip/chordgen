@@ -7,7 +7,7 @@ It supports standard keyboards and directional ones such as [Harite](https://git
 
 There is also a learn mode with a full spaced-repetition implementation to help with memorizing chords
 
-![Training](./docs/images/training.png)
+![Learn](./docs/images/learn.png)
 
 ## Documentation
 
