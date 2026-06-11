@@ -2,6 +2,40 @@
 
 ## v2.3.0
 
+A focused release that brings alt-chord training to drill and book
+modes, adds an interactive `chordgen add` command for one-off word
+additions, and ships a long list of alt-generation cleanups so the
+default `chords.csv` is noticeably less noisy.
+
+### Highlights
+
+- **Alt chords show up everywhere.** Drill and book modes now
+  surface `alt1`/`alt2`/`alt3` inflections (e.g. `sets`, `setting`,
+  `settings` for `set`) — they inherit their base row's FSRS
+  mastery, get the slot-suffixed chord display (`au` → `au1`), and
+  light up the `alt1 alt2 alt3` indicator below the keyboard.
+  Disable via `drill.include_alts: false`.
+- **`chordgen add WORDS...`** — interactive one-off additions to
+  `chords.csv` with a live red/green chord prompt, inline
+  rejection reasons, auto-detected category, and reserved-row
+  pinning so future `chordgen gen` runs leave the chosen chord
+  alone.
+- **`always_show_chords` for drill and book.** Reveal chords
+  beneath every word from the start, not just on a stumble. Off
+  by default in both modes.
+- **Cleaner alt generation by default.** Six families of bogus
+  alts (contraction-stem residue, subtitle artefacts, mis-tagged
+  interjections, non-gradable adjectives, double-pluralised
+  rows, irregular-verb conjugations) no longer leak into
+  `chords.csv` from `chordgen setup` / `chordgen gen`.
+- **README + docs revamp.** README is now targeted at first-time
+  visitors with a one-paragraph value pitch, highlights, and
+  quickstart. Development instructions moved to a new
+  [Development](development.md) page. Docs site published to
+  GitHub Pages.
+
+### Detailed changes
+
 - **New `chordgen add` command** for interactively adding words
   to `chords.csv` one at a time. Skips words that already exist,
   auto-detects category (with override), shows collision-free
