@@ -190,19 +190,34 @@ def _solve_pool(
     matched_count = 0
     unmatched_count = 0
     tier_cost = 0.0
+    debug_enabled = options.debug
     for r, c in zip(matched_rows, matched_cols):
         chord = pool[start + r]
+        w = weights[start + r]
         if c >= n_chord_cols:
             report.no_options.append(chord["word"].lower())
             unmatched_count += 1
+            if debug_enabled:
+                chord["debug"] = f"unmatched w={w:.3f}"
             continue
         opt = edge_option[(r, c)]
         chord["chord"] = opt["chord"]
         key = _sorted_key(opt["chord"])
-        tier_cost += opt["score"] * weights[start + r]
+        tier_cost += opt["score"] * w
         holder_by_key[key] = chord["word"].lower()
         reserved_keys.add(key)
         matched_count += 1
+        if debug_enabled:
+            # Populate debug column with weight, chosen-option score,
+            # and the next few candidates the matcher could have
+            # picked (sorted by score) so misassignments are
+            # diagnosable directly from the CSV.
+            candidates = sorted(tier_viables[r], key=lambda o: o["score"])[:4]
+            cand_str = " ".join(f"{o['chord']}:{o['score']}" for o in candidates)
+            chord["debug"] = (
+                f"w={w:.3f} pick={opt['chord']}:{opt['score']} "
+                f"cands=[{cand_str}]"
+            )
 
     report.cost += tier_cost
     print(

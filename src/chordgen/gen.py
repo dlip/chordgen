@@ -40,9 +40,27 @@ def gen(options: GenOptions) -> None:
 
     print(f"Writing {options.file}")
     with open(options.file, "w", newline="") as f:
-        fieldnames = list(chords[0].keys())
-        if "options" in fieldnames:
-            fieldnames.remove("options")
+        # Union of every row's keys (rows read from existing CSVs may
+        # have differing columns). Preserve first-row ordering and
+        # append any extras seen later. The `debug` column is included
+        # only when options.debug is set; when disabled we also drop
+        # any stale debug values left over from a previous run.
+        fieldnames: list[str] = []
+        seen: set[str] = set()
+        for row in chords:
+            for k in row.keys():
+                if k not in seen and k != "options":
+                    seen.add(k)
+                    fieldnames.append(k)
+        if options.debug:
+            if "debug" not in seen:
+                fieldnames.append("debug")
+        else:
+            if "debug" in fieldnames:
+                fieldnames.remove("debug")
+            for row in chords:
+                if "debug" in row:
+                    row["debug"] = ""
         writer = csv.DictWriter(
             f, fieldnames=fieldnames, extrasaction="ignore", lineterminator="\n"
         )

@@ -1,5 +1,5 @@
 from pathlib import Path
-from typing import TypedDict
+from typing import NotRequired, TypedDict
 import csv
 
 
@@ -16,6 +16,7 @@ class Chord(TypedDict):
     alt1: str
     alt2: str
     alt3: str
+    debug: NotRequired[str]
     options: list[Option] | None
 
 

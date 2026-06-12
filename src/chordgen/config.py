@@ -441,6 +441,16 @@ class GenOptions(BaseModel):
             "lowercase letter that exists on your keyboard."
         ),
     )
+    debug: bool = Field(
+        default=False,
+        description=(
+            "When true, gen writes a `debug` column to chords.csv "
+            "containing per-row assignment diagnostics (assignment "
+            "weight, chosen option score, and the top alternative "
+            "candidates considered). Useful for understanding why a "
+            "particular chord was assigned to a word. Default false."
+        ),
+    )
 
     @field_validator("file", mode="after")
     @classmethod
