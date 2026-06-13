@@ -426,6 +426,17 @@ class GenOptions(BaseModel):
         default=0,
         description="The minimum length a chord, setting this to 2 and disabling the chord key is a way to avoid needing a chord key. This works well on CharaChorder, but you will need to lower the chord timeout to avoid missfires on other keyboards.",
     )
+    ignore_words: list[str] = Field(
+        default=[],
+        description=(
+            "Words to ignore during ``chordgen gen``. Ignored words stay "
+            "in chords.csv but are skipped when scoring and assigning "
+            "chords, so they won't produce 'unable to find options' "
+            "warnings and won't consume chord keys. Useful for low-value "
+            "short words (fillers, interjections, dialect forms). Matching "
+            "is case-insensitive."
+        ),
+    )
     key_replacement: dict[str, str] = Field(
         default={},
         description=(

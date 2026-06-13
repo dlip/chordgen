@@ -1,5 +1,12 @@
 # Changelog
 
+## v2.4.0
+
+- Added `gen.ignore_words` config option. Words in this list stay in
+  `chords.csv` but are skipped during `chordgen gen` scoring and chord
+  assignment, so they won't consume chord keys or produce "unable to
+  find options" warnings. Matching is case-insensitive.
+
 ## v2.3.0
 
 A focused release that brings alt-chord training to drill and book

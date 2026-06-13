@@ -9,6 +9,58 @@ from chordgen.config import Config, GenOptions
 from chordgen.scorer import Scorer
 
 
+def _split_ignored(
+    chords: list[dict[str, str]], ignore_words: list[str]
+) -> tuple[list[dict[str, str]], list[tuple[int, dict[str, str]]]]:
+    """Separate rows whose word appears in ``ignore_words``.
+
+    Returns ``(active_rows, [(original_index, ignored_row), ...])``. The
+    ignored rows are kept out of scoring/assignment but merged back into
+    the final CSV so they remain in the word list as unchorded words.
+    """
+    if not ignore_words:
+        return chords, []
+    ignored_set = {w.lower() for w in ignore_words}
+    active: list[dict[str, str]] = []
+    ignored: list[tuple[int, dict[str, str]]] = []
+    for i, c in enumerate(chords):
+        if c.get("word", "").lower() in ignored_set:
+            ignored.append((i, c))
+        else:
+            active.append(c)
+    if ignored:
+        print(f"Ignoring {len(ignored)} words during chord assignment")
+    return active, ignored
+
+
+def _merge_ignored(
+    active: list[dict[str, str]],
+    ignored: list[tuple[int, dict[str, str]]],
+) -> list[dict[str, str]]:
+    """Merge ignored rows back into their original positions."""
+    if not ignored:
+        return active
+    result: list[dict[str, str]] = []
+    active_iter = iter(active)
+    ignored_iter = iter(ignored)
+    next_ignored = next(ignored_iter, None)
+    for i in range(len(active) + len(ignored)):
+        if next_ignored is not None and next_ignored[0] == i:
+            # Clear any leftover chord/alts from a previous run.
+            row = next_ignored[1]
+            row["chord"] = ""
+            row["alt1"] = ""
+            row["alt2"] = ""
+            row["alt3"] = ""
+            if "debug" in row:
+                row["debug"] = ""
+            result.append(row)
+            next_ignored = next(ignored_iter, None)
+        else:
+            result.append(next(active_iter))
+    return result
+
+
 def gen(options: GenOptions) -> None:
     scorer = Scorer(options)
     with open(options.file) as f:
@@ -17,26 +69,29 @@ def gen(options: GenOptions) -> None:
         chords = [line for line in reader]
         if len(chords) == 0:
             raise Exception("No rows found in chords file")
+        active, ignored = _split_ignored(chords, options.ignore_words)
         with ProcessPoolExecutor() as executor:
-            chords = list(
+            active = list(
                 tqdm(
-                    executor.map(scorer.score, chords, chunksize=10),
-                    total=len(chords),
+                    executor.map(scorer.score, active, chunksize=10),
+                    total=len(active),
                 )
             )
 
     print("Generating alts")
     alt_generator = AltGenerator(options)
     with ProcessPoolExecutor() as executor:
-        chords = list(
+        active = list(
             tqdm(
-                executor.map(alt_generator.add_alt, chords, chunksize=10),
-                total=len(chords),
+                executor.map(alt_generator.add_alt, active, chunksize=10),
+                total=len(active),
             )
         )
 
     print("Assigning chords")
-    assign_chords(chords, options)
+    assign_chords(active, options)
+
+    chords = _merge_ignored(active, ignored)
 
     print(f"Writing {options.file}")
     with open(options.file, "w", newline="") as f:
