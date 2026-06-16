@@ -10,7 +10,7 @@ def find_combinations(s, prefix="", index=0):
 
     Returns:
     - result: A list containing all combinations starting with the first character
-              and excluding the empty string, sorted by shortest string first.
+              and excluding the empty string, ordered longest string first.
     """
     result = []
     if index == len(s):
@@ -26,16 +26,3 @@ def find_combinations(s, prefix="", index=0):
     result.extend(find_combinations(s, prefix, index + 1))
 
     return result
-
-
-def find_all_combinations(string):
-    if len(string) == 1:
-        return [string]
-    else:
-        chords = []
-        for i, char in enumerate(string):
-            remaining_chars = string[:i] + string[i + 1 :]
-            sub_chords = find_all_combinations(remaining_chars)
-            for sub_chord in sub_chords:
-                chords.append(char + sub_chord)
-        return chords

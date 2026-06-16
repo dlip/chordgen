@@ -308,9 +308,9 @@
 - <a id="%24defs/DemonstrativeAltOptions"></a>**`DemonstrativeAltOptions`** *(object)*
   - <a id="%24defs/DemonstrativeAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
   - <a id="%24defs/DemonstrativeAltOptions/properties/forms"></a>**`forms`** *(array)*: Demonstrative forms to fill alt1..alt3 with, in order. Demonstratives are ``this``, ``that``, ``these``, and ``those`` arranged on number (singular/plural) and distance (proximal/distal) axes. Length must be at most 3. Default: `["plural", "distal"]`.
-    - <a id="%24defs/DemonstrativeAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "singular", "plural", "proximal" or "distal".
+    - <a id="%24defs/DemonstrativeAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "singular", "plural", "proximal", or "distal".
 - <a id="%24defs/DirectionalKeyboardOptions"></a>**`DirectionalKeyboardOptions`** *(object)*
-  - <a id="%24defs/DirectionalKeyboardOptions/properties/layout"></a>**`layout`** *(string)*: Must be one of: "charachorder", "stained", "svalboard_qwerty" or "custom". Default: `"charachorder"`.
+  - <a id="%24defs/DirectionalKeyboardOptions/properties/layout"></a>**`layout`** *(string)*: Must be one of: "charachorder", "stained", "svalboard_qwerty", or "custom". Default: `"charachorder"`.
   - <a id="%24defs/DirectionalKeyboardOptions/properties/directional_change_penalty"></a>**`directional_change_penalty`** *(integer)*: A penalty to add when chords have different directions per finger on the same hand. Can be set to -1 to disable this type of chord. Default: `2`.
   - <a id="%24defs/DirectionalKeyboardOptions/properties/custom_layout"></a>**`custom_layout`** *(array)*: Default: `["_X__X__X__X__X__X__X__X_", "X_XX_XX_XX_XX_XX_XX_XX_X", "_X__X__X__X__X__X__X__X_", "_X__X_", "X_XX_X", "_X__X_", "_X__X_", "X_XX_X", "_X__X_"]`.
     - <a id="%24defs/DirectionalKeyboardOptions/properties/custom_layout/items"></a>**Items** *(string)*
@@ -523,7 +523,7 @@
     - <a id="%24defs/NumberAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "cardinal" or "ordinal".
 - <a id="%24defs/OutputOptions"></a>**`OutputOptions`** *(object)*
   - <a id="%24defs/OutputOptions/properties/formats"></a>**`formats`** *(array)*: Default: `["qmk", "zmk", "charachorder", "kanata", "training"]`.
-    - <a id="%24defs/OutputOptions/properties/formats/items"></a>**Items** *(string)*: Must be one of: "qmk", "zmk", "charachorder", "kanata" or "training".
+    - <a id="%24defs/OutputOptions/properties/formats/items"></a>**Items** *(string)*: Must be one of: "qmk", "zmk", "charachorder", "kanata", or "training".
   - <a id="%24defs/OutputOptions/properties/qmk"></a>**`qmk`**: Refer to *[#/$defs/QmkOutput](#%24defs/QmkOutput)*. Default:
 
     ```yaml
@@ -613,7 +613,7 @@
 - <a id="%24defs/PronounAltOptions"></a>**`PronounAltOptions`** *(object)*
   - <a id="%24defs/PronounAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
   - <a id="%24defs/PronounAltOptions/properties/forms"></a>**`forms`** *(array)*: Pronoun forms to fill alt1..alt3 with, in order. Length must be at most 3. Default: `["objective", "possessive_det", "reflexive"]`.
-    - <a id="%24defs/PronounAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "nominative", "objective", "possessive_det", "possessive_pron" or "reflexive".
+    - <a id="%24defs/PronounAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "nominative", "objective", "possessive_det", "possessive_pron", or "reflexive".
 - <a id="%24defs/QmkOutput"></a>**`QmkOutput`** *(object)*
   - <a id="%24defs/QmkOutput/properties/file"></a>**`file`** *(string, format: path)*: Default: `"~/.config/chordgen/qmk_chords.def"`.
   - <a id="%24defs/QmkOutput/properties/chord_keys"></a>**`chord_keys`** *(array)*: Default: `["KC_CHORD"]`.
@@ -641,7 +641,7 @@
 
     - <a id="%24defs/QmkOutput/properties/key_codes/additionalProperties"></a>**Additional properties** *(string)*
 - <a id="%24defs/StandardKeyboardOptions"></a>**`StandardKeyboardOptions`** *(object)*
-  - <a id="%24defs/StandardKeyboardOptions/properties/layout"></a>**`layout`** *(string)*: Must be one of: "qwerty", "colemak", "colemak_dh", "canary", "engram_2021", "engram_en", "enthium_v14" or "custom". Default: `"qwerty"`.
+  - <a id="%24defs/StandardKeyboardOptions/properties/layout"></a>**`layout`** *(string)*: Must be one of: "qwerty", "colemak", "colemak_dh", "canary", "engram_2021", "engram_en", "enthium_v14", or "custom". Default: `"qwerty"`.
   - <a id="%24defs/StandardKeyboardOptions/properties/scissor_penalty"></a>**`scissor_penalty`** *(integer)*: A penalty to add when pressing keys on the top and bottom rows together. Can be set to -1 to disable this type of chord. Default: `3`.
   - <a id="%24defs/StandardKeyboardOptions/properties/same_column_chord_penalty"></a>**`same_column_chord_penalty`** *(integer)*: A penalty to add when pressing 2 keys and the same time with the same finger in the same column. Can be set to -1 to disable this type of chord. Default: `2`.
   - <a id="%24defs/StandardKeyboardOptions/properties/same_row_chord_penalty"></a>**`same_row_chord_penalty`** *(integer)*: A penalty to add when pressing 2 keys and the same time with the same finger in the same row. Can be set to -1 to disable this type of chord. Default: `2`.
@@ -655,7 +655,7 @@
 - <a id="%24defs/VerbAltOptions"></a>**`VerbAltOptions`** *(object)*
   - <a id="%24defs/VerbAltOptions/properties/enabled"></a>**`enabled`** *(boolean)*: Default: `true`.
   - <a id="%24defs/VerbAltOptions/properties/forms"></a>**`forms`** *(array)*: Verb forms to fill alt1..alt3 with, in order. Length must be at most 3. Default: `["3sg", "past", "gerund"]`.
-    - <a id="%24defs/VerbAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "3sg", "past", "gerund" or "ppart".
+    - <a id="%24defs/VerbAltOptions/properties/forms/items"></a>**Items** *(string)*: Must be one of: "3sg", "past", "gerund", or "ppart".
 - <a id="%24defs/ZmkOutput"></a>**`ZmkOutput`** *(object)*
   - <a id="%24defs/ZmkOutput/properties/chords_file"></a>**`chords_file`** *(string, format: path)*: Default: `"~/.config/chordgen/zmk_chords.dtsi"`.
   - <a id="%24defs/ZmkOutput/properties/macros_file"></a>**`macros_file`** *(string, format: path)*: Default: `"~/.config/chordgen/zmk_macros.dtsi"`.

@@ -2,6 +2,14 @@
 
 ## v2.4.0
 
+- Removed dead `find_all_combinations` helper from `utils.py` and
+  corrected the `find_combinations` docstring (results are ordered
+  longest-first, not shortest-first).
+- Cleaned up a variable-shadowing bug and an unused loop index in the
+  Kanata output emitter.
+- Added unit tests for `find_combinations`, `validate_chords`,
+  `TrainingOutput`, the QMK/Kanata key-translation error paths, and the
+  assigner's `_split_into_tiers` / `_parse_freq` helpers.
 - Added `gen.ignore_words` config option. Words in this list stay in
   `chords.csv` but are skipped during `chordgen gen` scoring and chord
   assignment, so they won't consume chord keys or produce "unable to

@@ -42,7 +42,7 @@ class KanataOutput(BaseModel):
 
         def translate_chord(chord):
             result = []
-            for i, k in enumerate(chord):
+            for k in chord:
                 if k in self.key_mapping:
                     result.append(self.key_mapping[k])
                 else:
@@ -72,17 +72,17 @@ class KanataOutput(BaseModel):
                 if i > 0:
                     alt = alt_keys[i - 1]
 
-                chord = translate_chord(c)
+                keys = translate_chord(c)
                 # Contractions (``'s``, ``'re``, ``n't``, ...) are typed
                 # *after* a chorded word that already appended a space,
                 # so prepend the ``←`` sentinel to delete it first.
                 bspc = "←" if is_contraction else ""
                 macro = translate_macro(bspc + word + " ")
 
-                output += f"  ({' '.join(self.chord_keys + alt)} {' '.join(chord)}) (macro {' '.join(macro)}) {self.chord_timeout} first-release ()\n"
+                output += f"  ({' '.join(self.chord_keys + alt)} {' '.join(keys)}) (macro {' '.join(macro)}) {self.chord_timeout} first-release ()\n"
                 if self.shifted_chord_keys and not is_contraction:
                     shifted_macro = translate_macro(word.capitalize() + " ")
-                    output += f"  ({' '.join(self.shifted_chord_keys + alt)} {' '.join(chord)}) (macro {' '.join(shifted_macro)}) {self.chord_timeout} first-release ()\n"
+                    output += f"  ({' '.join(self.shifted_chord_keys + alt)} {' '.join(keys)}) (macro {' '.join(shifted_macro)}) {self.chord_timeout} first-release ()\n"
 
         output += ")"
 

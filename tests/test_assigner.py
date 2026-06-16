@@ -7,7 +7,7 @@ but the assigner then silently dropped them from the pool.
 
 from __future__ import annotations
 
-from chordgen.assigner import assign_chords
+from chordgen.assigner import assign_chords, _parse_freq, _split_into_tiers
 from chordgen.chord import Chord, Option
 from chordgen.config import GenOptions
 
@@ -55,3 +55,32 @@ def test_short_non_contraction_still_dropped():
     assign_chords(chords, opts)
     assert chords[0]["chord"] == ""
     assert chords[1]["chord"] == "abc"
+
+
+def test_split_into_tiers_no_cutoffs_is_single_pass():
+    pool = [_chord(f"w{i}", []) for i in range(5)]
+    assert _split_into_tiers(pool, []) == [(0, 5)]
+
+
+def test_split_into_tiers_partitions_at_cutoffs():
+    pool = [_chord(f"w{i}", []) for i in range(10)]
+    assert _split_into_tiers(pool, [3, 7]) == [(0, 3), (3, 7), (7, 10)]
+
+
+def test_split_into_tiers_clamps_cutoffs_to_pool_length():
+    pool = [_chord(f"w{i}", []) for i in range(4)]
+    # A cutoff beyond the pool is clamped; the trailing tier is empty.
+    assert _split_into_tiers(pool, [2, 99]) == [(0, 2), (2, 4), (4, 4)]
+
+
+def test_parse_freq_returns_parsed_value_when_above_floor():
+    assert _parse_freq(_chord("x", [], frequency="5.50"), floor=1.0) == 5.5
+
+
+def test_parse_freq_floors_low_values():
+    assert _parse_freq(_chord("x", [], frequency="0.10"), floor=1.0) == 1.0
+
+
+def test_parse_freq_falls_back_on_missing_or_invalid():
+    assert _parse_freq(_chord("x", [], frequency=""), floor=2.0) == 2.0
+    assert _parse_freq(_chord("x", [], frequency="abc"), floor=2.0) == 2.0

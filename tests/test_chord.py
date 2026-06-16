@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
-from chordgen.chord import build_alt_index
+import pytest
+
+from chordgen.chord import build_alt_index, validate_chords
 
 
 def test_build_alt_index_maps_alt_forms_to_base_slot_and_chord():
@@ -51,3 +53,41 @@ def test_build_alt_index_keeps_first_occurrence_on_collision():
     ]
     idx = build_alt_index(chords)
     assert idx["cars"] == ("car", 1, "ca")
+
+
+def test_validate_chords_accepts_distinct_chords():
+    chords = [
+        {"word": "the", "chord": "te"},
+        {"word": "and", "chord": "ad"},
+    ]
+    # Should not raise.
+    validate_chords(chords)
+
+
+def test_validate_chords_ignores_empty_chords():
+    chords = [
+        {"word": "the", "chord": ""},
+        {"word": "and", "chord": ""},
+    ]
+    validate_chords(chords)
+
+
+def test_validate_chords_raises_on_anagram_collision():
+    # Chords are compared by their sorted characters, so ``te`` and
+    # ``et`` collide even though the raw strings differ.
+    chords = [
+        {"word": "the", "chord": "te"},
+        {"word": "yet", "chord": "et"},
+    ]
+    with pytest.raises(Exception) as exc:
+        validate_chords(chords)
+    assert "yet" in str(exc.value)
+
+
+def test_validate_chords_raises_on_exact_duplicate():
+    chords = [
+        {"word": "the", "chord": "te"},
+        {"word": "their", "chord": "te"},
+    ]
+    with pytest.raises(Exception):
+        validate_chords(chords)
