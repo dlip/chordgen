@@ -62,6 +62,7 @@ nav:
       - learn: commands/learn.md
       - drill: commands/drill.md
       - book: commands/book.md
+      - analyze: commands/analyze.md
   - Output formats:
       - QMK: output-formats/qmk.md
       - ZMK: output-formats/zmk.md

@@ -16,6 +16,9 @@
   represented form's existing utility without changing source frequencies.
 - Teach alt forms after their bases with independent FSRS cards and explicit
   modifier hints; drill/book now require each form's own demonstrated mastery.
+- Add local, read-only `analyze` reports for personal-text coverage, family-aware
+  learning recommendations, and observed recall versus an optional typing-speed
+  estimate; document a separate manual mixed-typing passage comparison.
 
 - Removed dead `find_all_combinations` helper from `utils.py` and
   corrected the `find_combinations` docstring (results are ordered

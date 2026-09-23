@@ -16,3 +16,8 @@ devenv.local.yaml
 
 # pre-commit
 .pre-commit-config.yaml
+
+# Agent-added source and documentation
+!/docs/commands/analyze.md
+!/src/chordgen/analysis.py
+!/tests/test_analysis.py

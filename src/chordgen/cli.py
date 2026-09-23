@@ -49,7 +49,7 @@ def callback(
             raise typer.Abort()
 
     loaded_config = load_or_create_config(
-        config, write_back=ctx.invoked_subcommand != "gen",
+        config, write_back=ctx.invoked_subcommand not in {"gen", "analyze"},
     )
     if ctx.invoked_subcommand != "setup":
         if not loaded_config.gen.file.exists():
@@ -158,6 +158,28 @@ def gen(
     write_chords(State.config.gen, result.chords)
     if result.progress is not None and result.progress != progress:
         save_progress(result.progress)
+
+
+@app.command()
+def analyze(
+    text: Path = typer.Argument(..., exists=True, dir_okay=False, readable=True, help="Local TXT, Markdown, or EPUB text."),
+    limit: int = typer.Option(20, "--limit", min=1, help="Maximum entries in each recommendation list."),
+    baseline_wpm: float | None = typer.Option(None, "--baseline-wpm", help="Ordinary typing WPM for estimated recall-cost comparisons."),
+):
+    """Report personal-text coverage and useful next forms without writing files."""
+    from chordgen.analysis import analyze_text, format_analysis
+    from chordgen.book import load_book
+
+    kind, layout = resolve_keyboard_layout(State.config) or ("standard", None)
+    try:
+        report = analyze_text(
+            load_book(text), load_file(State.config.gen.file), load_progress(),
+            keyboard_kind=kind, keyboard_layout=layout,
+            limit=limit, baseline_wpm=baseline_wpm,
+        )
+    except (ValueError, OSError) as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    typer.echo(format_analysis(report))
 
 
 @app.command()
