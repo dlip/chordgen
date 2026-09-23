@@ -46,6 +46,7 @@ from chordgen.config import GenOptions
 class AssignmentReport:
     no_options: list[str] = field(default_factory=list)
     duplicate: list[str] = field(default_factory=list)
+    alt_covered: list[str] = field(default_factory=list)
     cost: float = 0.0
 
 
@@ -249,88 +250,89 @@ def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
             )
         reserved_keys.add(key)
 
-    # ---- Build pool of words eligible for assignment ---------------------
-    # Words reachable as another row's alt (e.g. "made" as the past form
-    # of "make") shouldn't get a primary chord — they'd shadow nothing
-    # useful and waste contention. Coverage is contributed only by
-    # *base/root* rows (verbs in lemma form, nominative pronouns,
-    # ``this``, cardinal numbers, present-tense modals, ...). This
-    # guarantees that the canonical base of a paradigm survives even
-    # when the inflected sibling has higher SUBTLEX frequency: e.g.
-    # ``your`` doesn't cover ``you``, and ``that`` doesn't cover
-    # ``this``. Open-class categories (verb / noun / adjective / adverb)
-    # treat every row as a base, preserving the historical behaviour
-    # there.
-    coverable: set[str] = set()
+    # Deduplicate before constructing coverage: a discarded row must not
+    # suppress a word through alt slots that will never be emitted.
+    rows: dict[str, Chord] = {}
     for chord in chords:
         word = chord["word"].lower()
-        if not _passes_min_word_length(chord, options.min_word_length):
-            continue
-        if not is_base_form(chord["word"], chord.get("category", "")):
-            continue
-        for slot in ("alt1", "alt2", "alt3"):
-            alt = (chord.get(slot) or "").strip().lower()
-            if alt and alt != word:
-                coverable.add(alt)
-
-    seen_words: set[str] = set()
-    pool: list[Chord] = []
-    skipped_alt_covered: list[str] = []
-    for chord in chords:
-        word = chord["word"].lower()
-        if word in seen_words:
+        if word in rows:
             report.duplicate.append(word)
             continue
-        seen_words.add(word)
-        if not _passes_min_word_length(chord, options.min_word_length):
-            continue
-        if _is_reserved(chord):
-            continue
-        if word in coverable:
-            chord["alt1"] = ""
-            chord["alt2"] = ""
-            chord["alt3"] = ""
-            skipped_alt_covered.append(word)
-            continue
-        pool.append(chord)
+        rows[word] = chord
 
-    if not pool:
-        _print_diagnostics(report, skipped_alt_covered, [], [], {})
-        return report
+    eligible = [
+        c for c in rows.values()
+        if _passes_min_word_length(c, options.min_word_length)
+        and not _is_reserved(c)
+    ]
+    coverage = {
+        word: {
+            alt for slot in ("alt1", "alt2", "alt3")
+            if (alt := (c.get(slot) or "").strip().lower()) and alt != word
+        }
+        for word, c in rows.items()
+        if (_is_reserved(c) or _passes_min_word_length(c, options.min_word_length))
+        and is_base_form(c["word"], c.get("category", ""))
+    }
+    coverable = set().union(*coverage.values()) if coverage else set()
+    pool = [c for c in eligible if c["word"].lower() not in coverable]
+    deferred = [c for c in eligible if c["word"].lower() in coverable]
+    holder_by_key = {
+        _sorted_key(c["chord"]): c["word"].lower()
+        for c in rows.values() if _is_reserved(c)
+    }
 
-    # ---- Build per-row viables / weights once over the full pool --------
-    # Reserved-key filtering happens per-tier inside _solve_pool, so we
-    # don't apply it here.
-    weights: list[float] = []
-    viables: list[list[Option]] = []
-    exponent = cfg.frequency_exponent
-    for chord in pool:
-        v = _viable_options(chord, options.min_chord_length)
-        viables.append(v)
-        weights.append(_parse_freq(chord, floor) ** exponent)
+    def solve(batch: list[Chord], label: str) -> None:
+        viables = [_viable_options(c, options.min_chord_length) for c in batch]
+        weights = [_parse_freq(c, floor) ** cfg.frequency_exponent for c in batch]
+        bounds = _split_into_tiers(batch, list(cfg.priority_tiers))
+        for i, (start, end) in enumerate(bounds):
+            if start != end:
+                _solve_pool(
+                    batch, viables, weights, start, end, reserved_keys,
+                    options, report, holder_by_key,
+                    f"{label} {i + 1}/{len(bounds)} (n={end - start})",
+                )
 
-    # ---- Solve each tier in turn ----------------------------------------
-    holder_by_key: dict[str, str] = {}
-    tier_bounds = _split_into_tiers(pool, list(cfg.priority_tiers))
-    n_tiers = len(tier_bounds)
-    for i, (start, end) in enumerate(tier_bounds):
-        if start == end:
-            continue
-        tier_label = f"Tier {i + 1}/{n_tiers} (n={end - start})"
-        _solve_pool(
-            pool,
-            viables,
-            weights,
-            start,
-            end,
-            reserved_keys,
-            options,
-            report,
-            holder_by_key,
-            tier_label,
-        )
+    def actual_coverage() -> set[str]:
+        return {
+            alt for word, alts in coverage.items() if rows[word].get("chord")
+            for alt in alts
+        }
 
-    _print_diagnostics(report, skipped_alt_covered, pool, viables, holder_by_key)
+    solve(pool, "Tier")
+    # Recover deferred forms against remaining keys. Solve independent
+    # roots together; break a coverage cycle in CSV order. Each iteration
+    # removes at least one row, so failed owners cannot defer forms forever.
+    pending = deferred[:]
+    while pending:
+        covered = actual_coverage()
+        pending = [c for c in pending if c["word"].lower() not in covered]
+        if not pending:
+            break
+        pending_coverage = {
+            alt for c in pending for alt in coverage.get(c["word"].lower(), set())
+        }
+        batch = [c for c in pending if c["word"].lower() not in pending_coverage]
+        if not batch:
+            batch = pending[:1]
+        solve(batch, "Recovery")
+        attempted = {c["word"].lower() for c in batch}
+        pending = [c for c in pending if c["word"].lower() not in attempted]
+
+    covered = actual_coverage()
+    report.alt_covered = [
+        c["word"].lower() for c in eligible
+        if not c.get("chord") and c["word"].lower() in covered
+    ]
+    report.no_options = [
+        c["word"].lower() for c in eligible
+        if not c.get("chord") and c["word"].lower() not in covered
+    ]
+    # Keep unassigned rows' alt definitions: they may be needed by recovery
+    # on the next generation run, and no emitter uses an unassigned row.
+    viables = [_viable_options(c, options.min_chord_length) for c in eligible]
+    _print_diagnostics(report, report.alt_covered, eligible, viables, holder_by_key)
     return report
 
 

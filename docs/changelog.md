@@ -2,6 +2,9 @@
 
 ## v2.4.0
 
+- Recover orphaned alt forms when their base receives no chord; retain
+  alt definitions across reruns and report only actual reachable coverage.
+
 - Removed dead `find_all_combinations` helper from `utils.py` and
   corrected the `find_combinations` docstring (results are ordered
   longest-first, not shortest-first).

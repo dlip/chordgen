@@ -46,15 +46,13 @@ observable costs:
   slightly longer chord for ~190 top-600 words. Only 7 genuinely
   blocked words remained.
 
-- **Alt coverage can cascade across tier boundaries.** When a
-  base-form word (e.g. `die`, frequency 4.90, tier 3) drops out of
-  the pool because all its keys were consumed in tiers 1–2, every
-  row covered through its alt slots (`died`, `dies`, `dying`) becomes
-  orphaned — they were skipped as "reachable via alt" from a word
-  that never got a chord. The next run of `chordgen gen` would assign
-  these forms their own primary chords, but they'd compete with the
-  weight of a single row, not the combined weight of the whole
-  paradigm.
+- **Orphaned alts need remaining free keys.** A form counts as covered
+  only if its base actually receives a chord. If that base is blocked,
+  a recovery pass attempts to assign the form its own primary chord
+  using remaining keys. Recovery handles coverage chains and cycles,
+  but does not displace successful earlier assignments or guarantee a
+  globally optimal family allocation. Unassigned rows retain their alt
+  definitions so rerunning generation cannot lose those relationships.
 
 - **Base words don't pool the frequency of their covered alts.** A
   base row competes only with its own frequency, even though it
