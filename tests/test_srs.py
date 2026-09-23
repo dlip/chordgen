@@ -112,6 +112,36 @@ def test_speed_modes_and_recall_latency_are_independent(progress_file, scheduler
     assert entry["recall_seconds"] == [2.4]
 
 
+def test_mapping_change_relearns_only_affected_card(progress_file, scheduler):
+    progress = srs.load_progress()
+    for word in ("hello", "world"):
+        srs.record_review(progress, scheduler, word, Rating.Good, 50.0, fingerprint="old")
+    daily = dict(progress["daily"])
+    unchanged = dict(progress["words"]["world"])
+    assert srs.get_card(progress, "hello", "new") is None
+    assert srs.learned_words(progress, {"hello": "new", "world": "old"}) == {"world"}
+    assert srs.reconcile_mappings(progress, {"hello": "new", "world": "old"}) == ["hello"]
+    assert progress["words"]["world"] == unchanged
+    assert progress["daily"] == daily
+    assert progress["speed_samples"] == []
+    srs.record_review(progress, scheduler, "hello", Rating.Good, None, fingerprint="new")
+    assert progress["words"]["hello"]["reps"] == 1
+    assert progress["words"]["hello"]["mapping"] == "new"
+
+
+def test_legacy_mapping_binding_preserves_card_and_does_not_write(progress_file, scheduler, caplog):
+    progress = srs.load_progress()
+    srs.record_review(progress, scheduler, "hello", Rating.Good, None)
+    srs.save_progress(progress)
+    before = progress_file.read_bytes()
+    card = dict(progress["words"]["hello"]["card"])
+    assert srs.reconcile_mappings(progress, {"hello": "mapping"}) == []
+    assert progress["words"]["hello"]["card"] == card
+    assert progress["words"]["hello"]["mapping"] == "mapping"
+    assert "original mappings are unknown" in caplog.text
+    assert progress_file.read_bytes() == before
+
+
 def test_record_review_creates_card_for_new_word(progress_file, scheduler):
     progress = srs.load_progress()
     card = srs.record_review(progress, scheduler, "hello", Rating.Good, None)

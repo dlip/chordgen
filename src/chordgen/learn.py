@@ -27,10 +27,12 @@ from chordgen.srs import (
     load_progress,
     make_scheduler,
     record_review,
+    reconcile_mappings,
     save_progress,
     slow_threshold_wpm,
 )
 from chordgen.keyboard_view import render_keyboard
+from chordgen.chord import build_repertoire, mapping_fingerprints
 
 
 # ---------------------------------------------------------------------------
@@ -137,7 +139,11 @@ class LearnApp(App):
         self.keyboard_kind = keyboard_kind
         self._initial_theme = initial_theme
         self._on_theme_change = on_theme_change
+        self.fingerprints = mapping_fingerprints(
+            build_repertoire(chords), keyboard_kind, keyboard_layout,
+        )
         self.progress: ProgressFile = load_progress()
+        reconcile_mappings(self.progress, self.fingerprints)
         self.scheduler: Scheduler = make_scheduler(
             learning_steps=config.learning_steps,
             relearn_steps=config.relearn_steps,
@@ -350,6 +356,7 @@ class LearnApp(App):
         self.first_word_committed = False
         self.graduated_this_session = set()
         self.progress = load_progress()
+        reconcile_mappings(self.progress, self.fingerprints)
         self.words_to_practice = self._initial_word_list()
         self.update_word_display()
 
@@ -449,6 +456,7 @@ class LearnApp(App):
             now=datetime.now(timezone.utc),
             speed_mode=self.speed_mode,
             elapsed_seconds=elapsed,
+            fingerprint=self.fingerprints[word],
         )
         # Persist after every commit so daily counters and FSRS state
         # survive an unexpected quit. Anki behaves the same way.

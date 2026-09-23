@@ -62,6 +62,16 @@ def test_collect_learned_words_intersects_review_state_with_chords_map():
     assert app.learned_words == {"the", "of"}
 
 
+def test_changed_mapping_is_not_treated_as_learned():
+    chords = [{"word": "the", "chord": "te"}]
+    progress = _progress_with({"the": State.Review})
+    progress["words"]["the"]["mapping"] = "old"
+    app = _new_drill(chords, progress)
+    app.fingerprints = {"the": "new"}
+    assert app._collect_learned_words(progress) == set()
+    assert progress["words"]["the"]["mapping"] == "old"
+
+
 def test_default_pool_is_graduated_only():
     chords = [
         {"word": "the", "chord": "te"},

@@ -13,7 +13,8 @@ from chordgen.config import (
     save_config,
 )
 from chordgen.constants import CONFIG_DIR
-from chordgen.gen import gen as run_gen
+from chordgen.gen import generate, write_chords
+from chordgen.srs import load_progress, save_progress
 from chordgen.vocab import SOURCES
 from chordgen.vocab.pipeline import build_chords_csv
 from chordgen.add import add_words
@@ -47,7 +48,9 @@ def callback(
             )
             raise typer.Abort()
 
-    loaded_config = load_or_create_config(config)
+    loaded_config = load_or_create_config(
+        config, write_back=ctx.invoked_subcommand != "gen",
+    )
     if ctx.invoked_subcommand != "setup":
         if not loaded_config.gen.file.exists():
             print(
@@ -127,14 +130,34 @@ def setup(
 
 
 @app.command()
-def gen():
+def gen(
+    dry_run: bool = typer.Option(False, "--dry-run", help="Preview changes without writing chords or progress."),
+    preserve_learned: bool = typer.Option(False, "--preserve-learned", help="Reserve learned mappings and their family slots for this run."),
+    yes: bool = typer.Option(False, "--yes", "-y", help="Accept changes to learned mappings without prompting."),
+):
     """Score, generate alts, and assign chords to every word.
 
     Picks the optimal chord per word using a sparse minimum-weight
     bipartite matcher, fills alt1/alt2/alt3 via the category/inflector
     registry, and writes the result back to chords.csv.
     """
-    run_gen(State.config.gen)
+    progress = load_progress()
+    try:
+        result = generate(State.config.gen, progress=progress, preserve_learned=preserve_learned)
+    except ValueError as exc:
+        raise typer.BadParameter(str(exc)) from exc
+    for change in result.changes:
+        typer.echo(change)
+    if result.learned_changes:
+        typer.echo("Learned mappings changing: " + ", ".join(result.learned_changes))
+    if dry_run:
+        typer.echo("Dry run: no files written.")
+        return
+    if result.learned_changes and not yes:
+        typer.confirm("Replace these learned mappings and relearn them?", abort=True)
+    write_chords(State.config.gen, result.chords)
+    if result.progress is not None and result.progress != progress:
+        save_progress(result.progress)
 
 
 @app.command()

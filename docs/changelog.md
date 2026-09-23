@@ -9,6 +9,9 @@
 - Measure learn timing from prompt activation, add isolated `learn --recall`
   practice with separate unassisted latency/speed histories, and migrate
   legacy progress without losing cards or daily quotas.
+- Track learned mapping identity, preview generation with `--dry-run`, reserve
+  learned mappings with `--preserve-learned`, and confirm intentional changes
+  before retiring affected cards. Legacy cards bind once to current mappings.
 
 - Removed dead `find_all_combinations` helper from `utils.py` and
   corrected the `find_combinations` docstring (results are ordered

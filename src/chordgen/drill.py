@@ -38,7 +38,7 @@ from textual.reactive import reactive
 from textual.widgets import Footer, Header, Static
 
 from chordgen.constants import CONFIG_DIR
-from chordgen.chord import build_alt_index
+from chordgen.chord import build_alt_index, build_repertoire, mapping_fingerprints
 from chordgen.srs import get_card, load_progress
 from chordgen.keyboard_view import render_keyboard
 
@@ -162,6 +162,7 @@ class DrillApp(App):
         )
         self.keyboard_layout = keyboard_layout
         self.keyboard_kind = keyboard_kind
+        self.fingerprints = mapping_fingerprints(build_repertoire(chords), keyboard_kind, keyboard_layout)
         self.layout_key = layout_key
         self._initial_theme = initial_theme
         self._on_theme_change = on_theme_change
@@ -205,7 +206,7 @@ class DrillApp(App):
         for word in progress.get("words", {}):
             if word not in self.chords_map:
                 continue
-            card = get_card(progress, word)
+            card = get_card(progress, word, getattr(self, "fingerprints", {}).get(word))
             if card is not None and card.state == State.Review:
                 out.add(word)
         # Pull in alts of every graduated base.

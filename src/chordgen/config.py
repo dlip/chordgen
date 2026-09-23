@@ -516,7 +516,7 @@ def save_config(config: "Config", config_file: Path = DEFAULT_CONFIG) -> None:
     config_file.write_text(yaml.safe_dump(config.model_dump()))
 
 
-def load_or_create_config(config_file: Path = DEFAULT_CONFIG) -> Config:
+def load_or_create_config(config_file: Path = DEFAULT_CONFIG, *, write_back: bool = True) -> Config:
     if config_file != DEFAULT_CONFIG and not config_file.exists():
         raise Exception(f"Config file does not exist: {config_file}")
 
@@ -542,7 +542,8 @@ def load_or_create_config(config_file: Path = DEFAULT_CONFIG) -> Config:
     # Validate + apply defaults
     config = Config.model_validate(raw)
 
-    # Optionally rewrite file if missing fields were added
-    config_file.write_text(yaml.safe_dump(config.model_dump()))
+    # Read-only commands must not rewrite even a defaults-only migration.
+    if write_back:
+        config_file.write_text(yaml.safe_dump(config.model_dump()))
 
     return config

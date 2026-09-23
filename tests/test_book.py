@@ -321,7 +321,7 @@ def test_collect_learned_words_includes_alts_of_graduated_base(monkeypatch):
     )
     monkeypatch.setattr(
         "chordgen.book.get_card",
-        lambda progress, word: _FakeCard() if word == "car" else None,
+        lambda progress, word, fingerprint=None: _FakeCard() if word == "car" else None,
     )
 
     app = BookApp.__new__(BookApp)

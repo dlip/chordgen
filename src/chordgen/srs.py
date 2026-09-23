@@ -18,6 +18,7 @@ and a per-word lapse counter for leech detection.
 from __future__ import annotations
 
 import json
+import logging
 import statistics
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -47,6 +48,7 @@ class WordProgress(TypedDict):
     last_seen_date: str | None
     recall_wpm_ewma: NotRequired[float | None]
     recall_seconds: NotRequired[list[float]]
+    mapping: NotRequired[str]
 
 
 class DailyState(TypedDict):
@@ -149,11 +151,49 @@ def make_scheduler(
 # ---------------------------------------------------------------------------
 
 
-def get_card(progress: ProgressFile, word: str) -> Card | None:
+def mapping_matches(entry: WordProgress, fingerprint: str) -> bool:
+    """Legacy cards have no identity; keep them until one-time binding."""
+    return not entry.get("mapping") or entry["mapping"] == fingerprint
+
+
+def reconcile_mappings(progress: ProgressFile, fingerprints: dict[str, str]) -> list[str]:
+    """Bind legacy identities and retire changed cards, in memory only."""
+    changed: list[str] = []
+    legacy: list[str] = []
+    for word, fingerprint in fingerprints.items():
+        entry = progress["words"].get(word)
+        if entry is None:
+            continue
+        if not mapping_matches(entry, fingerprint):
+            del progress["words"][word]
+            changed.append(word)
+        elif not entry.get("mapping"):
+            entry["mapping"] = fingerprint
+            legacy.append(word)
+    if legacy:
+        logging.warning("Binding %d legacy cards to current mappings; original mappings are unknown.", len(legacy))
+    if changed:
+        logging.warning("Changed mappings need relearning: %s", ", ".join(changed))
+        # Global samples have no word identity, so cannot remove just the
+        # changed mappings' observations. Recalibrate thresholds safely.
+        progress["speed_samples"] = []
+        progress["recall_speed_samples"] = []
+    return changed
+
+
+def get_card(progress: ProgressFile, word: str, fingerprint: str | None = None) -> Card | None:
     entry = progress["words"].get(word)
-    if entry is None:
+    if entry is None or (fingerprint is not None and not mapping_matches(entry, fingerprint)):
         return None
     return Card.from_dict(entry["card"])
+
+
+def learned_words(progress: ProgressFile, fingerprints: dict[str, str]) -> set[str]:
+    return {
+        word for word, fingerprint in fingerprints.items()
+        if (card := get_card(progress, word, fingerprint)) is not None
+        and card.state == State.Review
+    }
 
 
 def get_reps(progress: ProgressFile, word: str) -> int:
@@ -224,11 +264,14 @@ def record_review(
     *,
     speed_mode: SpeedMode = "throughput",
     elapsed_seconds: float | None = None,
+    fingerprint: str | None = None,
 ) -> Card:
     """Apply ``scheduler.review_card`` to ``word`` and update speed,
     lapse, and daily-quota tracking. Returns the resulting card so
     the caller can read its ``state`` to decide whether to re-drill
     in the current session."""
+    if fingerprint is not None:
+        reconcile_mappings(progress, {word: fingerprint})
     when = datetime.now(timezone.utc) if now is None else now
     today = _today_iso(when)
     daily = _ensure_daily_for(progress, when)
@@ -283,6 +326,8 @@ def record_review(
         ewma_key: new_ewma,
     })
     entry.setdefault("wpm_ewma", None)
+    if fingerprint is not None:
+        entry["mapping"] = fingerprint
     if (speed_mode == "recall" and word_wpm is not None and word_wpm > 0
             and elapsed_seconds is not None and elapsed_seconds > 0):
         observations = entry.setdefault("recall_seconds", [])

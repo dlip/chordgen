@@ -2,6 +2,26 @@
 
 Generates chords and alts for `chords.csv` in-place.
 
+```sh
+chordgen gen --dry-run           # preview without writing CSV, config, or progress
+chordgen gen --preserve-learned  # keep learned mappings and their family slots
+chordgen gen --yes              # explicitly accept changes to learned mappings
+```
+
+Generation lists changed chord/alt cells before writing. If a currently
+learned mapping changes or disappears, it asks for confirmation; an accepted
+change retires only the affected learning card. `--preserve-learned` reserves
+learned mappings for this run without clearing their source frequency or
+changing the manual-pinning convention. It also preserves their existing alt
+slots even when alt overwrite is enabled. Ignoring a protected learned word
+is a conflict and stops generation before any writes.
+
+Progress now identifies the physical chord, actual keyboard layout, and alt
+slot. Legacy cards have no original mapping identity: they are bound once to
+the current dictionary with a warning, retaining their existing FSRS state.
+A dry run performs that binding only in memory. Reordering the letters of a
+chord or editing unrelated dictionary rows does not invalidate mastery.
+
 The pipeline runs in three phases:
 
 1.  **Score** — for each word, enumerate every chord that keeps the

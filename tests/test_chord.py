@@ -91,3 +91,37 @@ def test_validate_chords_raises_on_exact_duplicate():
     ]
     with pytest.raises(Exception):
         validate_chords(chords)
+
+
+def test_mapping_identity_tracks_physical_mapping_not_dictionary_order():
+    from chordgen.chord import build_repertoire
+    from dataclasses import replace
+
+    rows = [{"word": "look", "chord": "lk", "alt1": "looks"}]
+    mapping = build_repertoire(rows)["look"]
+    layout = [list("lk")]
+    fingerprint = mapping.fingerprint("standard", layout)
+    assert replace(mapping, chord="kl").fingerprint("standard", layout) == fingerprint
+    assert replace(mapping, frequency="99").fingerprint("standard", layout) == fingerprint
+    assert replace(mapping, chord="lo").fingerprint("standard", layout) != fingerprint
+    assert mapping.fingerprint("standard", [list("kl")]) != fingerprint
+    assert mapping.fingerprint("directional", layout) != fingerprint
+    rows.append({"word": "other", "chord": "ot"})
+    assert build_repertoire(rows)["look"].fingerprint("standard", layout) == fingerprint
+    alt = build_repertoire(rows)["looks"]
+    assert replace(alt, slot=2).fingerprint("standard", layout) != alt.fingerprint("standard", layout)
+
+
+def test_repertoire_primary_precedence_and_alt_frequency():
+    from chordgen.chord import build_repertoire
+    rows = [
+        {"word": "look", "chord": "lk", "alt1": "looks", "alt2": "looked"},
+        {"word": "looks", "chord": "ls", "frequency": "4"},
+        {"word": "looked", "chord": "", "frequency": "3"},
+        {"word": "n't", "chord": "nt", "category": "contraction"},
+    ]
+    repertoire = build_repertoire(rows)
+    assert repertoire["looks"].slot == 0
+    assert repertoire["looked"].slot == 2
+    assert repertoire["looked"].frequency == "3"
+    assert "n't" not in repertoire

@@ -227,17 +227,25 @@ def _solve_pool(
     )
 
 
-def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
+def assign_chords(
+    chords: list[Chord], options: GenOptions, *, preserve_words: set[str] | None = None,
+) -> AssignmentReport:
     report = AssignmentReport()
     cfg = options.assignment
     floor = cfg.min_frequency_weight
+    preserve_words = {w.lower() for w in (preserve_words or set())}
+
+    def reserved(chord: Chord) -> bool:
+        return _is_reserved(chord) or (
+            bool(chord.get("chord")) and chord["word"].lower() in preserve_words
+        )
 
     # ---- Phase A: reserved chords ----------------------------------------
     # User-pinned rows are removed from the optimisation entirely; their
     # chord-keys are reserved so no other word can match them.
     reserved_keys: set[str] = set()
     for chord in chords:
-        if not _is_reserved(chord):
+        if not reserved(chord):
             # Clear any chord left over from a previous gen run so the
             # row is eligible for reassignment.
             chord["chord"] = ""
@@ -263,7 +271,7 @@ def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
     eligible = [
         c for c in rows.values()
         if _passes_min_word_length(c, options.min_word_length)
-        and not _is_reserved(c)
+        and not reserved(c)
     ]
     coverage = {
         word: {
@@ -271,7 +279,7 @@ def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
             if (alt := (c.get(slot) or "").strip().lower()) and alt != word
         }
         for word, c in rows.items()
-        if (_is_reserved(c) or _passes_min_word_length(c, options.min_word_length))
+        if (reserved(c) or _passes_min_word_length(c, options.min_word_length))
         and is_base_form(c["word"], c.get("category", ""))
     }
     coverable = set().union(*coverage.values()) if coverage else set()
@@ -279,7 +287,7 @@ def assign_chords(chords: list[Chord], options: GenOptions) -> AssignmentReport:
     deferred = [c for c in eligible if c["word"].lower() in coverable]
     holder_by_key = {
         _sorted_key(c["chord"]): c["word"].lower()
-        for c in rows.values() if _is_reserved(c)
+        for c in rows.values() if reserved(c)
     }
 
     def solve(batch: list[Chord], label: str) -> None:

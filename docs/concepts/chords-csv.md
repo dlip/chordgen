@@ -41,6 +41,13 @@ for it. For example:
 To re-pin a word that already has a generated chord, just clear its
 `frequency` cell and edit the `chord`.
 
+To protect chords you have already learned without losing frequency data,
+use `chordgen gen --preserve-learned`. This reserves current learned mappings
+and their alt slots for that run; it does not edit frequency cells or create
+permanent manual pins. Preview with `chordgen gen --dry-run`. Learning progress
+tracks mapping identity, so changing a chord or its physical layout requires
+relearning rather than inheriting the previous mapping's mastery.
+
 ## Editing chords.csv
 
 After `setup`, `chords.csv` is yours. Common workflows:

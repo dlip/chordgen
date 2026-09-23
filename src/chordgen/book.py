@@ -39,7 +39,7 @@ from textual.binding import Binding
 from textual.widgets import Footer, Header, Static
 
 from chordgen.constants import CONFIG_DIR
-from chordgen.chord import build_alt_index
+from chordgen.chord import build_alt_index, build_repertoire, mapping_fingerprints
 from chordgen.keyboard_view import render_keyboard
 from chordgen.srs import get_card, load_progress
 
@@ -584,6 +584,7 @@ class BookApp(App):
         self.book = load_book(path)
         self.keyboard_layout = keyboard_layout
         self.keyboard_kind = keyboard_kind
+        self.fingerprints = mapping_fingerprints(build_repertoire(chords), keyboard_kind, keyboard_layout)
         self._initial_theme = initial_theme
         self._on_theme_change = on_theme_change
 
@@ -622,7 +623,7 @@ class BookApp(App):
         for word in progress.get("words", {}):
             if word not in self.chords_map:
                 continue
-            card = get_card(progress, word)
+            card = get_card(progress, word, getattr(self, "fingerprints", {}).get(word))
             if card is not None and card.state == State.Review:
                 learned.add(word)
         # Alt forms inherit their base row's mastery so they get
