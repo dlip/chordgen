@@ -4,6 +4,8 @@
 
 - Recover orphaned alt forms when their base receives no chord; retain
   alt definitions across reruns and report only actual reachable coverage.
+- Correct the standard keyboard's sixth column to the left hand so scissor
+  scoring agrees with finger assignments and the displayed hand split.
 
 - Removed dead `find_all_combinations` helper from `utils.py` and
   corrected the `find_combinations` docstring (results are ordered

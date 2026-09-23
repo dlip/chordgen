@@ -13,7 +13,9 @@ Covers two fixes:
 from __future__ import annotations
 
 from chordgen.keyboards.directional import DirectionalKeyboardOptions
-from chordgen.keyboards.standard import StandardKeyboardOptions
+from chordgen.keyboards.standard import (
+    FINGER_MAPPING, HAND_ROW_MAPPING, StandardKeyboardOptions,
+)
 
 
 def _standard(**overrides):
@@ -52,6 +54,20 @@ def test_middle_bottom_same_column_rejected_when_disabled():
 
 def test_top_bottom_same_column_always_rejected():
     assert _standard(same_column_chord_penalty=2).score("qz") == -1
+
+
+def test_hand_rows_match_finger_assignments():
+    for fingers, hand_rows in zip(FINGER_MAPPING[:3], HAND_ROW_MAPPING[:3]):
+        for finger, hand_row in zip(fingers, hand_rows):
+            assert hand_row[-1] == ("l" if finger <= 4 else "r")
+
+
+def test_left_index_scissors_do_not_cross_hands():
+    kb = _standard()
+    assert kb.get_scissor_count("tz") == 1
+    assert kb.get_scissor_count("tm") == 0
+    assert kb.get_scissor_count("qv") == 1
+    assert kb.get_scissor_count("yv") == 0
 
 
 # ---------------------------------------------------------------------

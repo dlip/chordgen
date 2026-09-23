@@ -12,9 +12,9 @@ FINGER_MAPPING = [
 
 
 HAND_ROW_MAPPING = [
-    ["tl", "tl", "tl", "tl", "tl", "tr", "tr", "tr", "tr", "tr", "tr", "tr"],
-    ["ml", "ml", "ml", "ml", "ml", "mr", "mr", "mr", "mr", "mr", "mr", "mr"],
-    ["bl", "bl", "bl", "bl", "bl", "br", "br", "br", "br", "br", "br", "br"],
+    ["tl", "tl", "tl", "tl", "tl", "tl", "tr", "tr", "tr", "tr", "tr", "tr"],
+    ["ml", "ml", "ml", "ml", "ml", "ml", "mr", "mr", "mr", "mr", "mr", "mr"],
+    ["bl", "bl", "bl", "bl", "bl", "bl", "br", "br", "br", "br", "br", "br"],
     ["th", "th", "th", "th"],
 ]
 
