@@ -93,6 +93,20 @@ def test_preserve_learned_retains_frequency_alts_and_manual_pins(tmp_path, monke
     assert result.progress["words"]["hello"]["mapping"]
 
 
+def test_preserve_learned_alt_keeps_owning_base_and_slot(tmp_path, monkeypatch):
+    from chordgen import gen, srs
+    from fsrs import Rating
+    options, progress = _generation_fixture(tmp_path, monkeypatch)
+    progress["words"].clear()
+    srs.record_review(progress, srs.make_scheduler(learning_steps=1), "hellos", Rating.Good, None)
+    options.alts.overwrite = True
+    result = gen.generate(options, progress=progress, preserve_learned=True)
+    assert result.chords[0]["chord"] == "hl"
+    assert result.chords[0]["alt1"] == "hellos"
+    assert result.learned_changes == []
+    assert result.progress["words"]["hellos"]["reps"] == 1
+
+
 def test_preserve_rejects_ignored_learned_word(tmp_path, monkeypatch):
     import pytest
     from chordgen import gen

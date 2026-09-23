@@ -21,10 +21,11 @@ against the chords you already know.
 
 ### Alt chords
 
-When the chord row for a graduated word has `alt1` / `alt2` / `alt3`
-inflections, those alt forms ride along into the drill pool — so
-graduating `set` also drills `sets`, `setting`, and `settings`. On
-a stumble, the chord shown under the word is suffixed with the slot
+Alt forms from `alt1` / `alt2` / `alt3` enter the default pool after
+**their own** FSRS card graduates on the current mapping. Graduating `set`
+alone does not mark `sets`, `setting`, or `settings` learned. Custom word
+lists may still include unlearned alts for practice. On a stumble, the
+chord shown under the word is suffixed with the slot
 digit (e.g. base shows `au`, alt1 shows `au1`, alt2 shows `au2`).
 Below the keyboard an `alt1 alt2 alt3` indicator highlights the
 slot you need to combine with the chord on your firmware. Set

@@ -92,12 +92,13 @@ def build_chords_map(chords: list[dict[str, Any]]) -> dict[str, dict[str, Any]]:
     Contractions (``'s``, ``n't``, ...) are output appendages, not
     standalone words — typing them on their own would backspace into
     nothing. They're excluded so learn mode never surfaces them.
-    Words with no chord assigned are also dropped.
+    Assigned alt forms have their own entries, with base and modifier slot.
+    Forms without either a primary or a usable alt mapping are dropped.
     """
     return {
-        c["word"]: c
-        for c in chords
-        if c["chord"] and c.get("category") != "contraction"
+        m.word: {"word": m.word, "chord": m.chord, "frequency": m.frequency,
+                 "base": m.base, "slot": m.slot}
+        for m in build_repertoire(chords).values()
     }
 
 
@@ -287,6 +288,11 @@ class LearnApp(App):
                 w = chord["word"]
                 if w in already or w in words_state:
                     continue
+                if chord.get("slot"):
+                    base = chord["base"]
+                    base_card = get_card(self.progress, base, self.fingerprints.get(base))
+                    if base_card is None or base_card.state != State.Review:
+                        continue
                 new_words.append(w)
                 if len(new_words) >= new_left:
                     break
@@ -615,6 +621,9 @@ class LearnApp(App):
         rendered.append_text(padded_line)
         rendered.append("\n")
         rendered.append_text(padded_chord_line)
+        current_mapping = self.chords_map[self.words_to_practice[0]]
+        if chord_strings[0] and current_mapping.get("slot"):
+            rendered.append(f"\n{current_mapping['base']} + alt{current_mapping['slot']}", style="cyan")
 
         # ASCII keyboard view. Highlight the chord keys only when the
         # current word's chord is actually being shown above (i.e.
@@ -623,9 +632,10 @@ class LearnApp(App):
             highlights: set[str] = set()
             current_chord = chord_strings[0] if chord_strings else ""
             if current_chord:
-                highlights = set(current_chord)
+                highlights = set(current_mapping["chord"])
             kb = render_keyboard(
-                self.keyboard_layout, highlights, kind=self.keyboard_kind
+                self.keyboard_layout, highlights, kind=self.keyboard_kind,
+                alt_slot=current_mapping.get("slot", 0) if current_chord else 0,
             )
             if kb.plain:
                 rendered.append("\n\n")
@@ -675,4 +685,5 @@ class LearnApp(App):
 
         if mastered and not (is_current and self.current_word_had_error):
             return ""
-        return chord
+        slot = chord_row.get("slot", 0)
+        return chord + (str(slot) if slot else "")

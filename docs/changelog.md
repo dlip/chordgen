@@ -14,6 +14,8 @@
   before retiring affected cards. Legacy cards bind once to current mappings.
 - Weight chord assignments by uniquely served word families, summing each
   represented form's existing utility without changing source frequencies.
+- Teach alt forms after their bases with independent FSRS cards and explicit
+  modifier hints; drill/book now require each form's own demonstrated mastery.
 
 - Removed dead `find_all_combinations` helper from `utils.py` and
   corrected the `find_combinations` docstring (results are ordered

@@ -9,10 +9,10 @@ well on the thumbs to ensure all the combinations are possible.
 | ------------------------------- | ---------------- |
 | l + chord                       | look`<space>`    |
 | l + chord + shift               | Look`<space>`    |
-| l + chord + alt1                | looked`<space>`  |
-| l + chord + alt2                | looking`<space>` |
-| l + chord + alt1 + alt2 (alt3)  | looks`<space>`   |
-| l + chord + shift + alt1 + alt2 | Looks`<space>`   |
+| l + chord + alt1                | looks`<space>`   |
+| l + chord + alt2                | looked`<space>`  |
+| l + chord + alt1 + alt2 (alt3)  | looking`<space>` |
+| l + chord + shift + alt1 + alt2 | Looking`<space>` |
 
 This is how I have set up my 4-key thumb cluster from left to right:
 

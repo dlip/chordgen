@@ -32,7 +32,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from fsrs import State
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -41,7 +40,7 @@ from textual.widgets import Footer, Header, Static
 from chordgen.constants import CONFIG_DIR
 from chordgen.chord import build_alt_index, build_repertoire, mapping_fingerprints
 from chordgen.keyboard_view import render_keyboard
-from chordgen.srs import get_card, load_progress
+from chordgen.srs import learned_words, load_progress
 
 
 # ---------------------------------------------------------------------------
@@ -619,19 +618,12 @@ class BookApp(App):
 
     def _collect_learned_words(self) -> set[str]:
         progress = load_progress()
-        learned: set[str] = set()
-        for word in progress.get("words", {}):
-            if word not in self.chords_map:
-                continue
-            card = get_card(progress, word, getattr(self, "fingerprints", {}).get(word))
-            if card is not None and card.state == State.Review:
-                learned.add(word)
-        # Alt forms inherit their base row's mastery so they get
-        # highlighted in the prose alongside the base word.
-        for alt, (base, _slot, _chord) in self.alt_index.items():
-            if base in learned:
-                learned.add(alt)
-        return learned
+        fingerprints = getattr(self, "fingerprints", None)
+        if fingerprints is None:
+            fingerprints = mapping_fingerprints(
+                build_repertoire(list(self.chords_map.values())), "standard", None,
+            )
+        return learned_words(progress, fingerprints)
 
     def _clamp_to_word(self, idx: int) -> int:
         if not self.book.tokens:

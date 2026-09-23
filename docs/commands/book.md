@@ -38,9 +38,10 @@ Supported formats:
 ## Alt chords
 
 Alt-slot inflections from `chords.csv` (`alt1` / `alt2` / `alt3`)
-inherit their base row's mastery, so an `alt1` form like `cars` is
-highlighted in the prose alongside its graduated base `car`. When
-you mistype an alt form, the chord shown beneath the word is
+are highlighted only once their own FSRS card has graduated on the current
+mapping. Knowing `car` no longer marks `cars` learned automatically; learn
+mode introduces and reviews each form independently. When you mistype a
+learned alt form, the chord shown beneath the word is
 suffixed with the slot digit (e.g. `ca1` for an `alt1`) and the
 alt indicator below the keyboard highlights the firmware modifier
 you need to combine with the base chord.

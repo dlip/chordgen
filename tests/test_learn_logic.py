@@ -135,6 +135,56 @@ def test_activation_timing_includes_delay_before_macro(tmp_path, monkeypatch, re
     asyncio.run(exercise())
 
 
+def test_alt_learning_waits_for_base_and_tracks_own_reviews(tmp_path, monkeypatch):
+    import asyncio
+    from chordgen import learn, srs
+    from chordgen.config import LearnOptions
+
+    monkeypatch.setattr(srs, "PROGRESS_FILE", tmp_path / "progress.json")
+    app = learn.LearnApp([
+        {"word": "look", "chord": "lk", "frequency": "4", "alt1": "looks", "alt2": "looked"},
+        {"word": "looks", "chord": "", "frequency": "7"},
+    ], LearnOptions(show_words=2, learning_steps=1, new_words_per_day=3),
+        keyboard_layout=[list("look"), list("abcd"), list("efgh")], recall=True)
+    assert app.words_to_practice == ["look"]
+    assert app.chords_map["looks"]["frequency"] == "7"
+
+    async def exercise():
+        async with app.run_test() as pilot:
+            await pilot.press(*"look", "space")
+            assert app.words_to_practice == ["looks"]
+            assert "looks" not in app.progress["words"]
+            assert app.chord_for_word("looks", True) == "lk1"
+            assert "look + alt1" in str(app.query_one(learn.WordDisplay).render())
+            await pilot.press(*"looks", "space")
+            assert app.progress["words"]["look"]["reps"] == 1
+            assert app.progress["words"]["looks"]["reps"] == 1
+            assert app.progress["daily"]["new_count"] == 2
+            assert app.words_to_practice == ["looked"]
+            assert app.progress["words"]["looks"]["mapping"] == app.fingerprints["looks"]
+
+    asyncio.run(exercise())
+
+
+def test_new_alt_respects_daily_quota(tmp_path, monkeypatch):
+    import asyncio
+    from chordgen import learn, srs
+    from chordgen.config import LearnOptions
+
+    monkeypatch.setattr(srs, "PROGRESS_FILE", tmp_path / "progress.json")
+    app = learn.LearnApp([
+        {"word": "go", "chord": "go", "frequency": "4", "alt1": "went"},
+    ], LearnOptions(show_words=2, learning_steps=1, new_words_per_day=1))
+
+    async def exercise():
+        async with app.run_test() as pilot:
+            await pilot.press("g", "o", "space")
+            assert app.words_to_practice == []
+            assert "went" not in app.progress["words"]
+
+    asyncio.run(exercise())
+
+
 def test_assisted_recall_and_errors_do_not_enter_speed_history(tmp_path, monkeypatch):
     import asyncio
     from types import SimpleNamespace

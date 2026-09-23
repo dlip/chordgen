@@ -58,6 +58,22 @@ learning words have graduated.
   speed practice on words you already know, use the separate
   [`chordgen drill`](drill.md) mode.
 
+### Learning word families
+
+Assigned alt forms are separate practice cards. New forms become eligible
+once their base has graduated, then use the same daily quota, hint fading,
+and FSRS review rules as primary words. A hint such as `lk2` means the `lk`
+chord with `alt2`; the family label and keyboard indicator identify the
+modifier. These follow your actual CSV slots, including irregular and manual
+forms, rather than guessing suffixes. Each form's own source frequency is
+used when present.
+
+Learning `look` does not mark `looks`, `looked`, or `looking` mastered. Drill
+and book highlight an alt as learned only after its own card graduates on
+the current chord/layout/slot. Changing a slot requires relearning that form,
+not the unaffected base. `gen --preserve-learned` also protects the owning
+base and slot when an alt has been learned.
+
 ### Isolated recall
 
 Run `chordgen learn --recall` to hide the upcoming queue and show only the

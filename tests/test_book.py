@@ -291,8 +291,8 @@ def test_running_wpm_zero_when_no_events():
 # ---------------------------------------------------------------------------
 
 
-def test_collect_learned_words_includes_alts_of_graduated_base(monkeypatch):
-    from fsrs import State
+def test_collect_learned_words_requires_independent_alt_review(monkeypatch):
+    from fsrs import Card, State
 
     from chordgen.book import BookApp
     from chordgen.chord import build_alt_index
@@ -307,22 +307,13 @@ def test_collect_learned_words_includes_alts_of_graduated_base(monkeypatch):
         },
     ]
 
-    # Stub progress + get_card so we don't touch the user's
-    # progress.json.
-    fake_progress = {
-        "words": {"car": {"card": {"state": int(State.Review)}}}
-    }
-
-    class _FakeCard:
-        state = State.Review
-
-    monkeypatch.setattr(
-        "chordgen.book.load_progress", lambda: fake_progress
-    )
-    monkeypatch.setattr(
-        "chordgen.book.get_card",
-        lambda progress, word, fingerprint=None: _FakeCard() if word == "car" else None,
-    )
+    # Read-only consumers require each form's own graduated card.
+    card = Card(state=State.Review)
+    fake_progress = {"words": {
+        "car": {"card": card.to_dict()},
+        "cars": {"card": card.to_dict()},
+    }}
+    monkeypatch.setattr("chordgen.book.load_progress", lambda: fake_progress)
 
     app = BookApp.__new__(BookApp)
     app.chords_map = {c["word"]: c for c in chords if c["chord"]}
@@ -330,4 +321,4 @@ def test_collect_learned_words_includes_alts_of_graduated_base(monkeypatch):
 
     learned = app._collect_learned_words()
 
-    assert learned == {"car", "cars", "carred"}
+    assert learned == {"car", "cars"}

@@ -30,7 +30,6 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, TypedDict
 
-from fsrs import State
 from rich.text import Text
 from textual.app import App, ComposeResult
 from textual.binding import Binding
@@ -39,7 +38,7 @@ from textual.widgets import Footer, Header, Static
 
 from chordgen.constants import CONFIG_DIR
 from chordgen.chord import build_alt_index, build_repertoire, mapping_fingerprints
-from chordgen.srs import get_card, load_progress
+from chordgen.srs import learned_words, load_progress
 from chordgen.keyboard_view import render_keyboard
 
 
@@ -198,22 +197,16 @@ class DrillApp(App):
     # ------------------------------------------------------------------
 
     def _collect_learned_words(self, progress) -> set[str]:
-        """Return the set of words whose FSRS card is in Review state
-        and that still have a chord assigned in chords.csv. Alt-slot
-        forms inherit their base row's mastery, so a graduated base
-        also surfaces all of its non-empty alts."""
-        out: set[str] = set()
-        for word in progress.get("words", {}):
-            if word not in self.chords_map:
-                continue
-            card = get_card(progress, word, getattr(self, "fingerprints", {}).get(word))
-            if card is not None and card.state == State.Review:
-                out.add(word)
-        # Pull in alts of every graduated base.
-        for alt, (base, _slot, _chord) in self.alt_index.items():
-            if base in out:
-                out.add(alt)
-        return out
+        """Available forms with their own graduated, current-mapping card."""
+        available = set(self.chords_map) | set(self.alt_index)
+        fingerprints = getattr(self, "fingerprints", None)
+        if fingerprints is None:
+            fingerprints = mapping_fingerprints(
+                build_repertoire(list(self.chords_map.values())), "standard", None,
+            )
+        return learned_words(progress, {
+            word: fp for word, fp in fingerprints.items() if word in available
+        })
 
     def _filter_custom_words(self, words: list[str]) -> list[str]:
         """Return only the words from ``words`` that have a chord

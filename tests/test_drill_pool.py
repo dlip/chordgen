@@ -126,7 +126,7 @@ def test_filter_custom_words_drops_words_without_chord():
     ]
 
 
-def test_collect_learned_words_includes_alts_of_graduated_base():
+def test_collect_learned_words_requires_each_alts_own_graduation():
     chords = [
         {
             "word": "car",
@@ -145,13 +145,13 @@ def test_collect_learned_words_includes_alts_of_graduated_base():
     ]
     # ``car`` is graduated, ``the`` is still in Learning.
     progress = _progress_with(
-        {"car": State.Review, "the": State.Learning}
+        {"car": State.Review, "cars": State.Review, "carred": State.Learning, "the": State.Learning}
     )
 
     app = _new_drill(chords, progress)
 
-    # Base + its alts ride along; the unrelated row's alts don't.
-    assert app.learned_words == {"car", "cars", "carred"}
+    # Neither a new alt nor a learning alt inherits base mastery.
+    assert app.learned_words == {"car", "cars"}
 
 
 def test_chord_for_word_returns_slot_suffixed_chord_for_alt():
