@@ -215,7 +215,9 @@ def _is_complex_default(value: object) -> bool:
 
 
 @app.command()
-def learn():
+def learn(
+    recall: bool = typer.Option(False, "--recall", help="Hide upcoming words and measure unassisted prompt-to-completion recall."),
+):
     """Learn chords with spaced repetition.
 
     An interactive TUI that presents words one at a time. New words
@@ -234,6 +236,7 @@ def learn():
     app = LearnApp(
         chords,
         State.config.learn,
+        recall=recall,
         keyboard_layout=keyboard_layout,
         keyboard_kind=keyboard_kind,
         initial_theme=State.config.theme,

@@ -94,3 +94,74 @@ def test_build_chords_map_excludes_contractions():
         {"word": "unchorded", "chord": "", "category": "noun"},
     ]
     assert set(build_chords_map(chords).keys()) == {"the", "o'clock"}
+
+
+@pytest.mark.parametrize("recall", [False, True])
+def test_activation_timing_includes_delay_before_macro(tmp_path, monkeypatch, recall):
+    import asyncio
+    from types import SimpleNamespace
+    from chordgen import learn, srs
+    from chordgen.config import LearnOptions
+
+    monkeypatch.setattr(srs, "PROGRESS_FILE", tmp_path / "progress.json")
+    clock = SimpleNamespace(now=10.0)
+    monkeypatch.setattr(learn, "time", SimpleNamespace(monotonic=lambda: clock.now))
+    app = learn.LearnApp([
+        {"word": "hello", "chord": "hl", "frequency": "6"},
+        {"word": "world", "chord": "wd", "frequency": "5"},
+    ], LearnOptions(show_words=2, learning_steps=1), recall=recall)
+    # Force unassisted prompts without modifying FSRS selection policy.
+    monkeypatch.setattr(app, "chord_for_word", lambda *a, **kw: "")
+
+    async def exercise():
+        async with app.run_test() as pilot:
+            display = str(app.query_one(learn.WordDisplay).render())
+            assert ("world" not in display) == recall
+            assert app.word_started_at == 10.0
+            clock.now = 12.0
+            app.update_word_display()
+            assert app.word_started_at == 10.0
+            await pilot.press(*"hello", "space")
+            entry = app.progress["words"]["hello"]
+            key = "recall_wpm_ewma" if recall else "wpm_ewma"
+            assert entry[key] == pytest.approx(36.0)
+            if recall:
+                assert entry["recall_seconds"] == [2.0]
+            assert app.word_started_at == 12.0
+            clock.now = 15.0
+            await pilot.press(*"world", "space")
+            assert app.progress["words"]["world"][key] == pytest.approx(24.0)
+
+    asyncio.run(exercise())
+
+
+def test_assisted_recall_and_errors_do_not_enter_speed_history(tmp_path, monkeypatch):
+    import asyncio
+    from types import SimpleNamespace
+    from chordgen import learn, srs
+    from chordgen.config import LearnOptions
+
+    monkeypatch.setattr(srs, "PROGRESS_FILE", tmp_path / "progress.json")
+    clock = SimpleNamespace(now=10.0)
+    monkeypatch.setattr(learn, "time", SimpleNamespace(monotonic=lambda: clock.now))
+    app = learn.LearnApp([
+        {"word": "hello", "chord": "hl", "frequency": "6"},
+        {"word": "world", "chord": "wd", "frequency": "5"},
+    ], LearnOptions(show_words=2, learning_steps=1), recall=True)
+
+    async def exercise():
+        async with app.run_test() as pilot:
+            assert app.word_was_assisted
+            clock.now = 12.0
+            await pilot.press(*"hello", "space")
+            assert app.progress["recall_speed_samples"] == []
+            await pilot.press("x", "w", "backspace")
+            assert app.word_started_at == 12.0
+            clock.now = 15.0
+            await pilot.press(*"world", "space")
+            assert app.progress["recall_speed_samples"] == []
+            assert app.progress["words"]["world"]["card"]["state"] != 2
+            assert not app.flashing
+            assert app._flash_timer is None
+
+    asyncio.run(exercise())

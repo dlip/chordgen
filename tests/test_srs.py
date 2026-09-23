@@ -30,16 +30,16 @@ def scheduler():
 # ---------------------------------------------------------------------------
 
 
-def test_load_progress_missing_file_returns_empty_v3(progress_file):
+def test_load_progress_missing_file_returns_current_version(progress_file):
     progress = srs.load_progress()
-    assert progress["version"] == 3
+    assert progress["version"] == srs.PROGRESS_VERSION
     assert progress["speed_samples"] == []
     assert progress["words"] == {}
     assert progress["daily"]["new_count"] == 0
     assert progress["daily"]["review_count"] == 0
 
 
-def test_load_progress_drops_legacy_file_with_wrong_version(progress_file):
+def test_load_progress_migrates_legacy_without_writing(progress_file):
     legacy = {
         "version": 2,
         "speed_samples": [40.0],
@@ -49,11 +49,11 @@ def test_load_progress_drops_legacy_file_with_wrong_version(progress_file):
 
     progress = srs.load_progress()
 
-    assert progress["version"] == 3
-    assert progress["words"] == {}
+    assert progress["version"] == srs.PROGRESS_VERSION
+    assert progress["words"]["the"]["reps"] == 1
+    assert progress["words"]["the"]["wpm_ewma"] is None
     assert progress["speed_samples"] == []
-    # The bad file should be removed from disk.
-    assert not progress_file.exists()
+    assert json.loads(progress_file.read_text()) == legacy
 
 
 def test_save_then_load_round_trips(progress_file, scheduler):
@@ -73,6 +73,43 @@ def test_save_then_load_round_trips(progress_file, scheduler):
 # ---------------------------------------------------------------------------
 # record_review
 # ---------------------------------------------------------------------------
+
+
+def test_v3_migration_preserves_cards_quotas_and_lapses(progress_file, scheduler):
+    progress = srs.load_progress()
+    srs.record_review(progress, scheduler, "the", Rating.Good, 900.0)
+    progress["version"] = 3
+    progress["words"]["the"]["lapses"] = 2
+    srs.save_progress(progress)
+    before = progress_file.read_bytes()
+    loaded = srs.load_progress()
+    assert loaded["words"]["the"]["card"] == progress["words"]["the"]["card"]
+    assert loaded["words"]["the"]["lapses"] == 2
+    assert loaded["daily"] == progress["daily"]
+    assert loaded["speed_samples"] == []
+    assert progress_file.read_bytes() == before
+
+
+def test_unknown_version_is_not_deleted(progress_file):
+    progress_file.write_text('{"version": 999}')
+    assert srs.load_progress()["words"] == {}
+    assert progress_file.read_text() == '{"version": 999}'
+
+
+def test_speed_modes_and_recall_latency_are_independent(progress_file, scheduler):
+    progress = srs.load_progress()
+    srs.record_review(progress, scheduler, "the", Rating.Good, 60.0)
+    srs.record_review(progress, scheduler, "the", Rating.Good, 20.0,
+                      speed_mode="recall", elapsed_seconds=2.4)
+    entry = progress["words"]["the"]
+    assert entry["wpm_ewma"] == 60.0
+    assert entry["recall_wpm_ewma"] == 20.0
+    assert entry["recall_seconds"] == [2.4]
+    assert srs.slow_threshold_wpm(progress, 0.5, 1) == 30.0
+    assert srs.slow_threshold_wpm(progress, 0.5, 1, speed_mode="recall") == 10.0
+    srs.record_review(progress, scheduler, "the", Rating.Again, None,
+                      speed_mode="recall", elapsed_seconds=10)
+    assert entry["recall_seconds"] == [2.4]
 
 
 def test_record_review_creates_card_for_new_word(progress_file, scheduler):

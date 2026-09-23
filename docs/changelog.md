@@ -6,6 +6,9 @@
   alt definitions across reruns and report only actual reachable coverage.
 - Correct the standard keyboard's sixth column to the left hand so scissor
   scoring agrees with finger assignments and the displayed hand split.
+- Measure learn timing from prompt activation, add isolated `learn --recall`
+  practice with separate unassisted latency/speed histories, and migrate
+  legacy progress without losing cards or daily quotas.
 
 - Removed dead `find_all_combinations` helper from `utils.py` and
   corrected the `find_combinations` docstring (results are ordered

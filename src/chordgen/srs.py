@@ -18,11 +18,10 @@ and a per-word lapse counter for leech detection.
 from __future__ import annotations
 
 import json
-import os
 import statistics
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
-from typing import TypedDict
+from typing import Literal, NotRequired, TypedDict
 
 from fsrs import Card, Rating, Scheduler, State
 
@@ -31,12 +30,10 @@ from chordgen.constants import CONFIG_DIR
 
 PROGRESS_FILE: Path = CONFIG_DIR / "progress.json"
 
-# Bumped from v2 to add daily quotas (new_count / review_count keyed
-# on calendar date) and per-word lapse tracking. Files with a
-# different version are wiped on first load — the user has not
-# started using the trainer with persisted state yet, so no migration
-# is needed.
-PROGRESS_VERSION = 3
+# v4 replaces macro-burst timing with separate throughput/recall samples.
+# Older cards and quotas migrate in memory; loading never rewrites a file.
+PROGRESS_VERSION = 4
+SpeedMode = Literal["throughput", "recall"]
 
 SPEED_SAMPLES_CAP = 200
 WPM_EWMA_ALPHA = 0.3
@@ -48,6 +45,8 @@ class WordProgress(TypedDict):
     lapses: int
     wpm_ewma: float | None
     last_seen_date: str | None
+    recall_wpm_ewma: NotRequired[float | None]
+    recall_seconds: NotRequired[list[float]]
 
 
 class DailyState(TypedDict):
@@ -59,6 +58,7 @@ class DailyState(TypedDict):
 class ProgressFile(TypedDict):
     version: int
     speed_samples: list[float]
+    recall_speed_samples: NotRequired[list[float]]
     daily: DailyState
     words: dict[str, WordProgress]
 
@@ -76,15 +76,18 @@ def _empty() -> ProgressFile:
     return {
         "version": PROGRESS_VERSION,
         "speed_samples": [],
+        "recall_speed_samples": [],
         "daily": _empty_daily(),
         "words": {},
     }
 
 
 def load_progress() -> ProgressFile:
-    """Load progress from disk. Files with a missing or non-matching
-    ``version`` are wiped so we can evolve the schema without writing
-    migrations."""
+    """Read progress, migrating known versions without changing the file.
+
+    Unknown versions and unreadable files are left untouched. Legacy speed
+    samples are not comparable to activation-to-commit measurements.
+    """
     if not PROGRESS_FILE.exists():
         return _empty()
     try:
@@ -92,16 +95,20 @@ def load_progress() -> ProgressFile:
     except (json.JSONDecodeError, OSError):
         return _empty()
 
-    if not isinstance(raw, dict) or raw.get("version") != PROGRESS_VERSION:
-        try:
-            os.remove(PROGRESS_FILE)
-        except OSError:
-            pass
+    if not isinstance(raw, dict) or raw.get("version") not in (2, 3, PROGRESS_VERSION):
         return _empty()
 
-    raw.setdefault("speed_samples", [])
     raw.setdefault("words", {})
     raw.setdefault("daily", _empty_daily())
+    if raw["version"] != PROGRESS_VERSION:
+        raw["speed_samples"] = []
+        for entry in raw["words"].values():
+            entry["wpm_ewma"] = None
+            entry.setdefault("lapses", 0)
+            entry.setdefault("last_seen_date", None)
+        raw["version"] = PROGRESS_VERSION
+    raw.setdefault("speed_samples", [])
+    raw.setdefault("recall_speed_samples", [])
     return raw  # type: ignore[return-value]
 
 
@@ -214,6 +221,9 @@ def record_review(
     rating: Rating,
     word_wpm: float | None,
     now: datetime | None = None,
+    *,
+    speed_mode: SpeedMode = "throughput",
+    elapsed_seconds: float | None = None,
 ) -> Card:
     """Apply ``scheduler.review_card`` to ``word`` and update speed,
     lapse, and daily-quota tracking. Returns the resulting card so
@@ -246,11 +256,14 @@ def record_review(
     # Reps + per-word EWMA + global speed sample.
     prev_reps = int(existing.get("reps", 0)) if existing else 0
     new_reps = prev_reps + 1
-    prev_ewma: float | None = existing.get("wpm_ewma") if existing else None
+    ewma_key = "recall_wpm_ewma" if speed_mode == "recall" else "wpm_ewma"
+    samples_key = "recall_speed_samples" if speed_mode == "recall" else "speed_samples"
+    prev_ewma: float | None = existing.get(ewma_key) if existing else None
     if word_wpm is not None and word_wpm > 0:
-        progress["speed_samples"].append(float(word_wpm))
-        if len(progress["speed_samples"]) > SPEED_SAMPLES_CAP:
-            del progress["speed_samples"][:-SPEED_SAMPLES_CAP]
+        samples = progress.setdefault(samples_key, [])
+        samples.append(float(word_wpm))
+        if len(samples) > SPEED_SAMPLES_CAP:
+            del samples[:-SPEED_SAMPLES_CAP]
         if prev_ewma is None:
             new_ewma: float | None = float(word_wpm)
         else:
@@ -261,13 +274,21 @@ def record_review(
     else:
         new_ewma = prev_ewma
 
-    progress["words"][word] = {
+    entry = dict(existing or {})
+    entry.update({
         "card": card.to_dict(),
         "reps": new_reps,
         "lapses": new_lapses,
-        "wpm_ewma": new_ewma,
         "last_seen_date": today,
-    }
+        ewma_key: new_ewma,
+    })
+    entry.setdefault("wpm_ewma", None)
+    if (speed_mode == "recall" and word_wpm is not None and word_wpm > 0
+            and elapsed_seconds is not None and elapsed_seconds > 0):
+        observations = entry.setdefault("recall_seconds", [])
+        observations.append(float(elapsed_seconds))
+        del observations[:-SPEED_SAMPLES_CAP]
+    progress["words"][word] = entry
     return card
 
 
@@ -280,11 +301,14 @@ def slow_threshold_wpm(
     progress: ProgressFile,
     fraction: float,
     min_samples: int = 20,
+    *,
+    speed_mode: SpeedMode = "throughput",
 ) -> float | None:
     """Return ``fraction * median(speed_samples)`` once we have at
     least ``min_samples``; otherwise ``None`` (treat all correct as
     'good')."""
-    samples = progress.get("speed_samples", [])
+    key = "recall_speed_samples" if speed_mode == "recall" else "speed_samples"
+    samples = progress.get(key, [])
     if len(samples) < min_samples or fraction <= 0:
         return None
     return float(statistics.median(samples)) * float(fraction)

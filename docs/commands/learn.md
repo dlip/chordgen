@@ -36,12 +36,13 @@ learning words have graduated.
   `learn.leech_threshold` lapses are flagged as **leeches** in the
   session summary so you can re-pin or revise the chord in
   `chords.csv`.
-- Per-word speed grading: the WPM of each clean word is compared to a
-  rolling median of recent samples. Words below
-  `learn.slow_wpm_fraction` of the median are graded `Hard` (instead
-  of `Good`) so FSRS schedules them sooner. The first word of a
-  session and any word that flashed red are excluded from speed
-  grading.
+- Per-word speed grading measures from activation of the current word
+  through its committing space, including hesitation before a firmware
+  macro emits text. Clean words below `learn.slow_wpm_fraction` of the
+  rolling median are graded `Hard` instead of `Good`. The first word is
+  measured too; error attempts are excluded from speed samples. Because
+  upcoming words are visible, this mode measures throughput, not isolated
+  recall.
 - When a word is rescheduled mid-session it's appended to the tail of
   the visible queue rather than inserted right after the current word,
   so the next word doesn't flip under your fingers.
@@ -56,6 +57,20 @@ learning words have graduated.
   mode is about long-term retention rather than speed tests. For
   speed practice on words you already know, use the separate
   [`chordgen drill`](drill.md) mode.
+
+### Isolated recall
+
+Run `chordgen learn --recall` to hide the upcoming queue and show only the
+active word. Timing starts when that prompt is displayed and ends at its
+committing space. Existing hint fading still applies: assisted attempts
+update FSRS, but only clean attempts without a chord hint contribute to
+recall speed and latency measurements. This measures prompt-to-completion,
+not raw physical key latency, and cannot distinguish typing from a chord.
+
+Recall and flowing practice keep separate speed thresholds. On the first
+load after upgrading, older macro-output speed samples are discarded in
+memory while FSRS cards, repetitions, lapses, and daily quotas are retained.
+Loading does not change the file; the next answered word saves the migration.
 
 ### Useful keys during a session
 

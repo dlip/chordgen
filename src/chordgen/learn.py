@@ -126,10 +126,13 @@ class LearnApp(App):
         keyboard_kind: str = "standard",
         initial_theme: str | None = None,
         on_theme_change: Any = None,
+        recall: bool = False,
     ) -> None:
         super().__init__()
         self.chords_map = build_chords_map(chords)
         self.config = config
+        self.recall = recall
+        self.speed_mode = "recall" if recall else "throughput"
         self.keyboard_layout = keyboard_layout
         self.keyboard_kind = keyboard_kind
         self._initial_theme = initial_theme
@@ -145,7 +148,9 @@ class LearnApp(App):
         self.letter_index = 0
         self.flashing = False
         self.current_word_had_error = False
-        self.word_first_keystroke_time: float | None = None
+        self.word_started_at: float | None = None
+        self.word_was_assisted = False
+        self._flash_timer = None
         self.word_had_flash = False
 
         # Session counters (session WPM is no longer surfaced — the
@@ -218,6 +223,7 @@ class LearnApp(App):
             self.progress,
             self.config.slow_wpm_fraction,
             self.config.slow_min_samples,
+            speed_mode=self.speed_mode,
         )
 
         words_state = self.progress.get("words", {})
@@ -256,7 +262,7 @@ class LearnApp(App):
                     continue
                 if entry.get("last_seen_date") == today:
                     continue
-                ewma = entry.get("wpm_ewma")
+                ewma = entry.get("recall_wpm_ewma" if self.recall else "wpm_ewma")
                 if ewma is not None and ewma < threshold:
                     slow.append((ewma, word))
             slow.sort(key=lambda t: t[0])
@@ -329,10 +335,15 @@ class LearnApp(App):
         self.exit()
 
     def reset_session(self) -> None:
+        if self._flash_timer is not None:
+            self._flash_timer.stop()
+            self._flash_timer = None
+        self.words_to_practice = []
         self.letter_index = 0
         self.flashing = False
         self.current_word_had_error = False
-        self.word_first_keystroke_time = None
+        self.word_started_at = None
+        self.word_was_assisted = False
         self.word_had_flash = False
         self.session_chars_typed = 0
         self.session_start_time = None
@@ -373,11 +384,8 @@ class LearnApp(App):
         if self.letter_index < len(current):
             expected = current[self.letter_index]
             if key == expected:
-                now = time.time()
                 if self.session_start_time is None:
-                    self.session_start_time = now
-                if self.word_first_keystroke_time is None:
-                    self.word_first_keystroke_time = now
+                    self.session_start_time = time.monotonic()
                 self.letter_index += 1
                 self.session_chars_typed += 1
                 self.update_word_display()
@@ -397,7 +405,9 @@ class LearnApp(App):
         self.word_had_flash = True
         self.flashing = True
         self.update_word_display()
-        self.set_timer(0.5, self.clear_flash)
+        if self._flash_timer is not None:
+            self._flash_timer.stop()
+        self._flash_timer = self.set_timer(0.5, self.clear_flash)
 
     def clear_flash(self) -> None:
         self.flashing = False
@@ -410,27 +420,23 @@ class LearnApp(App):
     def complete_current_word(self) -> None:
         word = self.words_to_practice[0]
         had_error = self.current_word_had_error
-        commit_time = time.time()
+        commit_time = time.monotonic()
 
-        # Per-word WPM is excluded for the very first committed word
-        # (the session clock starts on its first keystroke, so its
-        # elapsed is biased low) and any word whose attempt was
-        # interrupted by a 0.5s flash.
+        # Activation-to-commit includes hesitation before any macro arrives.
+        # Previewed flow is throughput; only hidden, unassisted prompts
+        # contribute to the isolated recall history.
+        elapsed = (commit_time - self.word_started_at
+                   if self.word_started_at is not None else None)
         word_wpm: float | None = None
-        if (
-            self.first_word_committed
-            and not had_error
-            and not self.word_had_flash
-            and self.word_first_keystroke_time is not None
-        ):
-            word_wpm = compute_word_wpm(
-                commit_time - self.word_first_keystroke_time, len(word)
-            )
+        if (not had_error and not self.word_had_flash and elapsed is not None
+                and not (self.recall and self.word_was_assisted)):
+            word_wpm = compute_word_wpm(elapsed, len(word))
 
         threshold = slow_threshold_wpm(
             self.progress,
             self.config.slow_wpm_fraction,
             self.config.slow_min_samples,
+            speed_mode=self.speed_mode,
         )
         rating = decide_rating(had_error, word_wpm, threshold)
 
@@ -441,6 +447,8 @@ class LearnApp(App):
             rating,
             word_wpm,
             now=datetime.now(timezone.utc),
+            speed_mode=self.speed_mode,
+            elapsed_seconds=elapsed,
         )
         # Persist after every commit so daily counters and FSRS state
         # survive an unexpected quit. Anki behaves the same way.
@@ -469,9 +477,14 @@ class LearnApp(App):
 
         self.letter_index = 0
         self.current_word_had_error = False
-        self.word_first_keystroke_time = None
+        self.word_started_at = None
+        self.word_was_assisted = False
         self.word_had_flash = False
         self.first_word_committed = True
+        self.flashing = False
+        if self._flash_timer is not None:
+            self._flash_timer.stop()
+            self._flash_timer = None
 
         self.update_word_display()
 
@@ -514,18 +527,21 @@ class LearnApp(App):
                 )
             return
 
+        visible_words = self.words_to_practice[:1] if self.recall else self.words_to_practice
         chord_strings = [
             self.chord_for_word(word, is_current=(i == 0))
-            for i, word in enumerate(self.words_to_practice)
+            for i, word in enumerate(visible_words)
         ]
+        if chord_strings[0]:
+            self.word_was_assisted = True
 
         col_widths = [
             max(len(word), len(chord_strings[i]))
-            for i, word in enumerate(self.words_to_practice)
+            for i, word in enumerate(visible_words)
         ]
 
         line = Text()
-        for i, word in enumerate(self.words_to_practice):
+        for i, word in enumerate(visible_words):
             if i > 0:
                 line.append(" ")
 
@@ -574,7 +590,7 @@ class LearnApp(App):
         # the total width of the trailing words (including their
         # separator spaces); see the geometry in the drill renderer
         # for the derivation.
-        trailing_width = sum(col_widths[1:]) + max(0, len(self.words_to_practice) - 1)
+        trailing_width = sum(col_widths[1:]) + max(0, len(visible_words) - 1)
         pad = " " * trailing_width
 
         padded_line = Text()
@@ -608,6 +624,8 @@ class LearnApp(App):
                 rendered.append_text(kb)
 
         widget.update(rendered)
+        if self.word_started_at is None:
+            self.word_started_at = time.monotonic()
 
     def chord_for_word(self, word: str, is_current: bool) -> str:
         chord_row = self.chords_map.get(word)
