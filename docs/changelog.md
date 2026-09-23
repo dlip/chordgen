@@ -12,6 +12,8 @@
 - Track learned mapping identity, preview generation with `--dry-run`, reserve
   learned mappings with `--preserve-learned`, and confirm intentional changes
   before retiring affected cards. Legacy cards bind once to current mappings.
+- Weight chord assignments by uniquely served word families, summing each
+  represented form's existing utility without changing source frequencies.
 
 - Removed dead `find_all_combinations` helper from `utils.py` and
   corrected the `find_combinations` docstring (results are ordered

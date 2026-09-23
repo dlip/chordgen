@@ -33,7 +33,7 @@ The pipeline runs in three phases:
     forms (e.g. `look → looks, looked, looking`; `I → me, my,
     myself`). Alt slots already filled by hand are kept by default.
 3.  **Assign** — solve a sparse minimum-cost bipartite matching so
-    each word gets a unique chord and the total `score × frequency` is
+    each word gets a unique chord and the total `score × family_weight` is
     globally minimised. Frequent words attract short / low-effort
     chords. Words for which every viable chord is already cheaper for
     another word are reported in the diagnostics.
@@ -43,7 +43,7 @@ with `category: contraction` (`'s`, `'m`, …) which are always
 eligible — they're short by construction.
 
 By default the matcher runs a single global pass that minimises total
-`score × frequency`. If you find rare words bumping common ones onto
+`score × family_weight`. If you find rare words bumping common ones onto
 longer chords, set `gen.assignment.priority_tiers` in `config.yaml`
 (e.g. `[500, 1000]`) to solve in tiers — top 500 most-frequent words
 first, then the next 500, then the rest, with each tier's chords
@@ -74,11 +74,12 @@ observable costs:
   globally optimal family allocation. Unassigned rows retain their alt
   definitions so rerunning generation cannot lose those relationships.
 
-- **Base words don't pool the frequency of their covered alts.** A
-  base row competes only with its own frequency, even though it
-  carries 3 alt slots worth of covered forms. `die` at Zipf 4.90
-  competes with weight 4.90^4, even though its alt coverage means
-  losing it also loses `died` (Zipf 5.14), `dies`, and `dying`.
+- **Family value is potential coverage, not guaranteed coverage.** Base
+  weights include their unique represented forms. A form shared by multiple
+  bases contributes to the first viable owner in CSV order, and an already
+  assigned primary/family takes precedence. If a prospective owner loses
+  its chord, recovery can still assign the form, but earlier assignments
+  are not re-optimized. This remains a heuristic around the exact matcher.
 
 If you use tiers, watch the unmatched list in `gen` diagnostics for
 moderately common words that vanished. Removing tiers (setting
@@ -91,11 +92,18 @@ Controls how sharply frequency amplifies cost differences between
 competing words. The cost formula is:
 
 ```
-cost = chord_score × frequency^frequency_exponent
+form_weight = max(frequency, min_frequency_weight)^frequency_exponent
+family_weight = base_weight + sum(unique covered forms' weights)
+cost = chord_score × family_weight
 ```
 
-- **0.0** — all words have equal weight; frequency is ignored entirely.
-  Every key goes to whichever word happens to claim it cheapest.
+Each covered form contributes at most once. Repeated slots, competing
+owners, and independently assigned primaries do not double-count it. Forms
+absent from the CSV contribute no invented frequency. The exponent is
+applied **before** adding weights; the source-defined CSV frequency is never
+rewritten or assumed to be Zipf. These are utility weights, not probabilities
+or measured time savings. The exponent must be greater than zero.
+
 - **1.0** — linear weighting. A word with frequency 6.0 is weighted 6×
   as much as a word with frequency 1.0.
 - **3.0** (default) — cubic weighting. A word with frequency 6.0 is
@@ -103,8 +111,7 @@ cost = chord_score × frequency^frequency_exponent
   favours short chords going to high-frequency words.
 
 Raise this if you still see rare words getting short chords at the
-expense of common ones. Set to 0 if you want every word treated
-equally regardless of how often you'll type it.
+expense of common ones. Lower positive exponents soften that preference.
 
 ### key_replacement
 

@@ -7,7 +7,7 @@ but the assigner then silently dropped them from the pool.
 
 from __future__ import annotations
 
-from chordgen.assigner import assign_chords, _parse_freq, _split_into_tiers
+from chordgen.assigner import assign_chords, _family_weights, _parse_freq, _split_into_tiers
 from chordgen.chord import Chord, Option
 from chordgen.config import GenOptions
 
@@ -175,3 +175,51 @@ def test_recovery_respects_minimum_chord_length_and_uniqueness():
     assert len(assigned) == 1
     assert len(assigned[0]) == 2
     assert len(report.no_options) == 2
+
+
+def test_common_forms_improve_base_allocation():
+    base = _chord("base", [{"chord": "ab", "score": 1}, {"chord": "bc", "score": 10}], frequency="2")
+    rival = _chord("rival", [{"chord": "ab", "score": 1}, {"chord": "rv", "score": 10}], frequency="3")
+    alt = _chord("forms", [], frequency="4")
+    base["alt1"] = "forms"
+    opts = GenOptions(debug=True)
+    report = assign_chords([base, rival, alt], opts)
+    assert base["chord"] == "ab"
+    assert rival["chord"] == "rv"
+    assert "w=72.000" in base["debug"]  # 2^3 + 4^3, not (2+4)^3
+    assert report.alt_covered == ["forms"]
+
+
+def test_family_weights_count_shared_forms_once_and_respect_existing_mappings():
+    opts = GenOptions()
+    first = _chord("first", [{"chord": "ab", "score": 1}], frequency="2.5")
+    second = _chord("second", [{"chord": "cd", "score": 1}], frequency="3.5")
+    form = _chord("forms", [], frequency="4.5")
+    rows = {c["word"]: c for c in (first, second, form)}
+    coverage = {"first": {"forms", "absent"}, "second": {"forms"}}
+    batch = [first, second]
+    viables = [c["options"] for c in batch]
+    assert _family_weights(batch, viables, rows, coverage, set(), opts) == [2.5**3 + 4.5**3, 3.5**3]
+    # A blocked first owner cannot take the shared form's contribution.
+    assert _family_weights(batch, viables, rows, coverage, {"ab"}, opts) == [2.5**3, 3.5**3 + 4.5**3]
+    form["chord"] = "fm"
+    assert _family_weights(batch, viables, rows, coverage, {"fm"}, opts) == [2.5**3, 3.5**3]
+
+
+def test_duplicate_slots_and_recovered_forms_do_not_invent_frequency():
+    base = _chord("base", [], frequency="2")
+    base["alt1"] = base["alt2"] = "forms"
+    form = _chord("forms", [{"chord": "fm", "score": 1}], frequency="1.5")
+    opts = GenOptions(debug=True)
+    report = assign_chords([base, form], opts)
+    assert form["chord"] == "fm"
+    assert "w=3.375" in form["debug"]
+    assert report.alt_covered == []
+    assert base["frequency"] == "2"
+    assert form["frequency"] == "1.5"
+
+
+def test_family_weight_without_alts_matches_original_utility():
+    row = _chord("word", [{"chord": "wd", "score": 1}], frequency="0.25")
+    opts = GenOptions()
+    assert _family_weights([row], [row["options"]], {"word": row}, {}, set(), opts) == [1.0]

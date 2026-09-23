@@ -15,12 +15,11 @@ Solved exactly via scipy.sparse.csgraph.min_weight_full_bipartite_matching
 second and produces a globally cost-optimal assignment, replacing the
 old greedy + 2-swap + eviction phases.
 
-Cost model: cost(option, word) = option.score * weight(word), where weight
-is the parsed `frequency` column floored at min_frequency_weight and
-raised to `frequency_exponent` (default 3.0). Higher weight = paying score
-hurts more, so frequent words attract low-score chords. An exponent > 1
-sharpens that preference and discourages the matcher from trading a
-common word's short chord to a rarer competitor.
+Cost model: cost(option, word) = option.score * family_weight(word).
+Each surface form's parsed `frequency` is floored at min_frequency_weight
+and raised to `frequency_exponent` (default 3.0); unique covered forms'
+weights are then added to their owner's weight. This is a source-agnostic
+utility heuristic, not an occurrence probability or measured typing cost.
 
 When `assignment.priority_tiers` is non-empty, the pool is split into
 successive tiers by frequency rank and each tier is solved by the same
@@ -104,6 +103,42 @@ def _split_into_tiers(
         return [(0, len(pool))]
     bounds = [0] + [min(c, len(pool)) for c in cutoffs] + [len(pool)]
     return [(bounds[i], bounds[i + 1]) for i in range(len(bounds) - 1)]
+
+
+def _family_weights(
+    batch: list[Chord],
+    viables: list[list[Option]],
+    rows: dict[str, Chord],
+    coverage: dict[str, set[str]],
+    reserved_keys: set[str],
+    options: GenOptions,
+) -> list[float]:
+    """Pool existing per-form utility, with one deterministic owner per form.
+
+    An already assigned primary or family has precedence. For new families,
+    the first viable owner in CSV order gets the contribution. This is a
+    potential-coverage heuristic; the matcher still decides which owners
+    succeed, and orphan recovery handles unsuccessful ones.
+    """
+    cfg = options.assignment
+    utility = {
+        word: _parse_freq(row, cfg.min_frequency_weight) ** cfg.frequency_exponent
+        for word, row in rows.items()
+    }
+    claimed = {c["word"].lower() for c in batch}
+    claimed.update(word for word, row in rows.items() if row.get("chord"))
+    for word, row in rows.items():
+        if row.get("chord"):
+            claimed.update(coverage.get(word, set()))
+    weights = [utility[c["word"].lower()] for c in batch]
+    for i, (row, candidates) in enumerate(zip(batch, viables)):
+        if not any(_sorted_key(o["chord"]) not in reserved_keys for o in candidates):
+            continue
+        for alt in sorted(coverage.get(row["word"].lower(), set())):
+            if alt not in claimed and alt in utility:
+                weights[i] += utility[alt]
+                claimed.add(alt)
+    return weights
 
 
 def _solve_pool(
@@ -232,7 +267,6 @@ def assign_chords(
 ) -> AssignmentReport:
     report = AssignmentReport()
     cfg = options.assignment
-    floor = cfg.min_frequency_weight
     preserve_words = {w.lower() for w in (preserve_words or set())}
 
     def reserved(chord: Chord) -> bool:
@@ -292,7 +326,7 @@ def assign_chords(
 
     def solve(batch: list[Chord], label: str) -> None:
         viables = [_viable_options(c, options.min_chord_length) for c in batch]
-        weights = [_parse_freq(c, floor) ** cfg.frequency_exponent for c in batch]
+        weights = _family_weights(batch, viables, rows, coverage, reserved_keys, options)
         bounds = _split_into_tiers(batch, list(cfg.priority_tiers))
         for i, (start, end) in enumerate(bounds):
             if start != end:
