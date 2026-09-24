@@ -800,6 +800,12 @@ class BookApp(App):
             event.stop()
 
     def _flash_red(self) -> None:
+        current_word = self.book.tokens[self.cursor].word_key
+        if (
+            self.config.reset_word_on_mistake
+            and current_word in self.learned_words
+        ):
+            self.letter_index = 0
         self.current_word_had_error = True
         self.flashing = True
         self.refresh_view()

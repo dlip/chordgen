@@ -30,6 +30,10 @@ Supported formats:
   when you've mistyped a learned word, rendered as `<chord><slot>`
   (e.g. `au` for the base, `au1` for `alt1`) directly beneath the
   word in the text block — same reveal-on-stumble UX as drill mode.
+- A typing mistake on a learned chord resets the current word to its first
+  character by default. Unlearned words continue from the character where
+  the mistake occurred. Set `book.reset_word_on_mistake` to `false` to use
+  that behavior for learned words too.
 - Bottom: your keyboard layout. When you mistype a learned word
   the chord keys are highlighted on the keyboard, and an
   `alt1 alt2 alt3` indicator below the keyboard highlights the
@@ -87,6 +91,7 @@ Book mode reads a small block of `config.yaml`:
 
 ```yaml
 book:
+  reset_word_on_mistake: true # Restart learned chord words after a mistake
   wpm_window_seconds: 30      # Sliding window for the running WPM
   max_width: 80               # Max width (chars) of the rendered text block
   always_show_chords: false   # Render chords beneath every learned word, not just on a stumble

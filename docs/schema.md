@@ -220,6 +220,7 @@
 - <a id="properties/book"></a>**`book`**: Refer to *[#/$defs/BookOptions](#%24defs/BookOptions)*. Default:
 
   ```yaml
+  reset_word_on_mistake: true
   wpm_window_seconds: 30
   max_width: 80
   always_show_chords: false
@@ -314,6 +315,7 @@
   - <a id="%24defs/AssignmentOptions/properties/priority_tiers"></a>**`priority_tiers`** *(array)*: Cumulative frequency-rank cutoffs for tiered assignment. The pool (already in descending-frequency order) is split at each cutoff, then each tier is solved by the optimal matcher in order, with previous tiers' chord keys reserved out. Default [] runs a single global pass. Example [500, 1000] runs three passes: top 500 -> next 500 -> rest. Cutoffs must be strictly increasing; values >= len(pool) are clamped. Default: `[]`.
     - <a id="%24defs/AssignmentOptions/properties/priority_tiers/items"></a>**Items** *(integer)*
 - <a id="%24defs/BookOptions"></a>**`BookOptions`** *(object)*
+  - <a id="%24defs/BookOptions/properties/reset_word_on_mistake"></a>**`reset_word_on_mistake`** *(boolean)*: When true, a typing mistake on a learned chord resets the current word to its first character. Unlearned words and false both resume from the character where the mistake occurred. Default: `true`.
   - <a id="%24defs/BookOptions/properties/wpm_window_seconds"></a>**`wpm_window_seconds`** *(integer)*: Sliding window (in seconds) over which the running WPM is computed in book mode. Default: `30`.
   - <a id="%24defs/BookOptions/properties/max_width"></a>**`max_width`** *(integer)*: Maximum width (in characters) of the rendered text block in book mode. Long paragraphs are wrapped to this width. Default: `80`.
   - <a id="%24defs/BookOptions/properties/always_show_chords"></a>**`always_show_chords`** *(boolean)*: When true, the chord for the current word is rendered beneath it the moment the cursor lands on it, instead of only after a stumble. Mirrors the drill option of the same name. Default: `false`.

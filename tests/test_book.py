@@ -287,6 +287,50 @@ def test_running_wpm_zero_when_no_events():
 
 
 # ---------------------------------------------------------------------------
+# Mistake handling
+# ---------------------------------------------------------------------------
+
+
+def test_reset_word_on_mistake_defaults_to_true():
+    from chordgen.config import BookOptions
+
+    assert BookOptions().reset_word_on_mistake is True
+
+
+def test_mistake_resets_word_only_for_learned_chord_when_enabled(monkeypatch):
+    from types import SimpleNamespace
+
+    from chordgen.book import BookApp
+
+    monkeypatch.setattr(BookApp, "refresh_view", lambda self: None)
+    monkeypatch.setattr(BookApp, "set_timer", lambda self, *args: None)
+
+    cases = (
+        (True, {"alpha"}, 0),
+        (True, set(), 3),
+        (False, {"alpha"}, 3),
+    )
+    for enabled, learned_words, expected_index in cases:
+        app = BookApp.__new__(BookApp)
+        app.config = SimpleNamespace(reset_word_on_mistake=enabled)
+        app.book = Book(
+            title="test",
+            tokens=[BookToken("alpha", True, 0, "alpha")],
+        )
+        app.cursor = 0
+        app.learned_words = learned_words
+        app.letter_index = 3
+        app.current_word_had_error = False
+        app.flashing = False
+
+        app._flash_red()
+
+        assert app.letter_index == expected_index
+        assert app.current_word_had_error is True
+        assert app.flashing is True
+
+
+# ---------------------------------------------------------------------------
 # Alt-slot integration
 # ---------------------------------------------------------------------------
 

@@ -163,6 +163,14 @@ class DrillOptions(BaseModel):
 
 
 class BookOptions(BaseModel):
+    reset_word_on_mistake: bool = Field(
+        default=True,
+        description=(
+            "When true, a typing mistake on a learned chord resets the "
+            "current word to its first character. Unlearned words and false "
+            "both resume from the character where the mistake occurred."
+        ),
+    )
     wpm_window_seconds: int = Field(
         default=30,
         description=(
