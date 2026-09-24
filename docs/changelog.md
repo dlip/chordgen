@@ -24,7 +24,6 @@
 - Add read-only `difficult` reports for lapses, longest unassisted recalls,
   and alt-slot evidence on verified current mappings. Diagnostic config
   validation no longer creates a missing dictionary directory.
-
 - Removed dead `find_all_combinations` helper from `utils.py` and
   corrected the `find_combinations` docstring (results are ordered
   longest-first, not shortest-first).
