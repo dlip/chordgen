@@ -427,7 +427,22 @@ class GenOptions(BaseModel):
         description="The minimum length a chord, setting this to 2 and disabling the chord key is a way to avoid needing a chord key. This works well on CharaChorder, but you will need to lower the chord timeout to avoid missfires on other keyboards.",
     )
     ignore_words: list[str] = Field(
-        default=[],
+        default=[
+            "ha",
+            "ho",
+            "hoo",
+            "doo",
+            "hee",
+            "ah",
+            "um",
+            "eh",
+            "hm",
+            "ya",
+            "oi",
+            "em",
+            "mps",
+            "non",
+        ],
         description=(
             "Words to ignore during ``chordgen gen``. Ignored words stay "
             "in chords.csv but are skipped when scoring and assigning "

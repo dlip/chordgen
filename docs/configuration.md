@@ -36,18 +36,23 @@ are cleared each run. This is useful for low-value short words
 (fillers, interjections, dialect forms) that appear in frequency lists
 but aren't worth a dedicated chord.
 
-Example:
+The default list is:
 
 ```yaml
 gen:
   ignore_words:
-    - oi
-    - ya
-    - hm
-    - ho
-    - em
-    - eh
-    - um
-    - ah
     - ha
+    - ho
+    - hoo
+    - doo
+    - hee
+    - ah
+    - um
+    - eh
+    - hm
+    - ya
+    - oi
+    - em
+    - mps
+    - non
 ```

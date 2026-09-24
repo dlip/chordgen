@@ -94,7 +94,21 @@
     unmatched_penalty: 10000.0
   min_word_length: 3
   min_chord_length: 0
-  ignore_words: []
+  ignore_words:
+  - ha
+  - ho
+  - hoo
+  - doo
+  - hee
+  - ah
+  - um
+  - eh
+  - hm
+  - ya
+  - oi
+  - em
+  - mps
+  - non
   key_replacement: {}
   debug: false
   ```
@@ -426,7 +440,7 @@
 
   - <a id="%24defs/GenOptions/properties/min_word_length"></a>**`min_word_length`** *(integer)*: Default: `3`.
   - <a id="%24defs/GenOptions/properties/min_chord_length"></a>**`min_chord_length`** *(integer)*: The minimum length a chord, setting this to 2 and disabling the chord key is a way to avoid needing a chord key. This works well on CharaChorder, but you will need to lower the chord timeout to avoid missfires on other keyboards. Default: `0`.
-  - <a id="%24defs/GenOptions/properties/ignore_words"></a>**`ignore_words`** *(array)*: Words to ignore during ``chordgen gen``. Ignored words stay in chords.csv but are skipped when scoring and assigning chords, so they won't produce 'unable to find options' warnings and won't consume chord keys. Useful for low-value short words (fillers, interjections, dialect forms). Matching is case-insensitive. Default: `[]`.
+  - <a id="%24defs/GenOptions/properties/ignore_words"></a>**`ignore_words`** *(array)*: Words to ignore during ``chordgen gen``. Ignored words stay in chords.csv but are skipped when scoring and assigning chords, so they won't produce 'unable to find options' warnings and won't consume chord keys. Useful for low-value short words (fillers, interjections, dialect forms). Matching is case-insensitive. Default: `["ha", "ho", "hoo", "doo", "hee", "ah", "um", "eh", "hm", "ya", "oi", "em", "mps", "non"]`.
     - <a id="%24defs/GenOptions/properties/ignore_words/items"></a>**Items** *(string)*
   - <a id="%24defs/GenOptions/properties/key_replacement"></a>**`key_replacement`** *(object)*: Map characters to replacements when generating chord candidates. For example, if your keyboard lacks 'q' and 'z', set {'q': 'k', 'z': 's'} so chords use 'k' instead of 'q' and 's' instead of 'z' -- the typed word is unaffected, only the chord string changes. Useful for remapping non-letter characters too: "'": x lets a word like "o'clock" earn a chord that contains 'x' wherever the apostrophe sits. Each key must be a single lowercase character; its replacement must be a single lowercase letter that exists on your keyboard. Can contain additional properties. Default: `{}`.
     - <a id="%24defs/GenOptions/properties/key_replacement/additionalProperties"></a>**Additional properties** *(string)*

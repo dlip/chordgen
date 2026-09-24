@@ -3,6 +3,27 @@
 from chordgen.gen import _merge_ignored, _split_ignored
 
 
+def test_default_ignore_words():
+    from chordgen.config import GenOptions
+
+    assert GenOptions().ignore_words == [
+        "ha",
+        "ho",
+        "hoo",
+        "doo",
+        "hee",
+        "ah",
+        "um",
+        "eh",
+        "hm",
+        "ya",
+        "oi",
+        "em",
+        "mps",
+        "non",
+    ]
+
+
 def test_split_ignored_separates_case_insensitively():
     chords = [
         {"word": "ho"},
