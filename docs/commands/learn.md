@@ -33,9 +33,9 @@ learning words have graduated.
 - Any mistake during a word grades the review as `Again`, sending the
   card back into the learning queue. An `Again` on a card already in
   Review counts as a *lapse*; words that accumulate
-  `learn.leech_threshold` lapses are flagged as **leeches** in the
-  session summary so you can re-pin or revise the chord in
-  `chords.csv`.
+  `learn.leech_threshold` lapses are flagged as **leeches** in
+  [`chordgen difficult`](difficult.md). Use that report to choose forms
+  to practise or inspect before manually changing `chords.csv`.
 - Per-word speed grading measures from activation of the current word
   through its committing space, including hesitation before a firmware
   macro emits text. Clean words below `learn.slow_wpm_fraction` of the

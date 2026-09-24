@@ -11,7 +11,7 @@ from chordgen.output.kanata import KanataOutput
 from chordgen.output.qmk import QmkOutput
 from chordgen.output.training import TrainingOutput
 from chordgen.output.zmk import ZmkOutput
-from pydantic import BaseModel, field_validator, Field
+from pydantic import BaseModel, field_validator, Field, ValidationInfo
 from chordgen.pydantic import File
 
 DEFAULT_CONFIG = CONFIG_DIR / "config.yaml"
@@ -44,9 +44,9 @@ class LearnOptions(BaseModel):
         default=8,
         description=(
             "Number of lapses (Again ratings on a graduated word) "
-            "after which a word is considered a 'leech' and called "
-            "out in the session summary. Set to 0 to disable leech "
-            "detection."
+            "after which a word is flagged as a 'leech' in the "
+            "chordgen difficult report. Set to 0 to disable leech "
+            "labels."
         ),
     )
     mastery_threshold: int = Field(
@@ -465,8 +465,9 @@ class GenOptions(BaseModel):
 
     @field_validator("file", mode="after")
     @classmethod
-    def ensure_parent_dir(cls, v: Path):
-        v.parent.mkdir(parents=True, exist_ok=True)
+    def ensure_parent_dir(cls, v: Path, info: ValidationInfo):
+        if not (info.context or {}).get("read_only"):
+            v.parent.mkdir(parents=True, exist_ok=True)
         return v
 
     @field_validator("key_replacement", mode="after")

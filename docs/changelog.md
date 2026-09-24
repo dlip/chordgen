@@ -21,6 +21,9 @@
   estimate; document a separate manual mixed-typing passage comparison.
 - Add read-only `check` diagnostics for dictionary/layout conflicts, configured
   export coverage and bindings, stale learning identities, and chord comfort.
+- Add read-only `difficult` reports for lapses, longest unassisted recalls,
+  and alt-slot evidence on verified current mappings. Diagnostic config
+  validation no longer creates a missing dictionary directory.
 
 - Removed dead `find_all_combinations` helper from `utils.py` and
   corrected the `find_combinations` docstring (results are ordered

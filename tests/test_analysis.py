@@ -151,7 +151,7 @@ def test_recall_uses_finite_positive_median_and_counts_samples(corpus):
     srs.record_review(progress, srs.make_scheduler(learning_steps=1), "looks", Rating.Good,
                       60, fingerprint=fingerprint)
     progress["words"]["looks"]["recall_seconds"] = [
-        0.5, 0.1, 0.3, 0, -1, float("nan"), float("inf"), "2", None,
+        0.5, 0.1, 0.3, 0, -1, float("nan"), float("inf"), "2", None, True, False,
     ]
     before = deepcopy(progress)
     report = analyze_text(load_book(text), chords, progress, baseline_wpm=60)

@@ -41,7 +41,7 @@ def callback(
     ),
 ):
     logging.basicConfig(level="INFO")
-    if ctx.invoked_subcommand == "check":
+    if ctx.invoked_subcommand in {"check", "difficult"}:
         State.config_path = config
         return
     if ctx.invoked_subcommand != "setup":
@@ -199,6 +199,42 @@ def check(
 
 
 @app.command()
+def difficult(
+    limit: int = typer.Option(10, "--limit", min=1, help="Maximum forms per difficulty list."),
+):
+    """Show lapses and longest unassisted recalls without changing files."""
+    from chordgen.analysis import analyze_difficulty, format_difficulty
+    from chordgen.check import read_inputs
+
+    config, rows, progress, diagnostics = read_inputs(State.config_path)
+    for finding in diagnostics.findings:
+        typer.echo(f"[{finding.code}] {finding.message}")
+        for example in finding.examples[:limit]:
+            typer.echo(f"  {example}")
+        if len(finding.examples) > limit:
+            typer.echo(f"  ... {len(finding.examples) - limit} more")
+    if diagnostics.has_errors:
+        typer.echo("Difficulty analysis unavailable: invalid inputs. No files changed.")
+        raise typer.Exit(code=1)
+    resolved = resolve_keyboard_layout(config)
+    if resolved is None:
+        typer.echo("Identity comparison unavailable: keyboard layout could not be resolved. No files changed.")
+        raise typer.Exit(code=1)
+    kind, layout = resolved
+    try:
+        report = analyze_difficulty(
+            rows, progress, keyboard_kind=kind, keyboard_layout=layout,
+            leech_threshold=config.learn.leech_threshold,
+        )
+    except ValueError as exc:
+        typer.echo(f"{exc} No files changed.")
+        raise typer.Exit(code=1) from exc
+    typer.echo(format_difficulty(report, limit))
+    if report.invalid:
+        raise typer.Exit(code=1)
+
+
+@app.command()
 def output():
     """Emit firmware and training files from chords.csv.
 
@@ -286,8 +322,8 @@ def learn(
     once learned the chord is hidden and only revealed on a mistake.
 
     Backed by FSRS — each word is scheduled for review based on your
-    performance, with daily quotas for new words and reviews, per-word
-    speed grading, and automatic leech detection.
+    performance, with daily quotas for new words and reviews and per-word
+    speed grading. Use 'chordgen difficult' to inspect lapses and leeches.
 
     Press Ctrl+P to switch themes.
     """

@@ -64,6 +64,7 @@ nav:
       - book: commands/book.md
       - analyze: commands/analyze.md
       - check: commands/check.md
+      - difficult: commands/difficult.md
   - Output formats:
       - QMK: output-formats/qmk.md
       - ZMK: output-formats/zmk.md

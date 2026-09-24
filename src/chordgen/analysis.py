@@ -1,4 +1,4 @@
-"""Read-only personal-text coverage and practice recommendations."""
+"""Read-only personal-text coverage and practice difficulty reports."""
 
 from __future__ import annotations
 
@@ -8,8 +8,25 @@ import math
 import statistics
 
 from chordgen.book import Book
-from chordgen.chord import Chord, build_repertoire, mapping_fingerprints
-from chordgen.srs import ProgressFile, learned_words
+from chordgen.chord import Chord, PracticeMapping, build_repertoire, mapping_fingerprints
+from chordgen.srs import ProgressFile, learned_words, progress_entry_error
+
+
+RECALL_MIN_SAMPLES = 3
+
+
+def recall_samples(entry: dict) -> list[float]:
+    samples = []
+    for sample in entry.get("recall_seconds", []):
+        if type(sample) not in (int, float):
+            continue
+        try:
+            value = float(sample)
+        except OverflowError:
+            continue
+        if math.isfinite(value) and value > 0:
+            samples.append(value)
+    return samples
 
 
 @dataclass(frozen=True)
@@ -107,8 +124,7 @@ def analyze_text(
         # Unknown/mismatched identities cannot justify measured cost claims.
         if entry.get("mapping") != fingerprint or word not in counts:
             continue
-        samples = [float(t) for t in entry.get("recall_seconds", [])
-                   if isinstance(t, (int, float)) and math.isfinite(t) and t > 0]
+        samples = recall_samples(entry)
         if not samples:
             continue
         measured_tokens += counts[word]
@@ -171,4 +187,144 @@ def format_analysis(report: TextAnalysis) -> str:
                          f"{c.estimated_seconds_saved:+.2f}s over {c.tokens} tokens ({label})")
     else:
         lines.append("Speed comparison needs --baseline-wpm and current unassisted recall observations.")
+    return "\n".join(lines)
+
+
+@dataclass(frozen=True)
+class DifficultForm:
+    mapping: PracticeMapping
+    lapses: int
+    reps: int
+    samples: int
+    recall_seconds: float | None
+    leech: bool
+
+
+@dataclass
+class DifficultyAnalysis:
+    forms: list[DifficultForm]
+    identities: Counter[str]
+    invalid: dict[str, str]
+
+    @property
+    def most_lapses(self) -> list[DifficultForm]:
+        return sorted((form for form in self.forms if form.lapses > 0),
+                      key=lambda form: (-form.lapses, form.mapping.word.lower(), form.mapping.word))
+
+    @property
+    def longest_recalls(self) -> list[DifficultForm]:
+        return sorted((form for form in self.forms if form.samples >= RECALL_MIN_SAMPLES),
+                      key=lambda form: (-(form.recall_seconds or 0), form.mapping.word.lower(), form.mapping.word))
+
+
+def analyze_difficulty(
+    chords: list[Chord],
+    progress: dict | None,
+    *,
+    keyboard_kind: str,
+    keyboard_layout: list[list[str]],
+    leech_threshold: int = 8,
+) -> DifficultyAnalysis:
+    """Describe evidence for verified current mappings, without changing cards."""
+    if not keyboard_layout or not any(key.strip("_ ") for row in keyboard_layout for key in row):
+        raise ValueError("Identity comparison unavailable: keyboard layout is empty.")
+    if any(not isinstance(row.get("word"), str) or not row["word"].strip()
+           or any(char.isspace() for char in row["word"]) for row in chords):
+        raise ValueError("Identity comparison unavailable: invalid dictionary word cells; run chordgen check.")
+    repertoire = build_repertoire(chords)
+    fingerprints = mapping_fingerprints(repertoire, keyboard_kind, keyboard_layout)
+    mappings = {mapping.word: mapping for mapping in repertoire.values()}
+    words = (progress or {}).get("words", {})
+    if not isinstance(words, dict):
+        raise ValueError("Progress words must be a mapping.")
+    forms = []
+    identities = Counter()
+    invalid = {}
+    for word, entry in words.items():
+        error = progress_entry_error(entry)
+        if error is not None:
+            invalid[word] = error
+            identities["invalid"] += 1
+        elif word not in fingerprints:
+            identities["unavailable"] += 1
+        elif not entry.get("mapping"):
+            identities["unknown"] += 1
+        elif entry["mapping"] != fingerprints[word]:
+            identities["changed"] += 1
+        else:
+            identities["current"] += 1
+            samples = recall_samples(entry)
+            lapses = entry.get("lapses", 0)
+            forms.append(DifficultForm(
+                mappings[word], lapses, entry.get("reps", 0), len(samples),
+                statistics.median(samples) if samples else None,
+                leech_threshold > 0 and lapses >= leech_threshold,
+            ))
+    return DifficultyAnalysis(forms, identities, invalid)
+
+
+def format_difficulty(report: DifficultyAnalysis, limit: int = 10) -> str:
+    if limit < 1:
+        raise ValueError("limit must be positive")
+
+    def timing(form: DifficultForm) -> str:
+        if form.recall_seconds is None:
+            return "recall unmeasured (n=0)"
+        return f"median recall {form.recall_seconds:.2f}s (n={form.samples})"
+
+    lines = [
+        "Difficult chords: current-mapping evidence",
+        "Progress: " + ", ".join(f"{report.identities[key]} {label}" for key, label in (
+            ("current", "current"), ("unknown", "unknown identity"), ("changed", "changed"),
+            ("unavailable", "unavailable"), ("invalid", "invalid"),
+        )),
+        "Only verified current cards contribute below; other identities are excluded.",
+        "Verified means saved mapping identity matches, not dictionary or firmware validation; run chordgen check.",
+    ]
+    if report.invalid:
+        lines.append("Partial report: malformed cards excluded; run chordgen check for details.")
+        for word in sorted(report.invalid)[:limit]:
+            lines.append(f"  {word!r}: {report.invalid[word]}")
+        if len(report.invalid) > limit:
+            lines.append(f"  ... {len(report.invalid) - limit} more invalid cards")
+    if not report.forms:
+        lines.append("No verified current learning evidence yet.")
+    for title, forms, empty in (
+        ("Most lapses", report.most_lapses, "No recorded lapses on verified current mappings."),
+        (f"Longest unassisted recalls (at least {RECALL_MIN_SAMPLES} samples)", report.longest_recalls,
+         "Not enough unassisted recall samples; use chordgen learn --recall."),
+    ):
+        lines.append(f"\n{title}: {len(forms)} forms")
+        for form in forms[:limit]:
+            mapping = form.mapping
+            slot = f"alt{mapping.slot}" if mapping.slot else "primary"
+            label = " [leech]" if form.leech else ""
+            lines.append(f"  {mapping.word!r}: {mapping.hint!r}; base {mapping.base!r}, {slot}; "
+                         f"{form.lapses} lapses, {form.reps} reviews{label}; {timing(form)}; "
+                         f"{len(mapping.word)} characters")
+        if not forms:
+            lines.append(f"  {empty}")
+        if len(forms) > limit:
+            lines.append(f"  ... {len(forms) - limit} more ({len(forms)} total)")
+    insufficient = sum(form.samples < RECALL_MIN_SAMPLES for form in report.forms)
+    lines.append(f"\nCurrent forms below {RECALL_MIN_SAMPLES} recall samples: {insufficient}/{len(report.forms)}")
+    lines.append("By practice slot (all verified current cards, before display limits):")
+    for slot in range(4):
+        forms = [form for form in report.forms if form.mapping.slot == slot]
+        name = f"alt{slot}" if slot else "primary"
+        lines.append(f"  {name}: {len(forms)} current cards; "
+                     f"{sum(form.lapses > 0 for form in forms)}/{len(forms)} with lapses; "
+                     f"{sum(form.lapses for form in forms)} total lapses; "
+                     f"{sum(form.samples >= RECALL_MIN_SAMPLES for form in forms)}/{len(forms)} recall-ranked")
+    lines.extend([
+        "\nLapses are lifetime Again ratings on graduated cards, not all errors or a recent failure rate.",
+        "Slot counts reflect practice ownership and unequal exposure, not modifier failure rates.",
+        "Recall medians use clean, hint-free learn --recall attempts (up to 200 stored per form).",
+        "Three samples is a display minimum, not statistical confidence; samples have no timestamps.",
+        "Seconds include word length, thinking and the committing space; typing vs chords is not detected.",
+        "Longest does not mean physically bad. This ranking is separate from learn's WPM grading.",
+        "\nPractice: chordgen learn --recall; target forms with chordgen drill WORD ... (no FSRS updates).",
+        "Inspect: chordgen check. Only repin manually in chords.csv after checking the mapping and comfort.",
+        "Read-only: no files changed, mappings reassigned, or progress reset.",
+    ])
     return "\n".join(lines)

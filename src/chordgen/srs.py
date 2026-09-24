@@ -181,6 +181,27 @@ def reconcile_mappings(progress: ProgressFile, fingerprints: dict[str, str]) -> 
     return changed
 
 
+def progress_entry_error(entry: object) -> str | None:
+    """Validate a saved card for read-only reports without repairing it."""
+    try:
+        if not isinstance(entry, dict) or not isinstance(entry.get("card"), dict):
+            raise ValueError("missing card object")
+        if entry.get("mapping") is not None and not isinstance(entry["mapping"], str):
+            raise ValueError("mapping identity must be a string")
+        Card.from_dict(entry["card"])
+        for key in ("reps", "lapses"):
+            if key in entry and (type(entry[key]) is not int or entry[key] < 0):
+                raise ValueError(f"{key} must be a nonnegative integer")
+        for key in ("wpm_ewma", "recall_wpm_ewma"):
+            if entry.get(key) is not None and not isinstance(entry[key], (int, float)):
+                raise ValueError(f"{key} must be numeric or null")
+        if "recall_seconds" in entry and not isinstance(entry["recall_seconds"], list):
+            raise ValueError("recall_seconds must be a list")
+    except (ValueError, TypeError, KeyError, OverflowError, AttributeError) as exc:
+        return str(exc)
+    return None
+
+
 def get_card(progress: ProgressFile, word: str, fingerprint: str | None = None) -> Card | None:
     entry = progress["words"].get(word)
     if entry is None or (fingerprint is not None and not mapping_matches(entry, fingerprint)):

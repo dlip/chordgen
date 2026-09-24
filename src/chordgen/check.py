@@ -9,7 +9,6 @@ import json
 from pathlib import Path
 from typing import Literal
 
-from fsrs import Card
 import yaml
 
 from chordgen import srs
@@ -59,7 +58,7 @@ def _read_config(path: Path, report: CheckReport) -> Config | None:
         if "train" in raw and "learn" not in raw:
             raw["learn"] = raw.pop("train")
             report.add("info", "config.legacy", "Legacy train settings interpreted as learn; file unchanged.")
-        return Config.model_validate(raw)
+        return Config.model_validate(raw, context={"read_only": True})
     except (OSError, UnicodeError, ValueError, TypeError, yaml.YAMLError) as exc:
         report.add("error", "config.invalid", "Cannot read or validate configuration.", f"{path}: {exc}")
         return None
@@ -124,22 +123,9 @@ def _check_progress(progress: dict | None, fingerprints: dict[str, str] | None, 
         return
     matched = legacy = changed = removed = 0
     for word, entry in progress.get("words", {}).items():
-        try:
-            if not isinstance(entry, dict) or not isinstance(entry.get("card"), dict):
-                raise ValueError("missing card object")
-            if entry.get("mapping") is not None and not isinstance(entry["mapping"], str):
-                raise ValueError("mapping identity must be a string")
-            Card.from_dict(entry["card"])
-            for key in ("reps", "lapses"):
-                if key in entry and (type(entry[key]) is not int or entry[key] < 0):
-                    raise ValueError(f"{key} must be a nonnegative integer")
-            for key in ("wpm_ewma", "recall_wpm_ewma"):
-                if entry.get(key) is not None and not isinstance(entry[key], (int, float)):
-                    raise ValueError(f"{key} must be numeric or null")
-            if "recall_seconds" in entry and not isinstance(entry["recall_seconds"], list):
-                raise ValueError("recall_seconds must be a list")
-        except (ValueError, TypeError, KeyError, OverflowError, AttributeError) as exc:
-            report.add("error", "progress.card", "Malformed learning card; no progress was changed.", f"{word!r}: {exc}")
+        error = srs.progress_entry_error(entry)
+        if error is not None:
+            report.add("error", "progress.card", "Malformed learning card; no progress was changed.", f"{word!r}: {error}")
             continue
         if fingerprints is None:
             continue
@@ -378,11 +364,19 @@ def check_dictionary(config: Config, rows: list[Chord], progress: dict | None = 
     return report
 
 
-def run_check(config_path: Path, *, progress_path: Path | None = None) -> CheckReport:
+def read_inputs(
+    config_path: Path, *, progress_path: Path | None = None,
+) -> tuple[Config | None, list[Chord] | None, dict | None, CheckReport]:
+    """Read report inputs without creating directories or migrating files."""
     report = CheckReport()
     config = _read_config(config_path, report)
     progress = _read_progress(srs.PROGRESS_FILE if progress_path is None else progress_path, report)
     rows = _read_rows(config.gen.file, report) if config else None
+    return config, rows, progress, report
+
+
+def run_check(config_path: Path, *, progress_path: Path | None = None) -> CheckReport:
+    config, rows, progress, report = read_inputs(config_path, progress_path=progress_path)
     if config is not None and rows is not None:
         result = check_dictionary(config, rows, progress)
         report.findings.extend(result.findings)
