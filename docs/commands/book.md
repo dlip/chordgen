@@ -34,6 +34,13 @@ Supported formats:
   character by default. Unlearned words continue from the character where
   the mistake occurred. Set `book.reset_word_on_mistake` to `false` to use
   that behavior for learned words too.
+- Punctuation attached to a word (`'Are`, `you?`) is not part of the chord,
+  so it is rendered plain rather than highlighted, and mistyping it neither
+  reveals the chord nor resets the word. A reset returns you to the first
+  letter of the word itself, leaving any leading punctuation typed. Because
+  a chord emits a trailing space, that space is ignored when it arrives
+  where trailing punctuation is expected: type the punctuation, then space,
+  to advance.
 - Bottom: your keyboard layout. When you mistype a learned word
   the chord keys are highlighted on the keyboard, and an
   `alt1 alt2 alt3` indicator below the keyboard highlights the

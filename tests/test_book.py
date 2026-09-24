@@ -10,6 +10,7 @@ from chordgen.book import (
     BookToken,
     WpmWindow,
     _word_key,
+    _word_core_span,
     get_resume_index,
     layout_lines,
     line_index_for_token,
@@ -330,6 +331,177 @@ def test_mistake_resets_word_only_for_learned_chord_when_enabled(monkeypatch):
         assert app.flashing is True
 
 
+def test_word_core_span_excludes_surrounding_punctuation():
+    assert _word_core_span("you?") == (0, 3)
+    assert _word_core_span('"you?"') == (1, 4)
+    assert _word_core_span("you") == (0, 3)
+    assert _word_core_span("---") == (0, 3)
+
+
+def _autospace_app(word: str, word_key: str, learned: set[str], letter_index: int):
+    from chordgen.book import BookApp
+
+    app = BookApp.__new__(BookApp)
+    app.book = Book(title="test", tokens=[BookToken(word, True, 0, word_key)])
+    app.cursor = 0
+    app.learned_words = learned
+    app.letter_index = letter_index
+    return app
+
+
+def test_chord_autospace_swallowed_on_punctuation_tail_of_learned_word():
+    app = _autospace_app("you?", "you", {"you"}, 3)
+    assert app._is_chord_autospace(" ") is True
+
+
+def test_chord_autospace_not_applied_to_unlearned_word():
+    app = _autospace_app("you?", "you", set(), 3)
+    assert app._is_chord_autospace(" ") is False
+
+
+def test_chord_autospace_requires_cursor_at_end_of_word_core():
+    app = _autospace_app("you?", "you", {"you"}, 2)
+    assert app._is_chord_autospace(" ") is False
+
+
+def test_chord_autospace_ignores_non_space_keys():
+    app = _autospace_app("you?", "you", {"you"}, 3)
+    assert app._is_chord_autospace("x") is False
+
+
+def test_learned_highlight_excludes_trailing_punctuation():
+    from rich.text import Text
+
+    from chordgen.book import BookApp
+
+    app = BookApp.__new__(BookApp)
+    app.book = Book(title="test", tokens=[BookToken("you?", True, 0, "you")])
+    app.cursor = 0
+    app.learned_words = {"you"}
+    app.letter_index = 0
+    app.flashing = False
+
+    out = Text()
+    app._append_token(out, app.book.tokens[0], 0)
+    styled = [(str(span.style), out.plain[span.start : span.end]) for span in out.spans]
+    assert ("bold yellow", "you") in styled
+    assert ("bold", "?") in styled
+
+
+def test_learned_highlight_excludes_leading_punctuation():
+    from rich.text import Text
+
+    from chordgen.book import BookApp
+
+    app = BookApp.__new__(BookApp)
+    app.book = Book(title="test", tokens=[BookToken("'Are", True, 0, "are")])
+    app.cursor = 0
+    app.learned_words = {"are"}
+    app.letter_index = 0
+    app.flashing = False
+
+    out = Text()
+    app._append_token(out, app.book.tokens[0], 0)
+    styled = [(str(span.style), out.plain[span.start : span.end]) for span in out.spans]
+    assert ("bold", "'") in styled
+    assert ("bold yellow", "Are") in styled
+
+
+def test_mistake_resets_to_word_core_not_token_start(monkeypatch):
+    from types import SimpleNamespace
+
+    from chordgen.book import BookApp
+
+    monkeypatch.setattr(BookApp, "refresh_view", lambda self: None)
+    monkeypatch.setattr(BookApp, "set_timer", lambda self, *args: None)
+
+    app = BookApp.__new__(BookApp)
+    app.config = SimpleNamespace(reset_word_on_mistake=True)
+    app.book = Book(title="test", tokens=[BookToken("'Are", True, 0, "are")])
+    app.cursor = 0
+    app.learned_words = {"are"}
+    app.letter_index = 3
+    app.current_word_had_error = False
+    app.flashing = False
+
+    app._flash_red()
+
+    # Back to the ``A``, leaving the already-typed quote intact.
+    assert app.letter_index == 1
+
+
+def test_mistake_on_leading_punctuation_does_not_reveal_chord(monkeypatch):
+    from types import SimpleNamespace
+
+    from chordgen.book import BookApp
+
+    monkeypatch.setattr(BookApp, "refresh_view", lambda self: None)
+    monkeypatch.setattr(BookApp, "set_timer", lambda self, *args: None)
+
+    app = BookApp.__new__(BookApp)
+    app.config = SimpleNamespace(reset_word_on_mistake=True)
+    app.book = Book(title="test", tokens=[BookToken("'Are", True, 0, "are")])
+    app.cursor = 0
+    app.learned_words = {"are"}
+    app.letter_index = 0
+    app.current_word_had_error = False
+    app.flashing = False
+
+    app._flash_red()
+
+    assert app.letter_index == 0
+    assert app.current_word_had_error is False
+    assert app.flashing is True
+
+
+def test_mistake_on_trailing_punctuation_does_not_reveal_chord(monkeypatch):
+    from types import SimpleNamespace
+
+    from chordgen.book import BookApp
+
+    monkeypatch.setattr(BookApp, "refresh_view", lambda self: None)
+    monkeypatch.setattr(BookApp, "set_timer", lambda self, *args: None)
+
+    app = BookApp.__new__(BookApp)
+    app.config = SimpleNamespace(reset_word_on_mistake=True)
+    app.book = Book(title="test", tokens=[BookToken("you?", True, 0, "you")])
+    app.cursor = 0
+    app.learned_words = {"you"}
+    app.letter_index = 3
+    app.current_word_had_error = False
+    app.flashing = False
+
+    app._flash_red()
+
+    assert app.letter_index == 3
+    assert app.current_word_had_error is False
+
+
+def test_mistake_after_full_token_still_reveals_chord(monkeypatch):
+    """The chord emits a trailing space, so a wrong key where the space
+    belongs is a genuine chord stumble."""
+    from types import SimpleNamespace
+
+    from chordgen.book import BookApp
+
+    monkeypatch.setattr(BookApp, "refresh_view", lambda self: None)
+    monkeypatch.setattr(BookApp, "set_timer", lambda self, *args: None)
+
+    app = BookApp.__new__(BookApp)
+    app.config = SimpleNamespace(reset_word_on_mistake=True)
+    app.book = Book(title="test", tokens=[BookToken("you?", True, 0, "you")])
+    app.cursor = 0
+    app.learned_words = {"you"}
+    app.letter_index = 4
+    app.current_word_had_error = False
+    app.flashing = False
+
+    app._flash_red()
+
+    assert app.current_word_had_error is True
+    assert app.letter_index == 0
+
+
 # ---------------------------------------------------------------------------
 # Alt-slot integration
 # ---------------------------------------------------------------------------
@@ -366,3 +538,35 @@ def test_collect_learned_words_requires_independent_alt_review(monkeypatch):
     learned = app._collect_learned_words()
 
     assert learned == {"car", "cars"}
+
+
+def test_collect_learned_words_lowercases_csv_spelling(monkeypatch):
+    """Book tokens look up via ``_word_key`` (lowercased), so a row
+    spelled ``I`` in chords.csv must still match."""
+    from fsrs import Card, State
+
+    from chordgen.book import BookApp
+
+    chords = [{"word": "I", "chord": "i", "alt1": "", "alt2": "", "alt3": ""}]
+    card = Card(state=State.Review)
+    monkeypatch.setattr(
+        "chordgen.book.load_progress",
+        lambda: {"words": {"I": {"card": card.to_dict()}}},
+    )
+
+    app = BookApp.__new__(BookApp)
+    app.chords_map = {c["word"].lower(): c for c in chords}
+    app.alt_index = {}
+
+    assert app._collect_learned_words() == {"i"}
+
+
+def test_chord_for_token_matches_uppercase_csv_spelling():
+    from chordgen.book import BookApp
+
+    app = BookApp.__new__(BookApp)
+    app.chords_map = {"i": {"word": "I", "chord": "i"}}
+    app.alt_index = {}
+    app.learned_words = {"i"}
+
+    assert app._chord_for_token(BookToken("I", True, 0, "i")) == "i"

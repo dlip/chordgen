@@ -201,6 +201,15 @@ def _word_key(text: str) -> str | None:
     return candidate or None
 
 
+def _word_core_span(text: str) -> tuple[int, int]:
+    """Return ``(start, end)`` bounding the alphabetic core of ``text``,
+    excluding surrounding punctuation (``you?`` → ``(0, 3)``)."""
+    alpha = [i for i, c in enumerate(text) if c.isalpha()]
+    if not alpha:
+        return (0, len(text))
+    return (alpha[0], alpha[-1] + 1)
+
+
 @dataclass
 class BookToken:
     text: str
@@ -576,8 +585,13 @@ class BookApp(App):
         on_theme_change: Any = None,
     ) -> None:
         super().__init__()
-        self.chords_map = {c["word"]: c for c in chords if c["chord"]}
-        self.alt_index = build_alt_index(chords)
+        # Book tokens are looked up via ``_word_key``, which lowercases,
+        # so every lookup table here is keyed lowercase. The CSV spelling
+        # (``I``) is preserved inside the rows themselves.
+        self.chords_map = {c["word"].lower(): c for c in chords if c["chord"]}
+        self.alt_index = {
+            word.lower(): value for word, value in build_alt_index(chords).items()
+        }
         self.config = config
         self.path = path
         self.book = load_book(path)
@@ -623,7 +637,7 @@ class BookApp(App):
             fingerprints = mapping_fingerprints(
                 build_repertoire(list(self.chords_map.values())), "standard", None,
             )
-        return learned_words(progress, fingerprints)
+        return {word.lower() for word in learned_words(progress, fingerprints)}
 
     def _clamp_to_word(self, idx: int) -> int:
         if not self.book.tokens:
@@ -788,6 +802,11 @@ class BookApp(App):
                 self.letter_index += 1
                 self.wpm.add(1)
                 self.refresh_view()
+            elif self._is_chord_autospace(key):
+                # A learned chord emits a trailing space, so on a word
+                # like ``you?`` the space arrives where ``?`` is
+                # expected. Swallow it instead of counting a mistake.
+                self.wpm.add(1)
             else:
                 self._flash_red()
             event.stop()
@@ -799,14 +818,41 @@ class BookApp(App):
                 self._flash_red()
             event.stop()
 
+    def _is_chord_autospace(self, key: str) -> bool:
+        """True when ``key`` is the trailing space a learned chord emits
+        and the cursor sits on the punctuation tail of its word."""
+        if key != " ":
+            return False
+        tok = self.book.tokens[self.cursor]
+        if not tok.word_key or tok.word_key not in self.learned_words:
+            return False
+        _start, end = _word_core_span(tok.text)
+        return self.letter_index == end
+
+    def _expecting_punctuation(self) -> bool:
+        """True when the next expected character is punctuation attached to
+        the word rather than part of the chorded word itself."""
+        tok = self.book.tokens[self.cursor]
+        if self.letter_index >= len(tok.text):
+            return False
+        core_start, core_end = _word_core_span(tok.text)
+        return not core_start <= self.letter_index < core_end
+
     def _flash_red(self) -> None:
-        current_word = self.book.tokens[self.cursor].word_key
-        if (
-            self.config.reset_word_on_mistake
-            and current_word in self.learned_words
-        ):
-            self.letter_index = 0
-        self.current_word_had_error = True
+        tok = self.book.tokens[self.cursor]
+        # A typo on punctuation around the word isn't a chord stumble, so it
+        # neither reveals the chord nor rolls the word back.
+        if not self._expecting_punctuation():
+            if (
+                self.config.reset_word_on_mistake
+                and tok.word_key in self.learned_words
+            ):
+                # Reset to the start of the chorded word, not the start of
+                # the token: on ``'Are`` the leading quote isn't part of
+                # the chord and shouldn't need retyping.
+                core_start, _end = _word_core_span(tok.text)
+                self.letter_index = min(self.letter_index, core_start)
+            self.current_word_had_error = True
         self.flashing = True
         self.refresh_view()
         self.set_timer(0.4, self._clear_flash)
@@ -1021,7 +1067,10 @@ class BookApp(App):
             if j > 0:
                 offset += 1  # separator space
             if tok_idx == self.cursor:
-                return (rendered, offset)
+                # Align under the chorded word, skipping leading
+                # punctuation (``'Are`` starts the chord at the ``A``).
+                core_start, _end = _word_core_span(tokens[tok_idx].text)
+                return (rendered, offset + core_start)
             offset += len(tokens[tok_idx].text)
         return (rendered, 0)
 
@@ -1035,26 +1084,39 @@ class BookApp(App):
             out.append(text, style="green")
             return
 
+        learned = bool(tok.word_key) and tok.word_key in self.learned_words
+
         if idx == self.cursor:
             if self.flashing:
                 out.append(text, style="bold red reverse")
                 return
             typed = text[: self.letter_index]
-            rest = text[self.letter_index :]
             if typed:
                 out.append(typed, style="green")
-            if rest:
-                if tok.word_key in self.learned_words:
-                    out.append(rest, style="bold yellow")
-                else:
-                    out.append(rest, style="bold")
+            self._append_untyped(
+                out, tok, self.letter_index, "bold yellow" if learned else "bold", "bold"
+            )
             return
 
-        # Upcoming token.
-        if tok.word_key and tok.word_key in self.learned_words:
-            out.append(text, style="yellow")
-        else:
-            out.append(text)
+        self._append_untyped(out, tok, 0, "yellow" if learned else "", "")
+
+    def _append_untyped(
+        self, out: Text, tok: BookToken, start: int, core_style: str, punct_style: str
+    ) -> None:
+        """Append ``tok.text[start:]``, styling only the word's alphabetic
+        core with ``core_style`` so surrounding punctuation isn't shown as
+        part of the chord."""
+        text = tok.text
+        if start >= len(text):
+            return
+        core_start, core_end = _word_core_span(text)
+        for chunk, style in (
+            (text[start:core_start], punct_style),
+            (text[max(start, core_start) : core_end], core_style),
+            (text[max(start, core_end) :], punct_style),
+        ):
+            if chunk:
+                out.append(chunk, style=style)
 
     def _current_word_chord(self) -> tuple[str, int]:
         """Return ``(chord, slot)`` for the word under the cursor.
