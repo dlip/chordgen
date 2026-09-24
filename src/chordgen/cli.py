@@ -41,6 +41,9 @@ def callback(
     ),
 ):
     logging.basicConfig(level="INFO")
+    if ctx.invoked_subcommand == "check":
+        State.config_path = config
+        return
     if ctx.invoked_subcommand != "setup":
         if not config.exists():
             print(
@@ -180,6 +183,19 @@ def analyze(
     except (ValueError, OSError) as exc:
         raise typer.BadParameter(str(exc)) from exc
     typer.echo(format_analysis(report))
+
+
+@app.command()
+def check(
+    limit: int = typer.Option(10, "--limit", min=1, help="Maximum examples per diagnostic group."),
+):
+    """Check dictionary, layout, exports, and progress without changing files."""
+    from chordgen.check import format_check, run_check
+
+    report = run_check(State.config_path)
+    typer.echo(format_check(report, limit))
+    if report.has_errors:
+        raise typer.Exit(code=1)
 
 
 @app.command()

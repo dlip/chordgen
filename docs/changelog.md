@@ -19,6 +19,8 @@
 - Add local, read-only `analyze` reports for personal-text coverage, family-aware
   learning recommendations, and observed recall versus an optional typing-speed
   estimate; document a separate manual mixed-typing passage comparison.
+- Add read-only `check` diagnostics for dictionary/layout conflicts, configured
+  export coverage and bindings, stale learning identities, and chord comfort.
 
 - Removed dead `find_all_combinations` helper from `utils.py` and
   corrected the `find_combinations` docstring (results are ordered

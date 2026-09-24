@@ -1,4 +1,5 @@
 from chordgen.chord import Chord
+from chordgen.output import assigned_rows
 from chordgen.constants import CONFIG_DIR
 from pydantic import BaseModel, Field
 from chordgen.pydantic import File
@@ -40,10 +41,20 @@ class ZmkOutput(BaseModel):
         description="Should contain the same number of characters as keys on your keyboard. Use _ to ignore a key. Chord, shift, alt1, alt2 can be represented by shifted characters such as $#!@. Spaces will be ignored and can be used for formatting.",
     )
 
+    def position_map(self) -> dict[str, int]:
+        keys = [key for row in self.key_positions for key in row if key != " "]
+        return {key: index for index, key in enumerate(keys)}
+
+    def translate_keys(self, chord):
+        positions = self.position_map()
+        result = []
+        for key in chord:
+            if key not in positions:
+                raise ValueError(f'Unable to find key position for {key}, is it in "key_positions"?')
+            result.append(str(positions[key]))
+        return result
+
     def output(self, chords: list[Chord]):
-        key_positions = [
-            item for items in self.key_positions for item in items if item != " "
-        ]
         macros_output = """#define MACRO(NAME, BINDINGS) \\
         macro_##NAME: macro_##NAME { \\
             compatible = "zmk,behavior-macro"; \\
@@ -69,21 +80,7 @@ class ZmkOutput(BaseModel):
 """
         )
 
-        key_positions_map = {}
-        for i, key in enumerate(key_positions):
-            key_positions_map[key] = i
-
-        def translate_keys(chord):
-            result = []
-            for k in chord:
-                if k in key_positions_map:
-                    result.append(key_positions_map[k])
-                else:
-                    raise Exception(
-                        f'Unable to find key position for {k}, is it in "key_positions"?'
-                    )
-            result = [str(i) for i in result]
-            return result
+        key_positions_map = self.position_map()
 
         def translate_macro(word, capitalize=False):
             result = []
@@ -110,21 +107,14 @@ class ZmkOutput(BaseModel):
                 continue
             name = f"c_{key_map[p]}"
             macro = translate_macro(f"←{p} ")
-            positions = translate_keys([p] + self.chord_keys)
+            positions = self.translate_keys([p] + self.chord_keys)
             macros_output += f"MACRO({name}, {' '.join(macro)})\n"
             chords_output += f"CHORD({name}, &macro_{name}, {' '.join(positions)})\n"
 
         alt_keys = [self.alt1_keys, self.alt2_keys, self.alt3_keys]
-        count = 0
-        for chord in chords:
+        selected = assigned_rows(chords, self.limit)
+        for chord in selected:
             c = chord["chord"]
-            if not c:
-                continue
-
-            count += 1
-            if self.limit != 0 and count > self.limit:
-                print(f"Stopping at chord {self.limit} due to limit setting")
-                break
 
             words = [chord["word"], chord["alt1"], chord["alt2"], chord["alt3"]]
             for i, word in enumerate(words):
@@ -143,20 +133,22 @@ class ZmkOutput(BaseModel):
                 bspc = "←" if is_contraction else ""
                 macro = translate_macro(bspc + word + " ")
 
-                positions = translate_keys(list(c) + self.chord_keys + alt)
+                positions = self.translate_keys(list(c) + self.chord_keys + alt)
                 macros_output += f"MACRO({name}, {' '.join(macro)})\n"
                 chords_output += (
                     f"CHORD({name}, &macro_{name}, {' '.join(positions)})\n"
                 )
 
                 if self.shifted_chord_keys and not is_contraction:
-                    positions = translate_keys(list(c) + self.shifted_chord_keys + alt)
+                    positions = self.translate_keys(list(c) + self.shifted_chord_keys + alt)
                     macro = translate_macro(word + " ", True)
                     macros_output += f"MACRO(s_{name}, {' '.join(macro)})\n"
                     chords_output += (
                         f"CHORD(s_{name}, &macro_s_{name}, {' '.join(positions)})\n"
                     )
 
+        if len(selected) < len(assigned_rows(chords)):
+            print(f"Stopping at chord {self.limit} due to limit setting")
         print(f"Writing {self.macros_file}")
         with open(self.macros_file, "w") as file:
             file.write(macros_output)

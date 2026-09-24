@@ -1,5 +1,5 @@
-from pathlib import Path
 from chordgen.chord import Chord
+from chordgen.output import assigned_rows
 from chordgen.constants import CONFIG_DIR
 from pydantic import BaseModel, Field
 from chordgen.pydantic import File
@@ -26,6 +26,14 @@ class KanataOutput(BaseModel):
         description="Since Kanata combos are based in the layout in defsrc (probably qwerty) you will need to remap the letters if you are using a custom layout eg. 'a': 'b'",
     )
 
+    def translate_chord(self, chord):
+        result = []
+        for key in chord:
+            if key not in self.key_mapping:
+                raise ValueError(f"No key_map for {key}")
+            result.append(self.key_mapping[key])
+        return result
+
     def output(self, chords: list[Chord]):
         output = "(defchordsv2\n"
 
@@ -40,26 +48,10 @@ class KanataOutput(BaseModel):
                     result.append(k)
             return result
 
-        def translate_chord(chord):
-            result = []
-            for k in chord:
-                if k in self.key_mapping:
-                    result.append(self.key_mapping[k])
-                else:
-                    raise Exception(f"No key_map for {k}")
-            return result
-
         alt_keys = [self.alt1_keys, self.alt2_keys, self.alt3_keys]
-        count = 0
-        for chord in chords:
+        selected = assigned_rows(chords, self.limit)
+        for chord in selected:
             c = chord["chord"]
-            if not c:
-                continue
-
-            count += 1
-            if self.limit != 0 and count > self.limit:
-                print(f"Stopping at line {self.limit} due to limit setting")
-                break
 
             # Detect contractions by category, not by ``'`` in word, so
             # genuine apostrophe words (``o'clock``) stay literal.
@@ -72,7 +64,7 @@ class KanataOutput(BaseModel):
                 if i > 0:
                     alt = alt_keys[i - 1]
 
-                keys = translate_chord(c)
+                keys = self.translate_chord(c)
                 # Contractions (``'s``, ``'re``, ``n't``, ...) are typed
                 # *after* a chorded word that already appended a space,
                 # so prepend the ``←`` sentinel to delete it first.
@@ -84,6 +76,8 @@ class KanataOutput(BaseModel):
                     shifted_macro = translate_macro(word.capitalize() + " ")
                     output += f"  ({' '.join(self.shifted_chord_keys + alt)} {' '.join(keys)}) (macro {' '.join(shifted_macro)}) {self.chord_timeout} first-release ()\n"
 
+        if len(selected) < len(assigned_rows(chords)):
+            print(f"Stopping at line {self.limit} due to limit setting")
         output += ")"
 
         print(f"Writing {self.file}")

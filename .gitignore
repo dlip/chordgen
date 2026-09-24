@@ -19,5 +19,8 @@ devenv.local.yaml
 
 # Agent-added source and documentation
 !/docs/commands/analyze.md
+!/docs/commands/check.md
 !/src/chordgen/analysis.py
+!/src/chordgen/check.py
 !/tests/test_analysis.py
+!/tests/test_check.py
