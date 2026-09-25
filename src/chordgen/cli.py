@@ -1,3 +1,9 @@
+import os
+
+# Avoid Textual's pixel-mouse resize path, which can divide by zero when a
+# terminal briefly reports a zero pixel size. Users may explicitly override it.
+os.environ.setdefault("TEXTUAL_SMOOTH_SCROLL", "0")
+
 import logging
 import re
 from pathlib import Path

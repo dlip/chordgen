@@ -3,6 +3,9 @@
 from copy import deepcopy
 import csv
 import json
+import os
+import subprocess
+import sys
 
 from fsrs import Card, State
 import pytest
@@ -15,6 +18,25 @@ from chordgen.chord import build_repertoire, mapping_fingerprints
 from chordgen.config import Config
 from chordgen.keyboard_view import resolve_keyboard_layout
 from chordgen.output import assigned_rows
+
+
+def test_cli_disables_textual_smooth_scroll_by_default():
+    env = os.environ.copy()
+    env.pop("TEXTUAL_SMOOTH_SCROLL", None)
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-c",
+            "import chordgen.cli; "
+            "from textual.constants import SMOOTH_SCROLL; "
+            "print(SMOOTH_SCROLL)",
+        ],
+        check=True,
+        capture_output=True,
+        text=True,
+        env=env,
+    )
+    assert result.stdout.strip() == "False"
 
 
 def row(word="the", chord="te", **fields):
