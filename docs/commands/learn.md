@@ -15,12 +15,13 @@ The session model mirrors Anki: each calendar day has a budget of
 reviews. The session ends when the budget is empty and any in-flight
 learning words have graduated.
 
-- Words are picked first from cards that are overdue in the FSRS
-  schedule (sorted by retrievability), using calendar-date comparison
-  (Anki-style — anything due today appears). Then from words your
-  typing speed has flagged as slow, then by descending frequency for
-  words you've never seen. Each bucket is capped by the day's
-  remaining review / new budget.
+- Words interrupted during learning or relearning resume first, even after
+  quitting and reopening learn mode or exhausting a daily quota. Remaining
+  slots are picked from cards overdue in the FSRS schedule (sorted by
+  retrievability), using calendar-date comparison (Anki-style — anything due
+  today appears). Then from words your typing speed has flagged as slow, then
+  by descending frequency for words you've never seen. Review and new buckets
+  are capped by the day's remaining budget.
 - New / learning words show their chord directly under the word.
   Brand-new cards show the chord for the first `learn.show_chord_steps`
   consecutive correct reps, then hide it for the remaining learning

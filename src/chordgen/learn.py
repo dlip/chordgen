@@ -208,23 +208,40 @@ class LearnApp(App):
         the day's ``new_words_per_day`` and ``reviews_per_day`` budgets.
 
         Priority order:
-        1. Overdue (FSRS due_date <= now), sorted by retrievability ascending.
+        1. In-flight Learning/Relearning cards, uncapped by daily quotas.
+        2. Overdue (FSRS due_date <= now), sorted by retrievability ascending.
            Capped by remaining review budget.
-        2. Slow (per-word EWMA below the slow threshold), sorted ascending.
+        3. Slow (per-word EWMA below the slow threshold), sorted ascending.
            Capped by remaining review budget.
-        3. New (no FSRS state yet), sorted by frequency descending.
+        4. New (no FSRS state yet), sorted by frequency descending.
            Capped by remaining new budget.
         """
         if n <= 0:
             return []
 
-        new_left, review_left = self._daily_budget()
-        if new_left <= 0 and review_left <= 0:
-            return []
-
         excluded = set(self.words_to_practice) | self.graduated_this_session
         now = datetime.now(timezone.utc)
         today = now.date().isoformat()
+        words_state = self.progress.get("words", {})
+
+        # Cards interrupted during Learning/Relearning stay in flight across
+        # sessions. They were already charged to a daily quota when first
+        # seen, so resume them before applying today's remaining budgets or
+        # same-day bury rules.
+        in_flight_words: list[str] = []
+        for word, entry in words_state.items():
+            if word not in self.chords_map or word in excluded:
+                continue
+            card = Card.from_dict(entry["card"])
+            if card.state in (State.Learning, State.Relearning):
+                in_flight_words.append(word)
+        if len(in_flight_words) >= n:
+            return in_flight_words[:n]
+
+        excluded |= set(in_flight_words)
+        new_left, review_left = self._daily_budget()
+        if new_left <= 0 and review_left <= 0:
+            return in_flight_words
 
         threshold = slow_threshold_wpm(
             self.progress,
@@ -232,8 +249,6 @@ class LearnApp(App):
             self.config.slow_min_samples,
             speed_mode=self.speed_mode,
         )
-
-        words_state = self.progress.get("words", {})
 
         # Bucket 1: overdue (review). Words already reviewed today
         # are buried until tomorrow even if FSRS schedules them
@@ -297,7 +312,7 @@ class LearnApp(App):
                 if len(new_words) >= new_left:
                     break
 
-        return (overdue_words + slow_words + new_words)[:n]
+        return (in_flight_words + overdue_words + slow_words + new_words)[:n]
 
     def _queue_state_counts(self) -> tuple[int, int, int]:
         """Anki-style breakdown of the on-screen queue:

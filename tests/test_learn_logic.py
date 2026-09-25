@@ -96,6 +96,87 @@ def test_build_chords_map_excludes_contractions():
     assert set(build_chords_map(chords).keys()) == {"the", "o'clock"}
 
 
+def test_learning_card_resumes_after_restart_with_exhausted_quota(
+    tmp_path, monkeypatch
+):
+    from chordgen import srs
+    from chordgen.config import LearnOptions
+    from chordgen.learn import LearnApp
+
+    monkeypatch.setattr(srs, "PROGRESS_FILE", tmp_path / "progress.json")
+    chords = [{"word": "hello", "chord": "hl", "frequency": "6"}]
+    options = LearnOptions(
+        show_words=1,
+        learning_steps=3,
+        new_words_per_day=1,
+        reviews_per_day=0,
+    )
+    first = LearnApp(chords, options)
+    card = srs.record_review(
+        first.progress,
+        first.scheduler,
+        "hello",
+        Rating.Good,
+        None,
+        fingerprint=first.fingerprints["hello"],
+    )
+    assert card.state == srs.State.Learning
+    srs.save_progress(first.progress)
+
+    resumed = LearnApp(chords, options)
+
+    assert resumed.progress["daily"]["new_count"] == 1
+    assert resumed.words_to_practice == ["hello"]
+
+
+def test_relearning_card_resumes_after_restart_with_exhausted_quota(
+    tmp_path, monkeypatch
+):
+    from datetime import datetime, timedelta, timezone
+
+    from chordgen import srs
+    from chordgen.config import LearnOptions
+    from chordgen.learn import LearnApp
+
+    monkeypatch.setattr(srs, "PROGRESS_FILE", tmp_path / "progress.json")
+    chords = [{"word": "hello", "chord": "hl", "frequency": "6"}]
+    options = LearnOptions(
+        show_words=1,
+        learning_steps=1,
+        relearn_steps=2,
+        new_words_per_day=0,
+        reviews_per_day=0,
+    )
+    first = LearnApp(chords, options)
+    fingerprint = first.fingerprints["hello"]
+    yesterday = datetime.now(timezone.utc) - timedelta(days=1)
+    graduated = srs.record_review(
+        first.progress,
+        first.scheduler,
+        "hello",
+        Rating.Good,
+        None,
+        now=yesterday,
+        fingerprint=fingerprint,
+    )
+    assert graduated.state == srs.State.Review
+    relearning = srs.record_review(
+        first.progress,
+        first.scheduler,
+        "hello",
+        Rating.Again,
+        None,
+        now=datetime.now(timezone.utc),
+        fingerprint=fingerprint,
+    )
+    assert relearning.state == srs.State.Relearning
+    srs.save_progress(first.progress)
+
+    resumed = LearnApp(chords, options)
+
+    assert resumed.words_to_practice == ["hello"]
+
+
 @pytest.mark.parametrize("recall", [False, True])
 def test_activation_timing_includes_delay_before_macro(tmp_path, monkeypatch, recall):
     import asyncio
