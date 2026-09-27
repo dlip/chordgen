@@ -16,10 +16,8 @@ time:
    ``chords.csv`` (rewritten atomically after every accepted word
    so a Ctrl+C mid-batch keeps the words already accepted).
 
-The new row is written with ``chord`` set and ``frequency`` empty
-so the existing ``_is_reserved`` rule in
-:mod:`chordgen.assigner` treats it as user-pinned in future
-``chordgen gen`` runs.
+The new row is written with ``chord`` set and ``pinned`` true so future
+``chordgen gen`` runs preserve the chosen mapping.
 """
 
 from __future__ import annotations
@@ -32,7 +30,7 @@ from pathlib import Path
 from typing import Callable
 
 from chordgen.alt_generator import AltGenerator
-from chordgen.chord import Chord, Option, load_file
+from chordgen.chord import CSV_FIELDS, Chord, Option, load_file
 from chordgen.config import GenOptions
 from chordgen.scorer import Scorer
 from chordgen.vocab.subtlex import closed_class_category
@@ -62,19 +60,6 @@ _CATEGORY_CHOICES: tuple[str, ...] = (
     "number",
     "contraction",
 )
-
-# Same fieldnames as the ones written by setup / gen. Kept in sync
-# with chord.Chord and vocab.pipeline._FIELDNAMES.
-_FIELDNAMES = [
-    "word",
-    "chord",
-    "category",
-    "frequency",
-    "alt1",
-    "alt2",
-    "alt3",
-]
-
 
 # ---------------------------------------------------------------------------
 # Public entry point
@@ -117,6 +102,7 @@ def add_words(
         row: Chord = {
             "word": word,
             "chord": "",
+            "pinned": "true",
             "category": category,
             "frequency": "",
             "alt1": "",
@@ -153,6 +139,7 @@ def add_words(
         alt_row: Chord = {
             "word": row["word"],
             "chord": row["chord"],
+            "pinned": row["pinned"],
             "category": row["category"],
             "frequency": row["frequency"],
             "alt1": "",
@@ -595,7 +582,7 @@ def _write_chords_atomically(chords: list[Chord], path: Path) -> None:
     with open(tmp, "w", newline="") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=_FIELDNAMES,
+            fieldnames=CSV_FIELDS,
             extrasaction="ignore",
             lineterminator="\n",
         )

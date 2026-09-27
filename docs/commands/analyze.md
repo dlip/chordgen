@@ -35,7 +35,7 @@ The report shows:
   benefit of learning only its base. Each occurrence contributes once.
 
 Recommendations use your text's counts, not source-frequency scores. Manually
-pinned words with blank frequency are included. The report does not reorder
+pinned words are included. The report does not reorder
 learn's queue or add absent words automatically. `--limit` (default 20) limits
 entries in each list, not the corpus used for coverage totals. A family's
 forms stay together even if its base does not occur in the text.

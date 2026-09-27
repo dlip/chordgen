@@ -110,8 +110,54 @@ def test_preserve_learned_retains_frequency_alts_and_manual_pins(tmp_path, monke
     assert hello["frequency"] == "6"
     assert hello["alt1"] == "hellos"
     assert world["chord"] == "wd"
+    assert world["pinned"] == "true"
     assert result.learned_changes == []
     assert result.progress["words"]["hello"]["mapping"]
+
+
+def test_write_chords_migrates_legacy_pins_to_canonical_column(tmp_path):
+    import csv
+    from chordgen import gen
+    from chordgen.config import GenOptions
+
+    path = tmp_path / "chords.csv"
+    options = GenOptions(file=path)
+    rows = [
+        {"word": "I", "chord": "i", "pinned": "true", "category": "pronoun",
+         "frequency": "7.33", "alt1": "me", "alt2": "my", "alt3": "myself"},
+    ]
+
+    gen.write_chords(options, rows)
+
+    with path.open() as stream:
+        reader = csv.DictReader(stream)
+        assert reader.fieldnames[:3] == ["word", "chord", "pinned"]
+        assert next(reader)["pinned"] == "true"
+
+
+def test_pinned_chord_keeps_empty_alts_when_overwriting(tmp_path, monkeypatch):
+    import csv
+    from concurrent.futures import ThreadPoolExecutor
+    from chordgen import gen
+    from chordgen.config import GenOptions
+
+    monkeypatch.setattr(gen, "ProcessPoolExecutor", ThreadPoolExecutor)
+    path = tmp_path / "chords.csv"
+    row = {
+        "word": "go", "chord": "g", "pinned": "true", "category": "verb",
+        "frequency": "6.43", "alt1": "", "alt2": "", "alt3": "",
+    }
+    with path.open("w") as stream:
+        writer = csv.DictWriter(stream, fieldnames=list(row))
+        writer.writeheader()
+        writer.writerow(row)
+
+    options = GenOptions(file=path)
+    options.alts.overwrite = True
+    result = gen.generate(options)
+
+    assert result.chords[0]["chord"] == "g"
+    assert [result.chords[0][f"alt{i}"] for i in range(1, 4)] == ["", "", ""]
 
 
 def test_preserve_learned_alt_keeps_owning_base_and_slot(tmp_path, monkeypatch):

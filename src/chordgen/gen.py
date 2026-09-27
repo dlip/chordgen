@@ -8,7 +8,14 @@ from chordgen.alt_generator import AltGenerator
 from chordgen.assigner import assign_chords
 from chordgen.config import GenOptions
 from chordgen.scorer import Scorer
-from chordgen.chord import build_repertoire, mapping_fingerprints, validate_chords
+from chordgen.chord import (
+    CSV_FIELDS,
+    build_repertoire,
+    is_pinned,
+    load_file,
+    mapping_fingerprints,
+    validate_chords,
+)
 from chordgen.srs import ProgressFile, learned_words, reconcile_mappings
 from chordgen.keyboard_view import resolve_keyboard_layout
 from types import SimpleNamespace
@@ -82,35 +89,33 @@ def generate(
 ) -> GenerationResult:
     """Calculate once; the caller previews/confirms before writing anything."""
     scorer = Scorer(options)
-    with open(options.file) as f:
-        reader = csv.DictReader(f)
-        print("Finding and scoring chords")
-        chords = [line for line in reader]
-        if len(chords) == 0:
-            raise Exception("No rows found in chords file")
-        original = deepcopy(chords)
-        kind, layout = resolve_keyboard_layout(SimpleNamespace(gen=options)) or ("standard", None)
-        before_map = build_repertoire(original)
-        before = mapping_fingerprints(before_map, kind, layout)
-        updated_progress = deepcopy(progress) if progress is not None else None
-        if updated_progress is not None:
-            reconcile_mappings(updated_progress, before)
-        learned = learned_words(updated_progress, before) if updated_progress is not None else set()
-        preserve_words = {
-            m.base.lower() for m in before_map.values()
-            if preserve_learned and m.word in learned
-        }
-        conflicts = preserve_words & {w.lower() for w in options.ignore_words}
-        if conflicts:
-            raise ValueError("Cannot preserve ignored learned words: " + ", ".join(sorted(conflicts)))
-        active, ignored = _split_ignored(chords, options.ignore_words)
-        with ProcessPoolExecutor() as executor:
-            active = list(
-                tqdm(
-                    executor.map(scorer.score, active, chunksize=10),
-                    total=len(active),
-                )
+    print("Finding and scoring chords")
+    chords = load_file(options.file)
+    if len(chords) == 0:
+        raise Exception("No rows found in chords file")
+    original = deepcopy(chords)
+    kind, layout = resolve_keyboard_layout(SimpleNamespace(gen=options)) or ("standard", None)
+    before_map = build_repertoire(original)
+    before = mapping_fingerprints(before_map, kind, layout)
+    updated_progress = deepcopy(progress) if progress is not None else None
+    if updated_progress is not None:
+        reconcile_mappings(updated_progress, before)
+    learned = learned_words(updated_progress, before) if updated_progress is not None else set()
+    preserve_words = {
+        m.base.lower() for m in before_map.values()
+        if preserve_learned and m.word in learned
+    }
+    conflicts = preserve_words & {w.lower() for w in options.ignore_words}
+    if conflicts:
+        raise ValueError("Cannot preserve ignored learned words: " + ", ".join(sorted(conflicts)))
+    active, ignored = _split_ignored(chords, options.ignore_words)
+    with ProcessPoolExecutor() as executor:
+        active = list(
+            tqdm(
+                executor.map(scorer.score, active, chunksize=10),
+                total=len(active),
             )
+        )
 
     print("Generating alts")
     alt_generator = AltGenerator(options)
@@ -122,12 +127,15 @@ def generate(
             )
         )
 
-    # Restore protected mappings after alt generation, including explicit
-    # overwrite settings. Reservation is runtime-only; frequency stays intact.
+    # Pinned rows preserve their complete mapping, including deliberately
+    # empty alt slots. Learned mappings get the same protection on demand.
     originals = {c["word"].lower(): c for c in original}
     for row in active:
+        prior = originals[row["word"].lower()]
+        if is_pinned(row):
+            for key in ("alt1", "alt2", "alt3"):
+                row[key] = prior.get(key, "")
         if row["word"].lower() in preserve_words:
-            prior = originals[row["word"].lower()]
             for key in ("chord", "alt1", "alt2", "alt3"):
                 row[key] = prior.get(key, "")
 
@@ -162,13 +170,12 @@ def generate(
 def write_chords(options: GenOptions, chords: list[dict]) -> None:
     print(f"Writing {options.file}")
     with open(options.file, "w", newline="") as f:
-        # Union of every row's keys (rows read from existing CSVs may
-        # have differing columns). Preserve first-row ordering and
-        # append any extras seen later. The `debug` column is included
+        # Write the canonical columns first, then preserve extra columns
+        # found on any row. The `debug` column is included
         # only when options.debug is set; when disabled we also drop
         # any stale debug values left over from a previous run.
-        fieldnames: list[str] = []
-        seen: set[str] = set()
+        fieldnames: list[str] = list(CSV_FIELDS)
+        seen: set[str] = set(fieldnames)
         for row in chords:
             for k in row.keys():
                 if k not in seen and k != "options":

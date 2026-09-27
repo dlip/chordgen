@@ -14,6 +14,7 @@ class Option(TypedDict):
 class Chord(TypedDict):
     word: str
     chord: str
+    pinned: str
     category: str
     frequency: str
     alt1: str
@@ -23,10 +24,50 @@ class Chord(TypedDict):
     options: list[Option] | None
 
 
+CSV_FIELDS = (
+    "word",
+    "chord",
+    "pinned",
+    "category",
+    "frequency",
+    "alt1",
+    "alt2",
+    "alt3",
+)
+
+PINNED_VALUES = frozenset({"", "false", "true"})
+
+
+def is_pinned(chord: Chord) -> bool:
+    """Return whether a row's assigned chord is explicitly pinned.
+
+    Rows loaded from current CSVs always have a ``pinned`` value. The
+    missing-key fallback preserves the pre-column convention for callers
+    constructing legacy rows directly.
+    """
+    if "pinned" not in chord:
+        return bool(chord.get("chord")) and not chord.get("frequency")
+    return (chord.get("pinned") or "").strip().lower() == "true"
+
+
+def normalize_pinned(chord: Chord, *, legacy: bool) -> Chord:
+    """Add a canonical pin value, inferring it for a legacy CSV row."""
+    if legacy:
+        chord["pinned"] = (
+            "true" if chord.get("chord") and not chord.get("frequency") else "false"
+        )
+    else:
+        chord["pinned"] = (chord.get("pinned") or "").strip().lower()
+    return chord
+
+
 def load_file(file: Path) -> list[Chord]:
     with open(file) as f:
         reader = csv.DictReader(f)
-        chords: list[Chord] = [line for line in reader]
+        legacy = "pinned" not in (reader.fieldnames or [])
+        chords: list[Chord] = [
+            normalize_pinned(line, legacy=legacy) for line in reader
+        ]
         return chords
 
 

@@ -1,5 +1,5 @@
 import logging
-from chordgen.chord import Chord, Option
+from chordgen.chord import Chord, Option, is_pinned
 from chordgen.config import GenOptions
 from chordgen.utils import find_combinations
 
@@ -10,9 +10,8 @@ class Scorer:
         self._keyboard = options.keyboard.get_keyboard()
 
     def score(self, chord: Chord) -> Chord:
-        # Reserved row: user has pinned a chord by hand on a row with no
-        # frequency value. Skip option generation.
-        if chord["chord"] and not chord.get("frequency"):
+        # Reserved row: user has explicitly pinned its assigned chord.
+        if chord["chord"] and is_pinned(chord):
             return chord
 
         # Bypass the min_word_length floor for contractions — they're

@@ -37,7 +37,7 @@ from scipy.sparse import csr_matrix
 from scipy.sparse.csgraph import min_weight_full_bipartite_matching
 
 from chordgen.alt_generator import is_base_form
-from chordgen.chord import Chord, Option
+from chordgen.chord import Chord, Option, is_pinned
 from chordgen.config import GenOptions
 
 
@@ -70,13 +70,8 @@ def _viable_options(chord: Chord, min_chord_length: int) -> list[Option]:
 
 
 def _is_reserved(chord: Chord) -> bool:
-    """A row is user-reserved if it has a chord pinned by hand.
-
-    Setup writes `frequency` for every generated row; a hand-edited row
-    won't have it. So `chord` set with empty `frequency` is the signal
-    that the user wants this chord pinned.
-    """
-    return bool(chord.get("chord")) and not chord.get("frequency")
+    """A row is user-reserved if its assigned chord is pinned."""
+    return bool(chord.get("chord")) and is_pinned(chord)
 
 
 def _passes_min_word_length(chord: Chord, min_word_length: int) -> bool:

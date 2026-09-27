@@ -5,18 +5,8 @@ import logging
 import re
 from pathlib import Path
 
+from chordgen.chord import CSV_FIELDS
 from chordgen.vocab import SOURCES, VocabRow, VocabSource
-
-# Columns in the generated chords.csv. Must stay in sync with chord.Chord.
-_FIELDNAMES = [
-    "word",
-    "chord",
-    "category",
-    "frequency",
-    "alt1",
-    "alt2",
-    "alt3",
-]
 
 # Drop entries that aren't real lexical words (digits, multi-apostrophe
 # garbage etc.). The pattern accepts plain alphabetic words, an optional
@@ -94,13 +84,14 @@ def build_chords_csv(
     output_file.parent.mkdir(parents=True, exist_ok=True)
     print(f"Writing {output_file} ({len(rows)} words from {source_name})")
     with open(output_file, "w", newline="") as f:
-        writer = csv.DictWriter(f, fieldnames=_FIELDNAMES, lineterminator="\n")
+        writer = csv.DictWriter(f, fieldnames=CSV_FIELDS, lineterminator="\n")
         writer.writeheader()
         for row in rows:
             writer.writerow(
                 {
                     "word": row.word,
                     "chord": "",
+                    "pinned": "false",
                     "category": row.category,
                     "frequency": f"{row.frequency:.2f}",
                     "alt1": "",

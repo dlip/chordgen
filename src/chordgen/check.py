@@ -12,14 +12,22 @@ from typing import Literal
 import yaml
 
 from chordgen import srs
-from chordgen.chord import Chord, PracticeMapping, build_repertoire, mapping_fingerprints
+from chordgen.chord import (
+    CSV_FIELDS,
+    PINNED_VALUES,
+    Chord,
+    PracticeMapping,
+    build_repertoire,
+    mapping_fingerprints,
+    normalize_pinned,
+)
 from chordgen.config import Config
 from chordgen.keyboard_view import resolve_keyboard_layout
 from chordgen.output import assigned_rows
 
 
 Severity = Literal["error", "warning", "info"]
-CSV_FIELDS = ("word", "chord", "category", "frequency", "alt1", "alt2", "alt3")
+_LEGACY_CSV_FIELDS = tuple(field for field in CSV_FIELDS if field != "pinned")
 
 
 @dataclass
@@ -71,19 +79,26 @@ def _read_rows(path: Path, report: CheckReport) -> list[Chord] | None:
         with path.open(newline="") as stream:
             reader = csv.DictReader(stream, strict=True)
             headers = reader.fieldnames or []
-            missing = set(CSV_FIELDS) - set(headers)
+            missing = set(_LEGACY_CSV_FIELDS) - set(headers)
             duplicates = [name for name, count in Counter(headers).items() if count > 1]
             if missing or duplicates or any(not name.strip() for name in headers):
-                report.add("error", "csv.headers", "CSV requires unique headers and all seven chord columns; extra named columns are allowed.",
+                report.add("error", "csv.headers", "CSV requires unique headers and all core chord columns; extra named columns are allowed.",
                            f"missing={sorted(missing)}, duplicate={duplicates}")
                 return None
+            legacy = "pinned" not in headers
+            if legacy:
+                report.add(
+                    "info",
+                    "csv.legacy-pins",
+                    "No pinned column; legacy blank-frequency pins are interpreted in memory. The file is unchanged.",
+                )
             for record, row in enumerate(reader, 1):
                 if None in row or any(value is None for value in row.values()):
                     invalid = True
                     report.add("error", "csv.row", "CSV cells do not match its headers.",
                                f"record {record}, ending line {reader.line_num}")
                 else:
-                    rows.append(row)
+                    rows.append(normalize_pinned(row, legacy=legacy))
     except (OSError, UnicodeError, csv.Error) as exc:
         report.add("error", "csv.invalid", "Cannot read dictionary CSV.", f"{path}: {exc}")
         return None
@@ -152,6 +167,15 @@ def _check_rows(rows: list[Chord], report: CheckReport) -> bool:
     for number, row in enumerate(rows, 1):
         word, chord = row["word"], row["chord"]
         label = f"record {number}: {word!r} ({chord!r})"
+        pinned = (row.get("pinned") or "").strip().lower()
+        if pinned not in PINNED_VALUES:
+            valid = False
+            report.add(
+                "error",
+                "pinned.invalid",
+                "Pinned cells must be true, false, or empty.",
+                label + f": {row.get('pinned')!r}",
+            )
         if not word.strip() or any(c.isspace() for c in word):
             valid = False
             report.add("error", "word.invalid", "Word cells must contain a nonempty word without whitespace.", label)

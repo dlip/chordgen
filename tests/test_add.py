@@ -37,10 +37,12 @@ def _row(
     alt1: str = "",
     alt2: str = "",
     alt3: str = "",
+    pinned: str = "false",
 ) -> Chord:
     return {
         "word": word,
         "chord": chord,
+        "pinned": pinned,
         "category": category,
         "frequency": frequency,
         "alt1": alt1,
@@ -54,7 +56,7 @@ def _seed_csv(path: Path, rows: list[Chord]) -> None:
     with open(path, "w", newline="") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=["word", "chord", "category", "frequency", "alt1", "alt2", "alt3"],
+            fieldnames=["word", "chord", "pinned", "category", "frequency", "alt1", "alt2", "alt3"],
             extrasaction="ignore",
             lineterminator="\n",
         )
@@ -315,8 +317,9 @@ def test_add_words_appends_with_default_inputs(tmp_path: Path):
     rows = _read_csv(opts.file)
     assert len(rows) == 1
     assert rows[0]["word"] == "banana"
-    # Reserved row: chord set, frequency empty.
+    # Added rows are explicitly pinned; frequency remains independently empty.
     assert rows[0]["chord"]
+    assert rows[0]["pinned"] == "true"
     assert rows[0]["frequency"] == ""
     # Category was auto-detected as a noun and alt1 filled.
     assert rows[0]["category"] == "noun"

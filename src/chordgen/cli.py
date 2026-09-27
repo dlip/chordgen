@@ -453,7 +453,7 @@ def add(
             "Words to add to chords.csv. For each word the command "
             "interactively shows collision-free chord options, "
             "auto-detects the category, and appends the row with "
-            "the chosen chord pinned (frequency left empty so future "
+            "the chosen chord pinned so future "
             "`chordgen gen` runs leave it alone). Alts are "
             "generated automatically from the category."
         ),
@@ -475,7 +475,7 @@ def add(
     collision-free chord options, auto-detects the category (with
     an override menu), validates a custom-typed chord through the
     same scorer the assigner uses, generates alts, and appends the
-    row with the chord pinned (``frequency`` empty) so future
+    row with ``pinned`` set to true so future
     ``chordgen gen`` runs leave it alone. The CSV is rewritten
     atomically after every accepted word.
     """

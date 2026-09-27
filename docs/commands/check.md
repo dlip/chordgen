@@ -21,7 +21,7 @@ source. It reads the selected config, its dictionary CSV, and the usual
   learning identities. Warnings alone return **0**.
 - **Information** describes capabilities and comfort considerations. Long or
   same-finger chords are not automatically errors. Single-key chords, pinned
-  mappings with blank frequency, and irregular word families are valid.
+  explicitly pinned mappings and irregular word families are valid.
 
 Each diagnostic has a stable code and affected records/words where relevant.
 CSV record numbers start at 1 after the header. `--limit` defaults to 10 and

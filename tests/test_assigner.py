@@ -10,6 +10,7 @@ from __future__ import annotations
 from chordgen.assigner import assign_chords, _family_weights, _parse_freq, _split_into_tiers
 from chordgen.chord import Chord, Option
 from chordgen.config import GenOptions
+from chordgen.scorer import Scorer
 
 
 def _chord(
@@ -17,8 +18,9 @@ def _chord(
     options: list[Option],
     category: str = "",
     frequency: str = "5.00",
+    pinned: str | None = None,
 ) -> Chord:
-    return {
+    row = {
         "word": word,
         "chord": "",
         "category": category,
@@ -28,6 +30,9 @@ def _chord(
         "alt3": "",
         "options": options,
     }
+    if pinned is not None:
+        row["pinned"] = pinned
+    return row
 
 
 def test_contraction_exempt_from_min_word_length():
@@ -108,6 +113,38 @@ def test_collision_blocked_base_does_not_suppress_alt():
     assert pin["chord"] == "ab"
     assert alt["chord"] == "fm"
     assert report.no_options == ["base"]
+
+
+def test_explicit_pin_is_independent_of_frequency():
+    pinned = _chord(
+        "common",
+        [{"chord": "cm", "score": 1}],
+        frequency="7.00",
+        pinned="true",
+    )
+    pinned["chord"] = "co"
+    released = _chord(
+        "custom",
+        [{"chord": "cu", "score": 1}],
+        frequency="",
+        pinned="false",
+    )
+    released["chord"] = "cx"
+
+    assign_chords([pinned, released], GenOptions())
+
+    assert pinned["chord"] == "co"
+    assert released["chord"] == "cu"
+
+
+def test_scorer_uses_explicit_pin_instead_of_blank_frequency():
+    released = _chord("custom", [], frequency="", pinned="false")
+    released["chord"] = "cu"
+    pinned = _chord("common", [], frequency="7.00", pinned="true")
+    pinned["chord"] = "co"
+
+    assert Scorer(GenOptions()).score(released)["options"]
+    assert Scorer(GenOptions()).score(pinned)["options"] == []
 
 
 def test_assigned_or_pinned_base_covers_alt():

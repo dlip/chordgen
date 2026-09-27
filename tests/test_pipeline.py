@@ -58,6 +58,7 @@ def test_pipeline_preserves_natural_casing_for_I(monkeypatch, tmp_path):
     )
     assert len(written) == 1
     assert written[0]["word"] == "I"
+    assert written[0]["pinned"] == "false"
     assert written[0]["category"] == "pronoun"
 
 

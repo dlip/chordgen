@@ -4,7 +4,37 @@ from __future__ import annotations
 
 import pytest
 
-from chordgen.chord import build_alt_index, validate_chords
+from chordgen.chord import build_alt_index, is_pinned, load_file, validate_chords
+
+
+def test_load_file_migrates_legacy_blank_frequency_pins(tmp_path):
+    path = tmp_path / "chords.csv"
+    path.write_text(
+        "word,chord,category,frequency,alt1,alt2,alt3\n"
+        "I,i,pronoun,,me,my,myself\n"
+        "word,wd,noun,5,,,\n"
+    )
+
+    pinned, generated = load_file(path)
+
+    assert pinned["pinned"] == "true"
+    assert generated["pinned"] == "false"
+    assert is_pinned(pinned)
+    assert not is_pinned(generated)
+
+
+def test_explicit_pin_column_overrides_legacy_frequency_signal(tmp_path):
+    path = tmp_path / "chords.csv"
+    path.write_text(
+        "word,chord,pinned,category,frequency,alt1,alt2,alt3\n"
+        "custom,cu,false,,,,,\n"
+        "common,co,true,,7.00,,,\n"
+    )
+
+    unpinned, pinned = load_file(path)
+
+    assert not is_pinned(unpinned)
+    assert is_pinned(pinned)
 
 
 def test_build_alt_index_maps_alt_forms_to_base_slot_and_chord():

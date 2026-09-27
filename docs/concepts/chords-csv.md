@@ -4,19 +4,19 @@ chordgen takes a `chords.csv` file such as the following, then automatically
 selects the best chords for your keyboard and layout, and adds alternate
 chords depending on what type of word it is.
 
-| word | chord | category | frequency | alt1 | alt2 | alt3 |
-| ---- | ----- | -------- | --------- | ---- | ---- | ---- |
-| the  |       | det      | 7.40      |      |      |      |
-| and  |       | cconj    | 7.18      |      |      |      |
-| have |       | verb     | 6.78      |      |      |      |
+| word | chord | pinned | category | frequency | alt1 | alt2 | alt3 |
+| ---- | ----- | ------ | -------- | --------- | ---- | ---- | ---- |
+| the  |       | false  | det      | 7.40      |      |      |      |
+| and  |       | false  | cconj    | 7.18      |      |      |      |
+| have |       | false  | verb     | 6.78      |      |      |      |
 
 Automatically becomes:
 
-| word | chord | category | frequency | alt1 | alt2 | alt3   |
-| ---- | ----- | -------- | --------- | ---- | ---- | ------ |
-| the  | t     | det      | 7.40      |      |      |        |
-| and  | and   | cconj    | 7.18      |      |      |        |
-| have | hv    | verb     | 6.78      | has  | had  | having |
+| word | chord | pinned | category | frequency | alt1 | alt2 | alt3   |
+| ---- | ----- | ------ | -------- | --------- | ---- | ---- | ------ |
+| the  | t     | false  | det      | 7.40      |      |      |        |
+| and  | and   | false  | cconj    | 7.18      |      |      |        |
+| have | hv    | false  | verb     | 6.78      | has  | had  | having |
 
 The exact chord picked for each word depends on contention with the
 rest of the file: `have` ends up as `hv` because higher-frequency `h`
@@ -28,18 +28,23 @@ remapping (Kanata).
 
 ## Reserving a chord
 
-If you want to pin a particular chord to a word, add a row by hand with
-the `chord` column filled in and the `frequency` column **left empty**.
-An empty `frequency` is the signal that the row was added by you, so
-`gen` will keep your chord exactly as written and just generate alts
-for it. For example:
+If you want to pin a particular chord to a word, set the `chord` column and
+set `pinned` to `true`. `gen` will keep that chord exactly as written while
+still using the source-defined `frequency` for ranking and learning. Its
+`alt1`–`alt3` cells are preserved exactly too, including empty cells, even
+when `gen.alts.overwrite` is enabled. For example:
 
-| word  | chord | category | frequency | alt1 | alt2 | alt3 |
-| ----- | ----- | -------- | --------- | ---- | ---- | ---- |
-| email | em    | noun     |           |      |      |      |
+| word  | chord | pinned | category | frequency | alt1 | alt2 | alt3 |
+| ----- | ----- | ------ | -------- | --------- | ---- | ---- | ---- |
+| email | em    | true   | noun     | 4.20      |      |      |      |
 
-To re-pin a word that already has a generated chord, just clear its
-`frequency` cell and edit the `chord`.
+To pin a word that already has a generated chord, edit the chord if needed
+and change `pinned` to `true`. Set it back to `false` to let `gen` reassign it.
+
+CSV files created before the `pinned` column remain compatible. When that
+column is absent, an assigned chord with an empty frequency is treated as a
+legacy pin. The next `add` or accepted `gen` write adds explicit pin values;
+it cannot reconstruct frequency values that were previously deleted.
 
 To protect chords you have already learned without losing frequency data,
 use `chordgen gen --preserve-learned`. This reserves current learned mappings
@@ -53,13 +58,12 @@ relearning rather than inheriting the previous mapping's mastery.
 After `setup`, `chords.csv` is yours. Common workflows:
 
 - **Removing a word** — delete the row.
-- **Pinning a chord** — add a row by hand with the `chord` column set
-  and the `frequency` column left empty. See
+- **Pinning a chord** — set the `chord` column and set `pinned` to `true`. See
   [Reserving a chord](#reserving-a-chord).
 - **Adjusting category or alts** — edit the `category` cell or
   pre-fill `alt1`–`alt3`. By default `gen` keeps non-empty alt slots
   as written; set `gen.alts.overwrite: true` in `config.yaml` to force
   regeneration on every run.
-- **Re-running** — `chordgen gen` is idempotent. Non-reserved chord
+- **Re-running** — `chordgen gen` is idempotent. Unpinned chord
   cells are cleared before solving, so any change to a row's word,
   category, frequency, or alts takes effect on the next run.

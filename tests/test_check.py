@@ -324,7 +324,7 @@ def test_cli_warnings_succeed_errors_fail_and_limit_only_changes_display(files):
     ("word,chord,category,frequency,alt1,alt2,alt3,word\n", "csv.headers"),
     (",".join(CSV_FIELDS) + "\nthe,te\n", "csv.row"),
     (",".join(CSV_FIELDS) + '\n"unclosed', "csv.invalid"),
-    (",".join(CSV_FIELDS) + "\n,te,,,,,\n", "word.invalid"),
+    (",".join(CSV_FIELDS) + "\n" + ",".join(["", "te", "", "", "", "", "", ""]) + "\n", "word.invalid"),
 ])
 def test_malformed_csv_is_read_only_and_diagnostic(files, text, code):
     path, config = files
@@ -338,8 +338,33 @@ def test_malformed_csv_is_read_only_and_diagnostic(files, text, code):
 
 def test_extra_named_csv_columns_are_allowed(files):
     path, config = files
-    config.gen.file.write_text(",".join(CSV_FIELDS) + ",debug\nthe,te,,,,,,notes\n")
+    config.gen.file.write_text(
+        ",".join(CSV_FIELDS) + ",debug\n"
+        + ",".join(["the", "te", "", "", "", "", "", "", "notes"])
+        + "\n"
+    )
     assert not run_check(path).has_errors
+
+
+def test_legacy_csv_pin_signal_is_reported_but_supported(files):
+    path, config = files
+    config.gen.file.write_text(
+        "word,chord,category,frequency,alt1,alt2,alt3\n"
+        "I,i,pronoun,,me,my,myself\n"
+    )
+    report = run_check(path)
+    assert not report.has_errors
+    assert "csv.legacy-pins" in codes(report)
+
+
+def test_invalid_pinned_value_is_an_error(files):
+    path, config = files
+    config.gen.file.write_text(
+        ",".join(CSV_FIELDS) + "\nI,i,maybe,pronoun,7.33,me,my,myself\n"
+    )
+    report = run_check(path)
+    assert report.has_errors
+    assert "pinned.invalid" in codes(report)
 
 
 @pytest.mark.parametrize("text", ["[]", "false", "gen: [", "gen:\n  file: null\n"])

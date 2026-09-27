@@ -47,8 +47,8 @@ For each input word `chordgen add` does the following:
 6. **Generate alts.** Runs `AltGenerator` with the chosen
    category. Any alt slot whose generated form collides with an
    existing word is dropped (the row is still appended).
-7. **Append and flush.** Writes the new row with the chord
-   pinned and `frequency` left empty, so future `chordgen gen`
+7. **Append and flush.** Writes the new row with the chord and
+   `pinned` set to `true`, so future `chordgen gen`
    runs treat it as a user-pinned reserved row and won't
    reassign it. The CSV is rewritten atomically after every
    accepted word — Ctrl+C mid-batch keeps the words already

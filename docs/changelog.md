@@ -2,6 +2,9 @@
 
 ## v2.4.0
 
+- Add an explicit `pinned` column to `chords.csv`, keeping manual chord
+  reservations independent from source frequency. Legacy blank-frequency
+  pins remain compatible and migrate to explicit values on the next write.
 - Recover orphaned alt forms when their base receives no chord; retain
   alt definitions across reruns and report only actual reachable coverage.
 - Correct the standard keyboard's sixth column to the left hand so scissor
